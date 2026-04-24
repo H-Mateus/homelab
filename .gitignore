@@ -1,0 +1,47 @@
+# ============================================================================
+# Repo-wide gitignore
+#
+# Policy: per-stack .gitignore files handle stack-specific config/ contents.
+# This file is a global safety net for things that should NEVER be committed
+# anywhere in the tree, plus general OS / editor / runtime junk.
+# ============================================================================
+
+# --- Secrets: keys, certs, credentials --------------------------------------
+**/*.key
+**/*.pem
+**/*.crt
+**/*.p12
+**/keys/
+**/etc/letsencrypt/
+**/.htpasswd*
+**/cloudflare.ini
+**/crowdsec-nginx-bouncer.conf
+
+# --- Environment files ------------------------------------------------------
+.env
+*.env
+!.env.example
+!*.env.example
+
+# --- VPN configs ------------------------------------------------------------
+*.ovpn
+wg*.conf
+!wg*.conf.example
+
+# --- Runtime data (per-stack .gitignores handle config/) --------------------
+**/data/
+**/work/
+!**/config/.gitkeep
+
+# --- Always allow .example files --------------------------------------------
+!**/*.example
+
+# --- OS ---------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+
+# --- Editors ----------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
