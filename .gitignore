@@ -1,0 +1,13 @@
+# Ignore real .env files – only .env.example files should be committed
+.env
+
+# Editor/OS artefacts
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*~
+
+# Traefik generated certificate store (contains private keys – keep out of VCS)
+docker/networking/acme.json
+**/acme.json

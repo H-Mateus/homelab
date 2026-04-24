@@ -1,0 +1,60 @@
+---
+# Networking stack: Traefik reverse proxy + Cloudflare DDNS
+# Copy .env.example to .env and fill in your values before starting.
+
+name: networking
+
+networks:
+  proxy:
+    external: true
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Traefik – reverse proxy and TLS certificate manager
+  # ---------------------------------------------------------------------------
+  traefik:
+    image: traefik:v3.3
+    container_name: traefik
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - TZ=${TZ}
+      - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${APPDATA_DIR}/traefik/traefik.yml:/traefik.yml:ro
+      - ${APPDATA_DIR}/traefik/acme.json:/acme.json
+      - ${APPDATA_DIR}/traefik/config:/config:ro
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      # Traefik dashboard (protect with auth middleware in production)
+      - "traefik.http.routers.traefik-dashboard.rule=Host(`traefik.${DOMAIN}`)"
+      - "traefik.http.routers.traefik-dashboard.entrypoints=websecure"
+      - "traefik.http.routers.traefik-dashboard.tls.certresolver=cloudflare"
+      - "traefik.http.routers.traefik-dashboard.service=api@internal"
+      - "traefik.http.routers.traefik-dashboard.middlewares=dashboard-auth"
+      - "traefik.http.middlewares.dashboard-auth.basicauth.users=${TRAEFIK_DASHBOARD_AUTH}"
+
+  # ---------------------------------------------------------------------------
+  # Cloudflare DDNS – keeps a DNS A record pointing at your public IP
+  # ---------------------------------------------------------------------------
+  cloudflare-ddns:
+    image: timothyjmiller/cloudflare-ddns:latest
+    container_name: cloudflare-ddns
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+    volumes:
+      - ${APPDATA_DIR}/cloudflare-ddns/config.json:/config.json:ro
+    networks:
+      - proxy
