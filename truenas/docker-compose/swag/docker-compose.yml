@@ -1,0 +1,48 @@
+services:
+  swag:
+    image: lscr.io/linuxserver/swag
+    container_name: swag
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - PUID=568
+      - PGID=568
+      - TZ=Europe/London
+      - PROPAGATION=180
+      - URL=mateusharrington.com
+      - SUBDOMAINS=wildcard
+      - VALIDATION=dns
+      # - CERTPROVIDER= #optional
+      - DNSPLUGIN=cloudflare #optional
+      - EMAIL=${LETSENCRYPT_EMAIL} #optional
+      - ONLY_SUBDOMAINS=false #optional
+      #- EXTRA_DOMAINS=<extradomains> #optional
+      - EXTRA_DOMAINS=*.tail.mateusharrington.com,*.local.mateusharrington.com
+      #- STAGING=false #optional
+      - DOCKER_MODS=ghcr.io/linuxserver/mods:swag-crowdsec |
+        linuxserver/mods:swag-dashboard
+      - CROWDSEC_API_KEY=${CROWDSEC_API_KEY}
+      - CROWDSEC_LAPI_URL=${CROWDSEC_LAPI_URL}
+    volumes:
+      - ./config/:/config
+    ports:
+      - 443:443
+      - 80:80 #optional
+    restart: unless-stopped
+  crowdsec:
+    image: crowdsecurity/crowdsec:latest-debian
+    container_name: crowdsec
+    restart: unless-stopped
+    environment:
+      COLLECTIONS: >
+        crowdsecurity/nginx crowdsecurity/http-cve
+        crowdsecurity/appsec-generic-rules crowdsecurity/appsec-virtual-patching
+    ports:
+      - 6060:6060 # optional metrics
+      - 8081:8080 # local API for bouncers
+    volumes:
+      - ./crowdsec/config:/etc/crowdsec
+      - ./crowdsec/data:/var/lib/crowdsec/data
+      - ./config/log/nginx:/var/log/nginx:ro # Mount Nginx logs here
+networks: {}

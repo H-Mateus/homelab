@@ -1,0 +1,206 @@
+# SWAG (Secure Web Application Gateway)
+
+Reverse proxy and TLS termination for all services in the homelab. Built on
+LinuxServer.io's [SWAG image](https://docs.linuxserver.io/general/swag/),
+which bundles nginx, Certbot, fail2ban, and a curated set of proxy config
+templates.
+
+## Purpose
+
+- Single ingress point for HTTPS traffic to internal services
+- Automatic TLS certificate issuance and renewal via Let's Encrypt
+  (DNS-01 challenge through Cloudflare)
+- Wildcard certificate for `*.mateusharrington.com` and subdomains
+- Per-service routing with shared SSL/proxy configuration
+- Multi-layered abuse mitigation (fail2ban + CrowdSec)
+
+For how this fits into the wider homelab, see the top-level
+[architecture.md](../../../architecture.md).
+
+## Architecture
+
+```
+Internet ──► Cloudflare (proxy + WAF)
+                │
+                ▼
+        Router :443 ──► SWAG container :443
+                              │
+                              ├─► Jellyfin     (192.168.0.172:8096)
+                              ├─► Immich       (192.168.0.172:30041)
+                              ├─► Sonarr/Radarr/Lidarr/Prowlarr
+                              ├─► qBittorrent
+                              ├─► Dockge / Dockhand
+                              ├─► AdGuard
+                              └─► TrueNAS UI   (Tailscale-restricted)
+
+Tailscale traffic uses split-horizon DNS:
+  *.tail.mateusharrington.com ──► same SWAG instance via Tailnet IP
+```
+
+## What's in this repo vs auto-generated
+
+SWAG generates a large `config/` tree on first run, including hundreds of
+proxy-config templates for popular services. **Most of that is not
+committed** — see `.gitignore` for the whitelist.
+
+Files that **are** tracked:
+
+| Path | Purpose |
+|------|---------|
+| `docker-compose.yml` | Stack definition |
+| `.env.example` | Template for required env vars |
+| `config/nginx/site-confs/mateusharrington.conf.example` | Main site config (sanitised) |
+| `config/nginx/proxy-confs/dashboard.subdomain.conf` | Dashboard proxy with Tailscale ACL |
+| `config/dns-conf/cloudflare.ini.example` | DNS-01 challenge auth (template) |
+| `config/crowdsec/crowdsec-nginx-bouncer.conf.example` | CrowdSec bouncer config (template) |
+
+Everything else (Let's Encrypt account keys, issued certs, logs, fail2ban
+state, generated default configs, etc.) lives only on the TrueNAS host.
+
+## Setup
+
+### Prerequisites
+
+- A domain managed via Cloudflare (this stack assumes `mateusharrington.com`)
+- Cloudflare API token with `Zone:DNS:Edit` permission for the domain
+- Ports 80/443 forwarded from the router to the TrueNAS host
+- (Optional) Tailscale running on the host for Tailnet ingress
+
+### First-run
+
+1. Copy templates and fill in real values:
+   ```bash
+   cp .env.example .env
+   cp config/dns-conf/cloudflare.ini.example config/dns-conf/cloudflare.ini
+   cp config/nginx/site-confs/mateusharrington.conf.example \
+      config/nginx/site-confs/mateusharrington.conf
+   ```
+
+2. Edit `.env` with your secretes:
+
+| Variable | Purpose | Source |
+|----------|---------|--------|
+| `LETSENCRYPT_EMAIL` | LE registration / expiry notifications | Personal email |
+| `CROWDSEC_API_KEY` | Bouncer auth to local CrowdSec LAPI | `cscli bouncers add` |
+| `CROWDSEC_LAPI_URL` | LAN URL of CrowdSec container | e.g. `http://192.168.0.172:8080` |
+
+3. Edit `cloudflare.ini` with your API token. Set permissions:
+   ```bash
+   chmod 600 config/dns-conf/cloudflare.ini
+   ```
+
+4. Edit the site config to replace `{{ INTERNAL_HOST }}`, `{{ DOMAIN }}`,
+   and Tailscale device placeholders with real values.
+
+5. Bring up the stack:
+   ```bash
+   docker compose up -d
+   docker compose logs -f swag
+   ```
+
+   First boot takes a minute or two while certificates are issued.
+
+### Adding a new service
+
+1. Add a `server { ... }` block to `mateusharrington.conf` following the
+   pattern used by existing services.
+2. Add the subdomain to the `SUBDOMAINS` list in `.env`.
+3. Restart SWAG: `docker compose restart swag`.
+4. Add the same subdomain to your Cloudflare DNS (CNAME to the apex record).
+
+## Customisations
+
+### `mateusharrington.conf` (main site config)
+
+Single file containing all `server` blocks. Each service has near-identical
+config (TLS includes + `proxy_pass`). The TrueNAS UI block has additional
+Tailscale-only ACLs as defence-in-depth — even though it's behind Cloudflare
+and authenticated, the management UI shouldn't be reachable from the public
+internet at all.
+
+### `dashboard.subdomain.conf`
+
+Uses SWAG's standard subdomain template format. Restricted to specific
+Tailscale device IPs.
+
+### `cloudflare.ini`
+
+Used by Certbot for DNS-01 challenge. Required because we issue a wildcard
+cert (`*.mateusharrington.com`), which can't be done with HTTP-01.
+
+### `crowdsec-nginx-bouncer.conf`
+
+Installed via the SWAG mod system (`DOCKER_MODS=linuxserver/mods:swag-crowdsec`).
+The bouncer queries the CrowdSec LAPI on every request and blocks IPs with
+active decisions. API key is generated by:
+
+```bash
+docker exec crowdsec cscli bouncers add nginx-bouncer
+```
+
+## Security layers
+
+In rough order from outer to inner:
+
+1. **Cloudflare proxy** — DDoS protection, WAF rules, hides origin IP
+2. **SWAG fail2ban** — bans IPs after repeated nginx 4xx/auth failures
+3. **CrowdSec** — community-sourced threat intel, behavioural detection
+4. **Per-service ACLs** — TrueNAS UI restricted to specific Tailscale devices
+5. **Service-level auth** — each app's own login (Jellyfin, *arr, etc.)
+
+## Maintenance
+
+### Pulling config changes from TrueNAS
+
+The authoritative copy of the config lives on TrueNAS. To sync changes back
+to this repo:
+
+```bash
+# from the repo root, on a machine with SSH access to TrueNAS
+rsync -av --delete \
+  truenas:/path/to/swag/config/nginx/site-confs/mateusharrington.conf \
+  truenas/docker-compose/swag/config/nginx/site-confs/mateusharrington.conf
+```
+
+Then re-sanitise into the `.example` file before committing. Pre-commit
+hooks (gitleaks, etc.) should catch anything obvious you missed.
+
+### Updating CrowdSec collections
+
+```bash
+docker exec crowdsec cscli hub update
+docker exec crowdsec cscli collections upgrade --all
+docker compose restart crowdsec
+```
+
+### Renewing certificates
+
+Automatic. Certbot runs in the background. Check status with:
+
+```bash
+docker exec swag certbot certificates
+```
+
+### Container updates
+
+Managed via Dockhand. Pull the latest image, recreate, and watch logs for
+any nginx config errors before declaring success.
+
+## Troubleshooting
+
+- **502 Bad Gateway**: backend service is down, or its IP/port has changed.
+  Check the relevant `proxy_pass` line.
+- **Cert renewal failures**: usually a Cloudflare token issue. Check
+  `config/log/letsencrypt/letsencrypt.log`.
+- **fail2ban locked you out**: SSH to the host and
+  `docker exec swag fail2ban-client unban <your-ip>`.
+- **CrowdSec blocking legitimate traffic**: check decisions with
+  `docker exec crowdsec cscli decisions list`, remove with
+  `cscli decisions delete --ip <ip>`.
+
+## References
+
+- [SWAG documentation](https://docs.linuxserver.io/general/swag/)
+- [CrowdSec nginx bouncer](https://docs.crowdsec.net/u/bouncers/nginx)
+- [Let's Encrypt DNS-01 challenge](https://letsencrypt.org/docs/challenge-types/#dns-01-challenge)
+

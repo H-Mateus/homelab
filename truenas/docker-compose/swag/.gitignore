@@ -1,0 +1,54 @@
+# ============================================================================
+# SWAG stack .gitignore
+#
+# Strategy: ignore the entire config/ tree by default, then selectively
+# un-ignore only the files we've reviewed and sanitised. This means new
+# files SWAG generates won't accidentally get committed.
+# ============================================================================
+
+# --- Environment / secrets --------------------------------------------------
+.env
+*.env
+!.env.example
+
+# --- Ignore everything in config/ by default --------------------------------
+config/*
+
+# --- Re-include directory paths we want to traverse into --------------------
+# (must un-ignore each parent dir before its children)
+!config/nginx/
+config/nginx/*
+!config/nginx/proxy-confs/
+config/nginx/proxy-confs/*
+!config/nginx/site-confs/
+config/nginx/site-confs/*
+
+!config/dns-conf/
+config/dns-conf/*
+
+!config/crowdsec/
+config/crowdsec/*
+
+# --- Re-include specific reviewed files -------------------------------------
+# Site configs (real + example)
+!config/nginx/site-confs/mateusharrington.conf.example
+
+# Proxy configs
+!config/nginx/proxy-confs/dashboard.subdomain.conf
+
+# DNS challenge config (example only - never the real thing)
+!config/dns-conf/cloudflare.ini.example
+
+# CrowdSec bouncer config (example only)
+!config/crowdsec/crowdsec-nginx-bouncer.conf.example
+
+# --- Belt-and-braces: never commit these even if rules above slip ----------
+**/keys/
+**/*.key
+**/*.pem
+**/etc/letsencrypt/
+**/log/
+**/*.log
+**/.htpasswd*
+config/dns-conf/cloudflare.ini
+config/crowdsec/crowdsec-nginx-bouncer.conf

@@ -1,0 +1,240 @@
+# ============================================================================
+# mateusharrington.conf.example
+#
+# Site config for the mateusharrington.com domain, providing reverse-proxy
+# access to homelab services over both public DNS (via Cloudflare) and
+# Tailscale (via *.tail.mateusharrington.com split-horizon DNS).
+#
+# Setup:
+#   1. Copy to mateusharrington.conf
+#   2. Replace placeholders below with your own values
+#   3. Reload SWAG: `docker compose restart swag`
+#
+# Placeholders to replace:
+#   {{ DOMAIN }}              - your apex domain (e.g. example.com)
+#   {{ DOCKER_HOST_IP }}      - LAN IP of the Docker host running services
+#   {{ TRUENAS_UI_IP }}       - LAN IP of the TrueNAS web UI (often same host)
+#   {{ TAILSCALE_DEVICE_N }}  - Tailnet IPs of devices allowed to reach
+#                               sensitive admin UIs (TrueNAS, etc.)
+# ============================================================================
+
+# ----- Upstream definitions -------------------------------------------------
+# Centralising the backend host means LAN changes only need editing here.
+
+upstream docker_host    { server {{ DOCKER_HOST_IP }}; }
+upstream truenas_ui     { server {{ TRUENAS_UI_IP }}:444; }
+
+# ----- HTTP -> HTTPS redirect -----------------------------------------------
+
+server {
+    listen 80;
+    listen [::]:80;
+
+    # Cloudflare-proxied hosts are already HTTPS-terminated upstream and
+    # don't need to be listed here.
+    server_name *.{{ DOMAIN }}
+                *.tail.{{ DOMAIN }}
+                *.local.{{ DOMAIN }};
+    return 301 https://$host$request_uri;
+}
+
+# ============================================================================
+# Media stack
+# ============================================================================
+
+# --- Jellyseerr (request management) ---
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name jellyseerr.{{ DOMAIN }} jellyseerr.tail.{{ DOMAIN }};
+
+    include /config/nginx/ssl.conf;
+    include /config/nginx/proxy.conf;
+
+    location / {
+        proxy_pass http://docker_host:5055;
+    }
+}
+
+# --- Jellyfin (media streaming) ---
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name jellyfin.{{ DOMAIN }} jellyfin.tail.{{ DOMAIN }};
+
+    include /config/nginx/ssl.conf;
+    include /config/nginx/proxy.conf;
+
+    location / {
+        proxy_pass http://docker_host:8096;
+    }
+}
+
+# --- Immich (photo backup) ---
+# Tuned for large uploads from mobile devices.
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name immich.{{ DOMAIN }} immich.tail.{{ DOMAIN }};
+
+    include /config/nginx/ssl.conf;
+    include /config/nginx/proxy.conf;
+
+    # Allow large uploads (videos, RAW photos)
+    client_max_body_size 50000M;
+
+    # Don't buffer uploads — prevents OOM on the proxy and roughly doubles
+    # upload throughput by removing the pause between buffer-and-forward.
+    proxy_request_buffering off;
+
+    # Larger body buffer to avoid throttling on fast connections
+    client_body_buffer_size 1024k;
+
+    location / {
+        proxy_pass http://docker_host:30041;
+    }
+}
+
+# ============================================================================
+# *arr stack
+# ============================================================================
+
+# --- qBittorrent ---
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name qbit.{{ DOMAIN }} qbit.tail.{{ DOMAIN }};
+
+    include /config/nginx/ssl.conf;
+    include /config/nginx/proxy.conf;
+
+    location / {
+        proxy_pass http://docker_host:8080;
+    }
+}
+
+# --- Sonarr (TV) ---
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name sonarr.{{ DOMAIN }} sonarr.tail.{{ DOMAIN }};
+
+    include /config/nginx/ssl.conf;
+    include /config/nginx/proxy.conf;
+
+    location / {
+        proxy_pass http://docker_host:8989;
+    }
+}
+
+# --- Radarr (Movies) ---
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name radarr.{{ DOMAIN }} radarr.tail.{{ DOMAIN }};
+
+    include /config/nginx/ssl.conf;
+    include /config/nginx/proxy.conf;
+
+    location / {
+        proxy_pass http://docker_host:7878;
+    }
+}
+
+# --- Lidarr (Music) ---
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name lidarr.{{ DOMAIN }} lidarr.tail.{{ DOMAIN }};
+
+    include /config/nginx/ssl.conf;
+    include /config/nginx/proxy.conf;
+
+    location / {
+        proxy_pass http://docker_host:8686;
+    }
+}
+
+# --- Prowlarr (indexer manager) ---
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name prowlarr.{{ DOMAIN }} prowlarr.tail.{{ DOMAIN }};
+
+    include /config/nginx/ssl.conf;
+    include /config/nginx/proxy.conf;
+
+    location / {
+        proxy_pass http://docker_host:9696;
+    }
+}
+
+# ============================================================================
+# Infrastructure / admin
+# ============================================================================
+
+# --- Dockge (compose stack manager) ---
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name dockge.{{ DOMAIN }} dockge.tail.{{ DOMAIN }};
+
+    include /config/nginx/ssl.conf;
+    include /config/nginx/proxy.conf;
+
+    location / {
+        proxy_pass http://docker_host:5001;
+    }
+}
+
+# --- Dockhand (container auto-updates) ---
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name dockhand.{{ DOMAIN }} dockhand.tail.{{ DOMAIN }};
+
+    include /config/nginx/ssl.conf;
+    include /config/nginx/proxy.conf;
+
+    location / {
+        proxy_pass http://docker_host:3050;
+    }
+}
+
+# --- AdGuard Home (DNS / ad-blocking) ---
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name adguard.{{ DOMAIN }} adguard.tail.{{ DOMAIN }};
+
+    include /config/nginx/ssl.conf;
+    include /config/nginx/proxy.conf;
+
+    location / {
+        proxy_pass http://docker_host:3000;
+    }
+}
+
+# --- TrueNAS web UI ---
+# Restricted to specific Tailnet device IPs as a defence-in-depth measure
+# on top of Tailscale ACLs. Note `proxy_pass https://` — TrueNAS terminates
+# its own TLS on port 444.
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name truenas.{{ DOMAIN }} truenas.tail.{{ DOMAIN }};
+
+    include /config/nginx/ssl.conf;
+    include /config/nginx/proxy.conf;
+
+    # Allow only specific Tailnet devices
+    allow {{ TAILSCALE_DEVICE_1 }};   # laptop
+    allow {{ TAILSCALE_DEVICE_2 }};   # phone
+    allow {{ TAILSCALE_DEVICE_3 }};   # desktop (primary)
+    allow {{ TAILSCALE_DEVICE_4 }};   # desktop (secondary)
+    deny  all;
+
+    location / {
+        proxy_pass https://truenas_ui;
+    }
+}
