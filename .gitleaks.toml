@@ -1,0 +1,10 @@
+# .gitleaks.toml
+title = "homelab gitleaks config"
+
+[extend]
+# Use the default ruleset as a base
+useDefault = true
+
+[[allowlists]]
+description = "Cloudflare ini example placeholder key"
+commits = ["15db9e8523a6f1098a01f82adf7aaee61b790a2e"]
