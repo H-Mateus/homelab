@@ -1,0 +1,16 @@
+# truenas/docker-compose/prowlarr/.gitignore
+# Everything in configs/ is runtime state with secrets baked in.
+# Backups happen at the filesystem level (TrueNAS snapshots), not via git.
+configs/*
+
+
+# Just so the directory exists in the repo
+!configs/.gitkeep
+!configs/qbit/
+configs/qbit/*
+!configs/qbit/wireguard
+configs/qbit/wireguard/*
+!configs/qbit/wireguard/wg0.conf.example
+
+# Local env
+.env

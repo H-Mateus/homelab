@@ -1,0 +1,13 @@
+[Interface]
+# Generate via Proton VPN dashboard:
+# Account → WireGuard → Create config (enable "NAT-PMP / Port Forwarding")
+PrivateKey = REDACTED_PROTON_WG_PRIVATE_KEY
+Address = 10.2.0.2/32
+DNS = 10.2.0.1
+
+[Peer]
+PublicKey = REDACTED_PROTON_SERVER_PUBLIC_KEY
+AllowedIPs = 0.0.0.0/0
+# Endpoint is whichever Proton server you selected when generating the config.
+# Format: <server-ip>:51820
+Endpoint = REDACTED_PROTON_ENDPOINT_IP:51820
