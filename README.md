@@ -1,9 +1,9 @@
 # Homelab
 
-Self-hosted infrastructure running on a TrueNAS Scale server,
-providing media services, network-wide ad blocking, and secure
-remote access. This repository is the source of truth for all
-configuration.
+Self-hosted infrastructure running on a TrueNAS Scale server and a
+Talos Linux Kubernetes cluster on Proxmox, providing media services,
+network-wide ad blocking, and secure remote access. This repository
+is the source of truth for all configuration, managed with GitOps.
 
 ## Architecture
 
@@ -11,25 +11,28 @@ configuration.
 
 <!-- TODO: replace with real diagram. For now, a text overview: -->
 
-- **TrueNAS Scale** runs on an old desktop PC I build — handles storage (ZFS)
+- **TrueNAS Scale** runs on an old desktop PC — handles storage (ZFS)
   and hosts Docker containers managed via Dockhand
+- **Proxmox** hosts a Talos Linux Kubernetes cluster, managed with
+  Flux CD v2 (GitOps)
 - **SWAG** provides reverse proxy and TLS termination for all
   web-facing services
 - **Tailscale** provides secure remote access without exposing
-  ports to the internet
+  ports to the internet, with the Tailscale Kubernetes Operator
+  managing cluster ingress via Flux
 - **CrowdSec** provides collaborative intrusion prevention
 - **AdGuard Home** runs as the network DNS, blocking ads and
   trackers for all devices on the LAN
 
 ## Services
 
-| Service | Purpose | Access |
-|---------|---------|--------|
-| AdGuard Home | Network-wide DNS / ad blocking | LAN + Tailscale |
-| SWAG | Reverse proxy + Let's Encrypt | Public (443) |
-| CrowdSec | Intrusion prevention | Internal |
-| *arr stack | Media automation | Tailscale only |
-| [etc.] | | |
+| Service | Platform | Purpose | Access |
+|---------|----------|---------|--------|
+| AdGuard Home | TrueNAS | Network-wide DNS / ad blocking | LAN + Tailscale |
+| SWAG | TrueNAS | Reverse proxy + Let's Encrypt | Public (443) |
+| CrowdSec | TrueNAS | Intrusion prevention | Internal |
+| *arr stack | TrueNAS | Media automation | Tailscale only |
+| Tailscale Operator | Kubernetes | Cluster ingress via Tailscale | Tailscale |
 
 ## Key design decisions
 
@@ -37,55 +40,121 @@ Full ADRs in [docs/decisions/](docs/decisions/).
 
 - **Tailscale over port forwarding** — only ports 80/443 are exposed;
   everything else is accessed via Tailscale mesh VPN
-- **SWAG over Traefik / NPM** — [your reasoning]
+- **SWAG over Traefik / NPM** — mature, battle-tested, tight
+  integration with CrowdSec and Let's Encrypt DNS-01
 - **CrowdSec and fail2ban** — community threat intelligence, modern
   architecture, better integration with reverse proxies
-- **Dockge/Dockhand for management** — file-based compose stacks
-  remain the source of truth, manageable via git
+- **Dockge/Dockhand for TrueNAS** — file-based compose stacks remain
+  the source of truth, manageable via git
+- **Flux CD over ArgoCD** — lighter-weight, Kubernetes-native, strong
+  SOPS integration, pull-based model fits a homelab well
+- **SOPS + age for Kubernetes secrets** — encrypted secrets committed
+  to git; the age private key lives only in the cluster (see
+  [Secrets management](#secrets-management))
 
 ## Repository structure
 
-\`\`\`
+```
 .
+├── kubernetes/
+│   ├── clusters/talos/          # Flux bootstrap manifests
+│   │   ├── flux-system/         # Flux GitRepository + Kustomization
+│   │   └── apps.yaml            # Kustomization → kubernetes/apps/
+│   └── apps/                    # Workload manifests (one dir per app)
+│       └── tailscale/           # Tailscale Kubernetes Operator
 ├── truenas/
-│   └── docker-compose/     # One directory per stack
+│   └── docker-compose/          # One directory per stack
 │       ├── adguardhome/
 │       ├── swag/
-│       ├── arr-stack/
-│       └── ...
+│       └── arr-stack/
 ├── docs/
+│   ├── architecture.md          # Network and service architecture
 │   ├── diagrams/
-│   ├── decisions/          # Architecture Decision Records
-│   └── runbooks/           # Operational procedures
-└── scripts/                # Backup and maintenance scripts
-\`\`\`
+│   ├── decisions/               # Architecture Decision Records
+│   └── runbooks/                # Operational procedures
+└── scripts/
+    └── check-sops-encrypted.sh  # Pre-commit helper (SOPS safety net)
+```
 
-## Deployment workflow
+## Deployment workflows
 
-1. Changes are made locally and committed to this repo
+### Kubernetes (Flux GitOps)
+
+```
+git push → Flux polls every 1 min → reconciles kubernetes/clusters/talos/
+         → applies kubernetes/apps/ (10-min interval, prune enabled)
+```
+
+New workloads go into `kubernetes/apps/<namespace>/<app>/`. The
+`apps.yaml` Kustomization picks them up automatically on the next sync.
+Encrypted `*.sops.yaml` secrets are decrypted in-cluster by Flux.
+
+### TrueNAS Docker stacks
+
+1. Changes are committed to this repo
 2. On the TrueNAS host, `git pull` updates the stack directories
-3. Dochand is used to redeploy affected stacks
-4. Dockhand handles routine image updates
+3. Dockhand reloads/redeploys affected stacks
 
 ## Secrets management
 
-No secrets are committed to this repository. Each stack that requires
-secrets includes a `.env.example` file documenting required variables.
-Actual `.env` files live only on the host. The repository is scanned
-with [gitleaks](https://github.com/gitleaks/gitleaks) on every push.
+Secrets are never committed in plaintext. Two strategies are in use:
 
-## Planned work
+**TrueNAS (Docker Compose):** Secrets live only in `.env` files on the
+host. Each stack includes a `.env.example` template documenting required
+variables. Gitleaks runs on every commit and push to catch accidental
+exposure.
 
-- [ ] Migrate from Docker Compose to k3s on a separate Proxmox host
-- [ ] Add Prometheus + Grafana monitoring
-- [ ] Implement GitOps deployment with ArgoCD
-- [ ] Add Home Assistant stack on Proxmox Mini PC
-- [ ] Off-site backup automation with Restic
+**Kubernetes (Flux):** Secrets are encrypted with
+[SOPS](https://github.com/getsops/sops) +
+[age](https://github.com/FiloSottile/age) and committed as
+`*.sops.yaml` files. Flux decrypts them in-cluster using an age private
+key stored as a Kubernetes Secret in `flux-system`. The private key
+never enters the repository.
+
+A dedicated pre-commit hook (`check-sops-encrypted`) blocks any
+`*.sops.yaml` file that is missing the `sops:` metadata block,
+providing a deterministic safety net on top of gitleaks — which catches
+known secret patterns but is not SOPS-aware.
+
+See [docs/architecture.md](docs/architecture.md) for the full secret
+lifecycle and trust model.
+
+## Pre-commit hooks
+
+```bash
+# Run all hooks against staged files
+pre-commit run
+
+# Run against all files
+pre-commit run --all-files
+```
+
+| Hook | Purpose |
+|------|---------|
+| `gitleaks` | Catch accidentally committed secrets (patterns + entropy) |
+| `detect-private-key` | Block PEM private keys |
+| `check-yaml` | YAML syntax validation |
+| `yamllint` | YAML style linting |
+| `check-sops-encrypted` | Block unencrypted `*.sops.yaml` files |
 
 ## Hardware
 
-- **TrueNAS server**: Intel i7-4770K, 16GB custom build desktop
-- **Upcoming**: HP ProDesk 400 G5 Mini for Proxmox / Home Assistant
+- **TrueNAS server**: Intel i7-4770K, 16 GB — off-site at a family
+  member's house; managed remotely via Tailscale + JetKVM
+- **Proxmox host**: HP ProDesk 400 G5 Mini — running Talos Linux VMs
+  for the Kubernetes cluster
+
+## Planned work
+
+- [x] GitOps for Kubernetes with Flux CD
+- [x] Secret management with SOPS + age
+- [x] Tailscale Kubernetes Operator managed via Flux
+- [ ] Migrate remaining Docker services to Kubernetes
+- [ ] Add Prometheus + Grafana monitoring stack
+- [ ] Implement Renovate Bot for automated dependency updates
+- [ ] Add Home Assistant stack
+- [ ] Off-site backup automation with Restic + Backblaze B2
+- [ ] Two-site ZFS replication (local TrueNAS → remote as replica)
 
 ## License
 

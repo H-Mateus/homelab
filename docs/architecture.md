@@ -192,4 +192,181 @@ Other planned changes:
   consistency with the rest of the stack and to bring it under the
   same git-managed config.
 - A separate Proxmox host (HP ProDesk 400 G5 Mini) is also planned for
-running Home Assistant and experimenting with k3s.
+  running Home Assistant and experimenting with k3s.
+
+---
+
+## Kubernetes cluster (Talos + Flux)
+
+A Talos Linux Kubernetes cluster runs on Proxmox VMs alongside the
+TrueNAS server. Talos is an immutable, API-driven OS designed
+specifically for Kubernetes — there is no SSH, no package manager, and
+no shell; all configuration is applied declaratively via `talosctl`.
+
+### Cluster topology
+
+```
+Proxmox host (HP ProDesk 400 G5 Mini)
+└── Talos VMs
+    ├── controlplane (1x)
+    └── workers (n x, TBD)
+```
+
+Machine configs live in `proxmox/` (untracked — contains PKI material
+and secrets, must never be committed).
+
+### Flux GitOps flow
+
+Flux CD v2 is the GitOps controller. It continuously reconciles the
+cluster state with this repository:
+
+```
+git push (main branch)
+  │
+  ▼
+Flux GitRepository (polls every 1 min)
+  │
+  ▼
+flux-system Kustomization  →  kubernetes/clusters/talos/
+  │                           (all *.yaml files here are raw manifests)
+  ├──▶ sources Kustomization (10-min interval)
+  │      └── kubernetes/infrastructure/sources/
+  │              └── HelmRepositories (tailscale, ...)
+  │
+  └──▶ apps Kustomization (10-min interval, prune: true)
+         dependsOn: sources  ← waits for HelmRepositories to be Ready
+         └── kubernetes/apps/
+                 ├── tailscale/      ← Tailscale Operator (HelmRelease)
+                 └── <future apps>/
+```
+
+Key properties of this setup:
+
+- **Prune enabled**: resources removed from git are deleted from the
+  cluster on the next reconcile — the repo is always the single source
+  of truth.
+- **Wait + timeout**: the apps Kustomization waits for all resources to
+  become Ready before considering a sync successful, with a 5-minute
+  timeout before failing loudly.
+- **HelmRelease remediation**: each HelmRelease is configured to retry
+  failed installs/upgrades up to 3 times before giving up.
+
+### Adding a new workload
+
+```bash
+mkdir -p kubernetes/apps/<namespace>/<app>
+# Create: kustomization.yaml, namespace.yaml, and workload manifests
+# If the app needs secrets, create an <app>-secret.sops.yaml and encrypt it
+git add -A && git commit -m "feat: add <app>"
+git push
+# Flux picks it up on the next poll cycle
+```
+
+---
+
+## Secrets management
+
+### Strategy overview
+
+| Platform | Method | Where secrets live |
+|----------|--------|--------------------|
+| TrueNAS (Docker) | `.env` files (never committed) | On the host only |
+| Kubernetes (Flux) | SOPS + age (encrypted in git) | Cluster only (private key) |
+
+### SOPS + age: how it works
+
+[SOPS](https://github.com/getsops/sops) encrypts individual YAML
+values (not the whole file) using a recipient's public key. The
+encrypted file is safe to commit; decryption requires the corresponding
+private key, which lives only inside the cluster.
+
+[age](https://github.com/FiloSottile/age) provides the key pair:
+
+```
+age-keygen -o age.agekey
+# Public key:  age1sg49q...   ← stored in .sops.yaml (safe to commit)
+# Private key: AGE-SECRET-...  ← stored only in the cluster as a K8s Secret
+```
+
+The private key is bootstrapped into the cluster once:
+
+```bash
+kubectl create secret generic sops-age \
+  --namespace=flux-system \
+  --from-file=age.agekey=./age.agekey
+```
+
+After that, the local copy is deleted (or stored in a password manager
+as a break-glass recovery key). Flux's `decryption` stanza in
+`apps.yaml` tells it to use this secret when reconciling:
+
+```yaml
+decryption:
+  provider: sops
+  secretRef:
+    name: sops-age
+```
+
+### Secret lifecycle
+
+```
+1. Author creates secret file:
+   kubernetes/apps/<ns>/<app>/<name>-secret.sops.yaml
+
+2. Fill in plaintext values (DO NOT COMMIT at this stage)
+
+3. Encrypt in place:
+   sops --encrypt --in-place kubernetes/apps/<ns>/<app>/<name>-secret.sops.yaml
+
+4. Commit the encrypted file — values are AES-256-GCM ciphertext,
+   safe to store in a public repository.
+
+5. On git push, Flux fetches the file, decrypts it in-cluster using
+   the age private key, and applies the resulting Secret to Kubernetes.
+
+6. To edit later:
+   sops kubernetes/apps/<ns>/<app>/<name>-secret.sops.yaml
+   # Opens $EDITOR with plaintext; re-encrypts on save.
+```
+
+### Defence in depth against accidental plaintext commits
+
+Three independent layers protect against committing unencrypted secrets:
+
+1. **Naming convention** — all Kubernetes secrets use the `.sops.yaml`
+   suffix, making them visually distinguishable and easy to
+   pattern-match in hooks and gitignore rules.
+
+2. **`check-sops-encrypted` pre-commit hook** — deterministic check:
+   any staged `*.sops.yaml` file that lacks the `sops:` block (which
+   SOPS adds on encryption) causes the commit to fail with a clear
+   error message. This is the primary safety net.
+
+3. **Gitleaks** — catches other accidentally committed secrets using
+   entropy analysis and known pattern matching. Complements the SOPS
+   hook but is not SOPS-aware; the two hooks cover different failure
+   modes.
+
+### Trust boundaries
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ Git repository (public)                                       │
+│  *.sops.yaml  ← AES-256-GCM ciphertext, safe to store here  │
+│  .sops.yaml   ← age PUBLIC key only, safe to store here      │
+└──────────────────────────────────────────────────────────────┘
+                              │ Flux pulls + decrypts
+                              ▼
+┌──────────────────────────────────────────────────────────────┐
+│ Kubernetes cluster (flux-system namespace)                    │
+│  Secret/sops-age  ← age PRIVATE key, never leaves cluster    │
+│                                                               │
+│  Flux decrypts *.sops.yaml in memory; plaintext Secret       │
+│  objects are applied to the cluster but never written to git  │
+└──────────────────────────────────────────────────────────────┘
+```
+
+The age private key is the only secret that cannot be rotated via git.
+It should be backed up to a password manager as a break-glass recovery
+key in case the cluster is destroyed and needs to be rebuilt from
+scratch.
