@@ -1,0 +1,48 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: tailscale-operator
+  namespace: tailscale
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: tailscale-operator
+      version: "1.90.x"
+      sourceRef:
+        kind: HelmRepository
+        name: tailscale
+        namespace: flux-system
+      interval: 12h
+  install:
+    crds: Create
+    remediation:
+      retries: 3
+  upgrade:
+    crds: CreateReplace
+    remediation:
+      retries: 3
+  # OAuth credentials are injected from the SOPS-encrypted secret rather than
+  # set inline here, so they never appear in plaintext in any Flux resource.
+  valuesFrom:
+    - kind: Secret
+      name: tailscale-oauth
+      valuesKey: clientId
+      targetPath: oauth.clientId
+    - kind: Secret
+      name: tailscale-oauth
+      valuesKey: clientSecret
+      targetPath: oauth.clientSecret
+  values:
+    apiServerProxyConfig:
+      mode: "true"
+      allowImpersonation: "true"
+    operatorConfig:
+      hostname: homelab-ts-operator
+      image:
+        pullPolicy: IfNotPresent
+      defaultTags:
+        - "tag:k8s"
+        - "tag:k8s-operator"
+        - "tag:k8s-homelab"
