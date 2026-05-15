@@ -1,0 +1,17 @@
+# SOPS configuration — tells sops which age public key(s) to encrypt to.
+# After generating your age keypair (see README / docs), replace the placeholder
+# below with your actual public key (starts with "age1...").
+#
+# Generate a keypair:
+#   age-keygen -o age.agekey          # creates age.agekey — keep this private!
+#   cat age.agekey | grep "public key"
+#
+# Store the private key in the cluster (once only, before first flux push):
+#   kubectl create secret generic sops-age \
+#     --namespace=flux-system \
+#     --from-file=age.agekey=./age.agekey
+#
+# Then delete the local copy or move it somewhere safe (NOT the repo).
+creation_rules:
+  - path_regex: kubernetes/.*\.sops\.yaml$
+    age: age1sg49qgvaxgvgxt8ht540knum5zgklcqp220j7yl375xqsldvyfwszl252u
