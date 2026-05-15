@@ -21,3 +21,16 @@ repos:
     hooks:
       - id: yamllint
         args: [-d, relaxed]
+
+  # Ensure SOPS-managed secret files are encrypted before they reach git.
+  # An unencrypted *.sops.yaml file lacks the 'sops:' block that SOPS adds;
+  # this hook catches that case deterministically.  gitleaks is a complementary
+  # catch-all for other secret patterns but is not SOPS-aware.
+  - repo: local
+    hooks:
+      - id: check-sops-encrypted
+        name: Verify *.sops.yaml files are SOPS-encrypted
+        language: script
+        entry: scripts/check-sops-encrypted.sh
+        files: \.sops\.yaml$
+        types: [file]
