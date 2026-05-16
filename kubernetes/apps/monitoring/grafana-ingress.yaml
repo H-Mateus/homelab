@@ -1,0 +1,25 @@
+---
+# Tailscale Ingress for Grafana.
+# The Tailscale operator will provision a device named "grafana" on your
+# tailnet and route HTTPS traffic to the Grafana service.
+# Access URL: https://grafana.<tailnet-name>.ts.net
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana
+  namespace: monitoring
+spec:
+  ingressClassName: tailscale
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kube-prometheus-stack-grafana
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - grafana

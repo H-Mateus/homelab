@@ -1,0 +1,81 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kube-prometheus-stack
+  namespace: monitoring
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: kube-prometheus-stack
+      # Pin to a minor version range so patch releases apply automatically
+      # but major/minor bumps require an intentional change here.
+      # Run `helm search repo prometheus-community/kube-prometheus-stack --versions`
+      # to find the current latest and update this pin over time.
+      version: ">=85.0.0 <86.0.0"
+      sourceRef:
+        kind: HelmRepository
+        name: prometheus-community
+        namespace: flux-system
+      interval: 24h
+  install:
+    crds: Create
+    remediation:
+      retries: 3
+  upgrade:
+    crds: CreateReplace
+    remediation:
+      retries: 3
+  values:
+    # --- Grafana ---
+    grafana:
+      # Admin credentials from SOPS-encrypted secret
+      admin:
+        existingSecret: grafana-admin-secret
+        userKey: adminUser
+        passwordKey: adminPassword
+      # Ingress is managed by grafana-ingress.yaml (Tailscale IngressClass)
+      ingress:
+        enabled: false
+      persistence:
+        enabled: true
+        storageClassName: truenas-nfs
+        size: 5Gi
+      defaultDashboardsEnabled: true
+      defaultDashboardsTimezone: browser
+
+    # --- Prometheus ---
+    prometheus:
+      prometheusSpec:
+        retention: 30d
+        # Safety margin: alert/act before storage is full
+        retentionSize: "45GiB"
+        storageSpec:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: truenas-nfs
+              accessModes: ["ReadWriteOnce"]
+              resources:
+                requests:
+                  storage: 50Gi
+        # Collect ServiceMonitors and PodMonitors from ALL namespaces, not
+        # just the monitoring namespace. This means future apps that ship
+        # a ServiceMonitor will be scraped automatically without any changes
+        # to this file.
+        serviceMonitorSelectorNilUsesHelmValues: false
+        podMonitorSelectorNilUsesHelmValues: false
+        ruleSelectorNilUsesHelmValues: false
+        probeSelectorNilUsesHelmValues: false
+
+    # --- Alertmanager ---
+    alertmanager:
+      alertmanagerSpec:
+        storage:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: truenas-nfs
+              accessModes: ["ReadWriteOnce"]
+              resources:
+                requests:
+                  storage: 1Gi
