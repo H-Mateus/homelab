@@ -1,0 +1,54 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: democratic-csi-nfs
+  namespace: democratic-csi
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: democratic-csi
+      version: ">=0.15.0 <0.16.0"
+      sourceRef:
+        kind: HelmRepository
+        name: democratic-csi
+        namespace: flux-system
+      interval: 24h
+  install:
+    crds: Create
+    remediation:
+      retries: 3
+  upgrade:
+    crds: CreateReplace
+    remediation:
+      retries: 3
+  values:
+    csiDriver:
+      # Must be unique per driver instance in the cluster.
+      # If you later add an iSCSI driver, give it a different name.
+      name: "org.democratic-csi.nfs"
+
+    driver:
+      # Reference the SOPS-decrypted secret rather than inlining credentials.
+      existingConfigSecret: truenas-democratic-csi-config
+      config:
+        driver: freenas-api-nfs
+
+    storageClasses:
+      - name: truenas-nfs
+        defaultClass: true
+        # Retain: the TrueNAS dataset is NOT deleted when a PVC is removed.
+        # You must clean up manually. Safer than Delete for a homelab with
+        # real data — prevents accidental loss from a typo or errant prune.
+        reclaimPolicy: Retain
+        volumeBindingMode: Immediate
+        allowVolumeExpansion: true
+        parameters:
+          fsType: nfs
+
+    volumeSnapshotClasses:
+      - name: truenas-nfs-snapshots
+        deletionPolicy: Retain
+        parameters:
+          detachedSnapshots: "false"
