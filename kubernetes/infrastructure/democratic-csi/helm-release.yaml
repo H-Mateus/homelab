@@ -23,6 +23,12 @@ spec:
     crds: CreateReplace
     remediation:
       retries: 3
+  # Wait for snapshot-controller to be Ready before attempting to install.
+  # Without this, democratic-csi tries to create a VolumeSnapshotClass before
+  # the VolumeSnapshotClass CRD exists and the HelmRelease fails.
+  dependsOn:
+    - name: snapshot-controller
+      namespace: snapshot-controller
   values:
     csiDriver:
       # Must be unique per driver instance in the cluster.
