@@ -16,6 +16,10 @@
 **/.htpasswd*
 **/cloudflare.ini
 **/crowdsec-nginx-bouncer.conf
+age.agekey
+proxmox/
+
+CLAUDE.md
 
 # --- Environment files ------------------------------------------------------
 .env
