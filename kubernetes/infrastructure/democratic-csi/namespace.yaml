@@ -5,3 +5,8 @@ metadata:
   name: democratic-csi
   labels:
     app.kubernetes.io/name: democratic-csi
+    # The CSI node plugin requires privileged access: SYS_ADMIN capability,
+    # hostNetwork, hostIPC, and hostPath volumes to manage NFS mounts on nodes.
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/warn: privileged
