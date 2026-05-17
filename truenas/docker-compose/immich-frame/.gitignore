@@ -1,0 +1,2 @@
+# Real env file holds Tailscale auth key, Immich API key, and weather API key.
+.env
