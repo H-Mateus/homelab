@@ -1,0 +1,9 @@
+# Real env file holds DB password and Tailscale auth key — never commit.
+.env
+
+# Runtime data directories. These are mounted from /mnt/HDDs/immich on the
+# TrueNAS host, but if they ever get created relative to this dir by accident,
+# don't commit them.
+library/
+postgres/
+family-ts/
