@@ -4,3 +4,4 @@ resources:
   - tailscale.yaml
   - prometheus-community.yaml
   - democratic-csi.yaml
+  - piraeus.yaml
