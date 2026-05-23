@@ -5,3 +5,7 @@ resources:
   - prometheus-community.yaml
   - democratic-csi.yaml
   - piraeus.yaml
+  # Not a HelmRepository, but lives here because the `sources` Kustomization
+  # runs before `infrastructure`, and `infrastructure` consumes this Secret
+  # via postBuild.substituteFrom.
+  - truenas-egress-substitutions.sops.yaml

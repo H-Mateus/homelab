@@ -1,11 +1,17 @@
 # kubernetes/infrastructure/democratic-csi/truenas-egress.yaml
+#
+# The TRUENAS_TAILNET_IP value is substituted in at reconcile time by Flux,
+# sourced from the SOPS-encrypted Secret
+# kubernetes/infrastructure/sources/truenas-egress-substitutions.sops.yaml
+# via postBuild.substituteFrom on the `infrastructure` Kustomization. This
+# keeps the tailnet IP out of plaintext in the repo.
 apiVersion: v1
 kind: Service
 metadata:
   name: truenas-tailscale
   namespace: democratic-csi
   annotations:
-    tailscale.com/tailnet-ip: "100.70.200.105"
+    tailscale.com/tailnet-ip: "${TRUENAS_TAILNET_IP}"
 spec:
   type: ExternalName
   externalName: placeholder # The operator will automatically overwrite this

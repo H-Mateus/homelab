@@ -13,3 +13,10 @@ spec:
   prune: true
   wait: true
   timeout: 2m0s
+  # The sources directory now also contains a SOPS-encrypted Secret used as
+  # postBuild substitution input for the `infrastructure` Kustomization, so
+  # this Kustomization needs to be able to decrypt.
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age

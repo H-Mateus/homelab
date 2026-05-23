@@ -17,5 +17,13 @@ spec:
     provider: sops
     secretRef:
       name: sops-age
+  # Substitute ${VAR} references in any manifest under ./kubernetes/infrastructure
+  # with values from the named Secret (applied by the `sources` Kustomization).
+  # Currently used to inject TRUENAS_TAILNET_IP into truenas-egress.yaml so the
+  # IP doesn't appear in plaintext in the repo.
+  postBuild:
+    substituteFrom:
+      - kind: Secret
+        name: truenas-egress-substitutions
   dependsOn:
     - name: sources
