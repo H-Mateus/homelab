@@ -5,11 +5,15 @@ requests flow through it, and the reasoning behind key design choices.
 
 ## Overview
 
-The homelab currently consists of a single TrueNAS Scale server hosted
-**off-site at a family member's house**. All services run as Docker
-Compose stacks managed by Dockge/Dockhand. Remote access is via
-Tailscale; no services are exposed publicly currently.
-reverse proxy.
+The homelab spans two pieces of hardware:
+
+- A **TrueNAS Scale server** hosted **off-site at a family member's
+  house**, running Docker Compose stacks managed by Dockge/Dockhand.
+- A **Proxmox host** (HP ProDesk 400 G5 Mini) running a **Talos Linux Kubernetes cluster** (1
+  control plane + 2 workers) locally, managed by Flux CD v2.
+
+Remote access is via Tailscale; no services are exposed publicly
+currently.
 
 This off-site arrangement is unusual but deliberate: it provides
 geographic redundancy for storage, low-friction backups for family
@@ -60,15 +64,24 @@ three ways a request can reach a service:
 
 1. **Public** — no services currently exposed; SWAG + CrowdSec is in
    place for when this changes.
-2. **Tailscale (personal devices)** — my own devices on the tailnet
-   resolve domains via MagicDNS to the TrueNAS host's tailnet IP and
-   hit SWAG.
-3. **Tailscale (shared, restricted)** — family members access Immich
-   via Tailscale node sharing rather than user invites, with ACLs
-   restricting them to the Immich port only. This works around the
-   3-user limit of the Tailscale free plan and limits blast radius if
-   one of their devices is compromised.
-4. **LAN** — devices on the remote LAN resolve to the static LAN IP
+2. **Tailscale (personal devices, via SWAG)** — my own devices on the
+   tailnet resolve domains via MagicDNS to the TrueNAS host's tailnet
+   IP and hit SWAG.
+3. **Tailscale (personal devices, via the Tailscale operator)** —
+   Kubernetes-hosted services (e.g. Grafana) are exposed as individual
+   Tailnet devices by the
+   [Tailscale Kubernetes Operator](https://tailscale.com/kb/1236/kubernetes-operator),
+   one device per `Ingress`. Access is then by MagicDNS name, e.g.
+   `https://grafana.<tailnet>.ts.net`.
+4. **Tailscale (shared, restricted)** — family members access Immich
+   via Tailscale node sharing rather than user invites. Immich runs in
+   its own Compose stack with a `tailscale/tailscale` sidecar, so it
+   joins the tailnet as its **own device** (separate from the TrueNAS
+   host). That single device is what gets shared with family — which
+   limits blast radius to the Immich service if one of their devices
+   is compromised, and works around the 3-user limit of the Tailscale
+   free plan.
+5. **LAN** — devices on the remote LAN resolve to the static LAN IP
    and hit SWAG directly.
 
 ```mermaid
@@ -188,11 +201,9 @@ prices.
 Other planned changes:
 
 - An encrypted cloud backup is also planned.
-- Migrate Immich from a TrueNAS app to a Docker Compose stack, for
-  consistency with the rest of the stack and to bring it under the
-  same git-managed config.
-- A separate Proxmox host (HP ProDesk 400 G5 Mini) is also planned for
-  running Home Assistant and experimenting with k3s.
+- Continue migrating Docker Compose services into the Kubernetes
+  cluster as they become candidates (Home Assistant, additional
+  monitoring exporters, etc.).
 
 ---
 
@@ -208,12 +219,31 @@ no shell; all configuration is applied declaratively via `talosctl`.
 ```
 Proxmox host (HP ProDesk 400 G5 Mini)
 └── Talos VMs
-    ├── controlplane (1x)
-    └── workers (n x, TBD)
+    ├── controlplane  (1x)
+    └── workers       (2x)
 ```
 
+The single-control-plane choice is a deliberate homelab compromise:
+etcd has no replicas, and the API server is unavailable for the few
+minutes a Talos upgrade takes to reboot it. In exchange, the cluster
+fits comfortably on one Mini PC. Future growth to three CP nodes is
+on the table but not urgent.
+
 Machine configs live in `proxmox/` (untracked — contains PKI material
-and secrets, must never be committed).
+and secrets, must never be committed). The current schematic
+(`proxmox/schematic.yaml`) bundles four official system extensions:
+
+| Extension | Purpose |
+|-----------|---------|
+| `siderolabs/iscsi-tools` | Required by democratic-csi for iSCSI volumes (currently unused, available for future) |
+| `siderolabs/qemu-guest-agent` | Lets Proxmox observe and gracefully shut down the VM |
+| `siderolabs/tailscale` | Joins each Talos node to the tailnet as `tag:k8s-node`, used by kubelet to mount NFS from off-site TrueNAS |
+| `siderolabs/util-linux-tools` | NFS mount helpers required by democratic-csi |
+
+The `tailscale` extension's runtime configuration lives in
+`proxmox/tailscale-extension.yaml`. See
+[`docs/talos-extensions-rollout.md`](talos-extensions-rollout.md) for
+the runbook used to roll out or update an extension.
 
 ### Flux GitOps flow
 
@@ -229,16 +259,34 @@ Flux GitRepository (polls every 1 min)
   ▼
 flux-system Kustomization  →  kubernetes/clusters/talos/
   │                           (all *.yaml files here are raw manifests)
+  │
   ├──▶ sources Kustomization (10-min interval)
   │      └── kubernetes/infrastructure/sources/
-  │              └── HelmRepositories (tailscale, ...)
+  │              └── HelmRepositories
+  │                    (tailscale, prometheus-community,
+  │                     democratic-csi, piraeus)
+  │
+  ├──▶ infrastructure Kustomization (10-min interval, prune: true)
+  │      dependsOn: sources
+  │      └── kubernetes/infrastructure/
+  │              ├── snapshot-controller/  (CSI volume snapshot CRDs)
+  │              └── democratic-csi/       (NFS provisioner → TrueNAS)
   │
   └──▶ apps Kustomization (10-min interval, prune: true)
-         dependsOn: sources  ← waits for HelmRepositories to be Ready
+         dependsOn: infrastructure
          └── kubernetes/apps/
-                 ├── tailscale/      ← Tailscale Operator (HelmRelease)
-                 └── <future apps>/
+                 ├── tailscale/    (Tailscale Operator)
+                 └── monitoring/   (kube-prometheus-stack: Prometheus,
+                                    Grafana, Alertmanager)
 ```
+
+The layering — `sources` → `infrastructure` → `apps` — exists so that
+cluster-wide prerequisites (CSI driver, snapshot CRDs, Helm
+repositories) are reconciled before anything that depends on them. The
+`dependsOn` + `wait: true` settings make Flux block on each layer
+finishing before the next starts, which means a clean `kubectl
+apply` rollout from an empty cluster comes up in the right order
+without manual sequencing.
 
 Key properties of this setup:
 
@@ -261,6 +309,90 @@ git add -A && git commit -m "feat: add <app>"
 git push
 # Flux picks it up on the next poll cycle
 ```
+
+---
+
+## Tailscale and the tag model
+
+Tailscale ACLs are tag-driven rather than user-driven. The tags below
+exist in the tailnet today; each is granted to specific devices via
+either the Tailscale admin console (for human-owned devices) or via
+the device's `--advertise-tags` / OAuth client config (for machines).
+
+| Tag | Applied to | Purpose |
+|-----|-----------|---------|
+| `tag:truenas` | The TrueNAS host's `tailscaled` | Lets ACLs grant NFS / API access to the TrueNAS host without naming a specific user. Replaces the previous model where TrueNAS was owned by my user account. |
+| `tag:k8s` | Tailscale `Ingress` / `Service` devices created by the Tailscale Kubernetes Operator | Identifies operator-managed devices (one per `Ingress`, e.g. `grafana`) so ACLs can grant access to them. |
+| `tag:k8s-node` | Talos nodes joining the tailnet via the `siderolabs/tailscale` extension | Distinguishes Talos *nodes* from operator-managed Ingresses. Used to grant kubelet NFS access to `tag:truenas`. |
+| `tag:family-immich` | The Tailscale sidecar in the Immich Docker Compose stack | The single device shared (via [Tailscale node sharing](https://tailscale.com/kb/1084/sharing)) with family members. Restricts what they can reach. |
+
+Two notable subtleties live in this model:
+
+- **Why `tag:k8s` and `tag:k8s-node` are separate.** The Tailscale
+  operator's `defaultTags` setting controls the tag that the OAuth
+  client uses when it provisions an `Ingress` device. Talos nodes,
+  meanwhile, advertise their own tags via `TS_EXTRA_ARGS` in the
+  extension config. They need different ACL grants — nodes need to
+  talk to `tag:truenas` on port 2049 for NFS; operator-exposed
+  services need to be reachable *from* personal devices. Lumping
+  them under one tag would over-grant in both directions.
+- **Why TrueNAS moved from a user to a tag.** With TrueNAS owned by
+  my user account, the only way to share Immich with family without
+  giving them access to the whole host was to share specific
+  Tailnet-exposed apps. That didn't scale, and it pinned the
+  authorisation model to my personal account. Moving TrueNAS to
+  `tag:truenas` and migrating Immich into its own Compose stack
+  with a Tailscale sidecar (its own device, `tag:family-immich`)
+  decouples the two: family members only see the Immich device.
+
+### Tag ownership snapshot
+
+The full ACL lives in the Tailscale admin console. The shape of the
+`tagOwners` block is:
+
+```jsonc
+"tagOwners": {
+  "tag:truenas":        ["autogroup:admin"],
+  "tag:k8s":            ["autogroup:admin"],
+  "tag:k8s-node":       ["autogroup:admin"],
+  "tag:family-immich":  ["autogroup:admin"]
+}
+```
+
+And the load-bearing grants are:
+
+```jsonc
+// Talos nodes can mount NFS from TrueNAS
+{ "src": ["tag:k8s-node"], "dst": ["tag:truenas"],
+  "ip":  ["tcp:2049"] },
+
+// democratic-csi controller can reach the TrueNAS API
+{ "src": ["tag:k8s-node"], "dst": ["tag:truenas"],
+  "ip":  ["tcp:443"] },
+
+// Personal devices reach Kubernetes-hosted services
+{ "src": ["autogroup:member"], "dst": ["tag:k8s"],
+  "ip":  ["*"] }
+```
+
+### democratic-csi controller traffic to TrueNAS
+
+The democratic-csi NFS driver needs to call the TrueNAS HTTPS API to
+create/destroy datasets. With TrueNAS only reachable over Tailscale,
+the controller pod also has to take that path. Two changes make this
+work:
+
+1. `controller.hostNetwork: true` on the democratic-csi Helm release,
+   so the controller pod sits on the node's network namespace and
+   can use the node's `tailscale0` interface.
+2. An `ExternalName` `Service` (`truenas-tailscale`) in the
+   `democratic-csi` namespace, annotated for the Tailscale operator
+   to resolve to the TrueNAS tailnet IP. The driver config is then
+   pointed at that Service rather than a bare IP, which keeps the
+   IP out of the SOPS-encrypted driver config.
+
+This is documented inline in
+`kubernetes/infrastructure/democratic-csi/truenas-egress.yaml`.
 
 ---
 
