@@ -1,0 +1,15 @@
+# kubernetes/infrastructure/democratic-csi/truenas-egress.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: truenas-tailscale
+  namespace: democratic-csi
+  annotations:
+    tailscale.com/tailnet-ip: "100.70.200.105"
+spec:
+  type: ExternalName
+  externalName: placeholder # The operator will automatically overwrite this
+  ports:
+    - name: https
+      port: 444
+      protocol: TCP

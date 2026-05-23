@@ -3,4 +3,5 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - driver-config-secret.sops.yaml
+  - truenas-egress.yaml
   - helm-release.yaml
