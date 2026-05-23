@@ -29,10 +29,14 @@ is the source of truth for all configuration, managed with GitOps.
 | Service | Platform | Purpose | Access |
 |---------|----------|---------|--------|
 | AdGuard Home | TrueNAS | Network-wide DNS / ad blocking | LAN + Tailscale |
-| SWAG | TrueNAS | Reverse proxy + Let's Encrypt | Public (443) |
+| SWAG | TrueNAS | Reverse proxy + Let's Encrypt | LAN + Tailscale |
 | CrowdSec | TrueNAS | Intrusion prevention | Internal |
 | *arr stack | TrueNAS | Media automation | Tailscale only |
+| Immich | TrueNAS | Self-hosted photo library | Tailscale (own device, shared to family) |
+| Immich Frame | TrueNAS | Slideshow client for Immich | Tailscale (own device, shared to family) |
 | Tailscale Operator | Kubernetes | Cluster ingress via Tailscale | Tailscale |
+| democratic-csi | Kubernetes | NFS PV provisioner backed by TrueNAS | Internal |
+| kube-prometheus-stack | Kubernetes | Prometheus + Grafana + Alertmanager | Tailscale (Grafana via operator) |
 
 ## Key design decisions
 
@@ -59,19 +63,28 @@ Full ADRs in [docs/decisions/](docs/decisions/).
 ├── kubernetes/
 │   ├── clusters/talos/          # Flux bootstrap manifests
 │   │   ├── flux-system/         # Flux GitRepository + Kustomization
-│   │   └── apps.yaml            # Kustomization → kubernetes/apps/
+│   │   ├── sources.yaml         # → kubernetes/infrastructure/sources/
+│   │   ├── infrastructure.yaml  # → kubernetes/infrastructure/
+│   │   └── apps.yaml            # → kubernetes/apps/
+│   ├── infrastructure/          # Cluster prerequisites (CSI, snapshots, Helm repos)
+│   │   ├── sources/             #   HelmRepository definitions
+│   │   ├── snapshot-controller/ #   CSI volume snapshot CRDs
+│   │   └── democratic-csi/      #   NFS provisioner → TrueNAS
 │   └── apps/                    # Workload manifests (one dir per app)
-│       └── tailscale/           # Tailscale Kubernetes Operator
+│       ├── tailscale/           #   Tailscale Kubernetes Operator
+│       └── monitoring/          #   kube-prometheus-stack (Grafana et al.)
 ├── truenas/
 │   └── docker-compose/          # One directory per stack
 │       ├── adguardhome/
 │       ├── swag/
-│       └── arr-stack/
+│       ├── arr-stack/
+│       ├── immich/              #   With tailscale sidecar — own Tailnet device
+│       └── immich-frame/        #   With tailscale sidecar — own Tailnet device
+├── proxmox/                     # Talos machine configs (UNTRACKED — PKI material)
 ├── docs/
 │   ├── architecture.md          # Network and service architecture
-│   ├── diagrams/
-│   ├── decisions/               # Architecture Decision Records
-│   └── runbooks/                # Operational procedures
+│   ├── talos-extensions-rollout.md  # Runbook: rolling out Talos extensions
+│   └── blog/                    # Long-form write-ups
 └── scripts/
     └── check-sops-encrypted.sh  # Pre-commit helper (SOPS safety net)
 ```
@@ -149,8 +162,11 @@ pre-commit run --all-files
 - [x] GitOps for Kubernetes with Flux CD
 - [x] Secret management with SOPS + age
 - [x] Tailscale Kubernetes Operator managed via Flux
+- [x] NFS-backed dynamic PV provisioning (democratic-csi → TrueNAS)
+- [x] Prometheus + Grafana + Alertmanager (kube-prometheus-stack)
+- [x] Migrate Immich from a TrueNAS app to a Docker Compose stack with
+      a Tailscale sidecar (own Tailnet device, shareable to family)
 - [ ] Migrate remaining Docker services to Kubernetes
-- [ ] Add Prometheus + Grafana monitoring stack
 - [ ] Implement Renovate Bot for automated dependency updates
 - [ ] Add Home Assistant stack
 - [ ] Off-site backup automation with Restic + Backblaze B2
