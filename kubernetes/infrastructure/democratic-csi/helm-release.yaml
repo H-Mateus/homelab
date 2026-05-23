@@ -30,6 +30,11 @@ spec:
     - name: snapshot-controller
       namespace: snapshot-controller
   values:
+    controller:
+      # Enable hostNetwork so the controller can reach the TrueNAS API over Tailscale.
+      # By default, the pod overlay network (CNI) does not know how to route traffic
+      # to Tailscale IPs (100.64.0.0/10), which causes API connection timeouts.
+      hostNetwork: true
     csiDriver:
       # Must be unique per driver instance in the cluster.
       # If you later add an iSCSI driver, give it a different name.
