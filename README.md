@@ -7,9 +7,7 @@ is the source of truth for all configuration, managed with GitOps.
 
 ## Architecture
 
-![Architecture diagram](docs/diagrams/architecture.png)
-
-<!-- TODO: replace with real diagram. For now, a text overview: -->
+![](images/260524-202517.avif)
 
 - **TrueNAS Scale** runs on an old desktop PC — handles storage (ZFS)
   and hosts Docker containers managed via Dockhand
