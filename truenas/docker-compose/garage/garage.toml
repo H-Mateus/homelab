@@ -20,10 +20,12 @@ db_engine = "sqlite"
 # durability story.
 replication_factor = 1
 
-# Inter-node RPC. Bound to localhost since there are no peers; kept
-# configured so that scaling to multi-node later is just a toml edit
-# plus a `garage layout` re-assign.
-rpc_bind_addr   = "[::1]:3901"
+# Inter-node RPC. Bound to IPv4 localhost since there are no peers;
+# IPv4 (not [::1]) because Docker's default bridge often has IPv6
+# disabled, which would prevent the daemon from binding at all.
+# Kept configured so that scaling to multi-node later is just a toml
+# edit plus a `garage layout` re-assign.
+rpc_bind_addr   = "127.0.0.1:3901"
 rpc_public_addr = "127.0.0.1:3901"
 rpc_secret_file = "/etc/garage/rpc_secret"
 
