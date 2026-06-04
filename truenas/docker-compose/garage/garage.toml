@@ -1,0 +1,44 @@
+# Garage v2.x configuration for the single-node homelab deployment.
+#
+# Reference: https://garagehq.deuxfleurs.fr/documentation/reference-manual/configuration/
+#
+# This file is committed to git. No secrets in here; the inter-node RPC
+# secret is read from a file (rpc_secret_file below) that lives on the
+# TrueNAS host outside the repo. With replication_factor = 1 the RPC port
+# isn't reachable outside the container anyway — the secret is required
+# by config but not load-bearing for our threat model.
+
+metadata_dir = "/var/lib/garage/meta"
+data_dir     = "/var/lib/garage/data"
+
+# SQLite metadata engine: simplest, no separate database to operate.
+# Garage's docs note this is appropriate for single-node deployments.
+db_engine = "sqlite"
+
+# Single-node "cluster" — one replica means data lives only here. ZFS
+# snapshots and bucket-level redundancy (later, if needed) provide the
+# durability story.
+replication_factor = 1
+
+# Inter-node RPC. Bound to localhost since there are no peers; kept
+# configured so that scaling to multi-node later is just a toml edit
+# plus a `garage layout` re-assign.
+rpc_bind_addr   = "[::1]:3901"
+rpc_public_addr = "127.0.0.1:3901"
+rpc_secret_file = "/etc/garage/rpc_secret"
+
+[s3_api]
+# Region must match what the OpenTofu s3 backend sends in SigV4
+# signatures. `garage` is conventional for Garage deployments.
+s3_region      = "garage"
+api_bind_addr  = "[::]:3900"
+# Subdomain-style addressing — unused here since we hit the API path-
+# style via `tailscale serve`, but Garage requires the field.
+root_domain    = ".s3.garage.local"
+
+# Static website serving (unused for tofu-state but cheap to leave on
+# in case we ever host a static site from this bucket).
+[s3_web]
+bind_addr   = "[::]:3902"
+root_domain = ".web.garage.local"
+index       = "index.html"

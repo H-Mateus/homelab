@@ -1,0 +1,80 @@
+#
+# Garage object storage, exposed only via Tailscale as a dedicated device.
+#
+# Purpose: S3-compatible backend for OpenTofu remote state (see
+# opentofu/live/homelab/backend.tf). Replaces MinIO after that project
+# was archived upstream in April 2026.
+#
+# Architecture mirrors the Immich + ImmichFrame pattern: Garage and the
+# Tailscale sidecar share the default Compose network. The sidecar runs
+# in userspace mode with `tailscale serve` terminating HTTPS at
+# https://garage.<tailnet>.ts.net (port 443) and proxying to garage:3900
+# (S3 API). No host ports are bound.
+#
+# Trade-offs vs MinIO (documented for the portfolio narrative):
+#   - No S3-native conditional writes (use_lockfile). Tofu locking is
+#     disabled; single-operator homelab tolerates this.
+#   - No bucket object versioning. ZFS snapshots on HDDs/garage cover
+#     the rollback story at a coarser grain.
+# These are acceptable given the alternative (archived MinIO or
+# commercial AIStor) and worth a sentence in interviews.
+
+name: garage
+
+configs:
+  garage-ts-serve:
+    # Path-style URLs work out of the box (use_path_style=true on
+    # the Tofu side). Garage's S3 API listens on 3900.
+    content: |
+      { "TCP": { "443": { "HTTPS": true } },
+        "Web": { "$${TS_CERT_DOMAIN}:443": { "Handlers": { "/": { "Proxy": "http://garage:3900" } } } },
+        "AllowFunnel": { "$${TS_CERT_DOMAIN}:443": false } }
+
+services:
+  garage:
+    container_name: garage
+    image: dxflrs/garage:v2.3.0
+    # Run as the TrueNAS `apps` user so bind-mounted dirs need only
+    # 568:568 ownership.
+    user: "568:568"
+    volumes:
+      # Config file lives next to this compose file (committed to git).
+      - ./garage.toml:/etc/garage.toml:ro
+      # rpc_secret file is created out-of-band on the host (see README
+      # bootstrap step). Not committed.
+      - ${GARAGE_RPC_SECRET_FILE}:/etc/garage/rpc_secret:ro
+      # Metadata (SQLite) and object data on the dedicated dataset.
+      - ${GARAGE_META_DIR}:/var/lib/garage/meta
+      - ${GARAGE_DATA_DIR}:/var/lib/garage/data
+    # No `ports:` — Tailnet-only via the sidecar.
+    restart: always
+    healthcheck:
+      # `garage status` exits non-zero until the node is healthy and
+      # has a layout assigned. First-run boot will report unhealthy
+      # until you complete the layout-assign step in the README.
+      test: ["CMD", "/garage", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  garage-ts:
+    container_name: garage-ts
+    image: tailscale/tailscale:latest
+    hostname: garage
+    environment:
+      - "TS_AUTHKEY=${TS_AUTHKEY}"
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/serve.json
+      - TS_USERSPACE=true
+      # Distinguish this device from other tagged devices in ACLs.
+      # `tag:garage` must exist in your Tailscale policy — see README.
+      - TS_EXTRA_ARGS=--advertise-tags=tag:garage
+    volumes:
+      - ${GARAGE_TS_STATE_DIR}:/var/lib/tailscale
+    configs:
+      - source: garage-ts-serve
+        target: /config/serve.json
+    depends_on:
+      - garage
+    restart: always
