@@ -1,0 +1,13 @@
+---
+# ExtensionServiceConfig for siderolabs/tailscale.
+#
+# Why advertise tag:k8s-node here (and accept-dns=false): see
+# docs/architecture.md and the original proxmox/tailscale-extension.yaml
+# this replaces. We're keeping behaviour bit-for-bit identical so the
+# Flux-managed Tailscale operator continues to work unchanged.
+apiVersion: v1alpha1
+kind: ExtensionServiceConfig
+name: tailscale
+environment:
+  - TS_AUTHKEY=${tailscale_authkey}
+  - TS_EXTRA_ARGS=--advertise-tags=tag:k8s-node --accept-dns=false

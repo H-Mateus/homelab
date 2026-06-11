@@ -13,5 +13,11 @@
 #
 # Then delete the local copy or move it somewhere safe (NOT the repo).
 creation_rules:
+  # Flux-decrypted secrets live under kubernetes/ and follow the
+  # *.sops.yaml suffix that Flux's kustomize-controller looks for.
   - path_regex: kubernetes/.*\.sops\.yaml$
+    age: age1sg49qgvaxgvgxt8ht540knum5zgklcqp220j7yl375xqsldvyfwszl252u
+  # OpenTofu secrets use the *.enc.yaml suffix and are decrypted at
+  # apply time by the `sops_file` data source. Same age recipient.
+  - path_regex: opentofu/.*\.enc\.yaml$
     age: age1sg49qgvaxgvgxt8ht540knum5zgklcqp220j7yl375xqsldvyfwszl252u

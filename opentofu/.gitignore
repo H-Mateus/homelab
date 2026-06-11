@@ -1,0 +1,27 @@
+# OpenTofu / Terraform state and lock files. State is kept on remote MinIO,
+# but local copies appear during init/migrate workflows.
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+
+# Variable files with real values (use *.tfvars.example as templates).
+*.tfvars
+!*.tfvars.example
+
+# Decrypted SOPS files. `sops -d secrets.enc.yaml > secrets.dec.yaml` is a
+# common debug move; never let those land in git.
+*.dec.*
+secrets.yaml
+
+# Generated artefacts.
+_generated/
+
+# Editor scratch.
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+crash.log
+crash.*.log

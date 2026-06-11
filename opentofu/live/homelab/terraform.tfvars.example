@@ -1,0 +1,42 @@
+# Copy to terraform.tfvars and fill in the blanks. terraform.tfvars is
+# gitignored. Sensitive values (Proxmox API token, Tailscale authkey)
+# live in secrets.enc.yaml, not here.
+
+# -----------------------------------------------------------------------------
+# Proxmox connection
+# -----------------------------------------------------------------------------
+proxmox_endpoint  = "https://pve.lan:8006/"
+proxmox_node_name = "pve"
+proxmox_insecure  = true
+
+# -----------------------------------------------------------------------------
+# Network — adjust to your LAN. Defaults assume 192.168.1.0/24.
+# -----------------------------------------------------------------------------
+# gateway     = "192.168.1.1"
+# dns_servers = ["1.1.1.1", "9.9.9.9"]
+
+# Shared VIP across the 3 control planes. Must be unused, in the node_subnet,
+# and outside any DHCP pool.
+cluster_vip = "192.168.1.55"
+
+# -----------------------------------------------------------------------------
+# Node identity. Pin MACs so DHCP reservations / Talos device matching stay
+# stable across rebuilds. VMIDs are arbitrary but must be unique on the host.
+# -----------------------------------------------------------------------------
+control_planes = {
+  talos-cp-01 = { vm_id = 1101, ip = "192.168.1.50", mac = "BC:24:11:00:01:01" }
+  talos-cp-02 = { vm_id = 1102, ip = "192.168.1.51", mac = "BC:24:11:00:01:02" }
+  talos-cp-03 = { vm_id = 1103, ip = "192.168.1.52", mac = "BC:24:11:00:01:03" }
+}
+
+workers = {
+  talos-w-01 = { vm_id = 1201, ip = "192.168.1.53", mac = "BC:24:11:00:02:01" }
+  talos-w-02 = { vm_id = 1202, ip = "192.168.1.54", mac = "BC:24:11:00:02:02" }
+}
+
+# -----------------------------------------------------------------------------
+# Talos / k8s versions — uncomment to override defaults.
+# -----------------------------------------------------------------------------
+# talos_version          = "v1.13.2"
+# talos_version_contract = "v1.13"
+# kubernetes_version     = "v1.34.0"

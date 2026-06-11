@@ -1,0 +1,30 @@
+---
+# Per-node patch applied to every Talos machine, control plane and worker.
+# Rendered from Terraform with: hostname, node_ip, gateway, dns_servers,
+# installer_image, tailscale_authkey, ntp_servers.
+machine:
+  network:
+    hostname: ${hostname}
+    nameservers: ${jsonencode(dns_servers)}
+    interfaces:
+      - deviceSelector:
+          driver: virtio_net
+        addresses:
+          - ${node_ip}/${netmask_bits}
+        routes:
+          - network: 0.0.0.0/0
+            gateway: ${gateway}
+%{ if vip_ip != null ~}
+        vip:
+          ip: ${vip_ip}
+%{ endif ~}
+  install:
+    disk: /dev/sda
+    image: ${installer_image}
+    wipe: false
+  kubelet:
+    nodeIP:
+      validSubnets:
+        - ${node_subnet}
+  time:
+    servers: ${jsonencode(ntp_servers)}
