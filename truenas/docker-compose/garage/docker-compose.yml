@@ -25,15 +25,30 @@ configs:
   garage-ts-serve:
     # Path-style URLs work out of the box (use_path_style=true on
     # the Tofu side). Garage's S3 API listens on 3900.
+    #
+    # Upstream is referenced via the `garage-app` network alias rather
+    # than the service name `garage`, because the sidecar sets
+    # `hostname: garage` (so its tailnet URL is `garage.<tailnet>.ts.net`)
+    # and Docker writes that hostname into the sidecar's /etc/hosts
+    # pointing at its own IP — making `http://garage:3900` proxy to
+    # the sidecar itself (502 Bad Gateway). The alias sidesteps the
+    # collision while keeping the public URL unchanged.
     content: |
       { "TCP": { "443": { "HTTPS": true } },
-        "Web": { "$${TS_CERT_DOMAIN}:443": { "Handlers": { "/": { "Proxy": "http://garage:3900" } } } },
+        "Web": { "$${TS_CERT_DOMAIN}:443": { "Handlers": { "/": { "Proxy": "http://garage-app:3900" } } } },
         "AllowFunnel": { "$${TS_CERT_DOMAIN}:443": false } }
 
 services:
   garage:
     container_name: garage
     image: dxflrs/garage:v2.3.0
+    # Network alias so the sidecar can reach this container without
+    # colliding with its own `hostname: garage` — see the configs
+    # comment above.
+    networks:
+      default:
+        aliases:
+          - garage-app
     # Run as the TrueNAS `apps` user so bind-mounted dirs need only
     # 568:568 ownership.
     user: "568:568"
