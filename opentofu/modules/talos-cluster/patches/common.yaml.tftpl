@@ -34,6 +34,10 @@ machine:
         - ${node_subnet}
   time:
     servers: ${jsonencode(ntp_servers)}
+%{ if vip_ip != null ~}
+# Control-plane-only: workers reject `cluster.etcd` ("etcd config is
+# only allowed on control plane machines"). Gated on vip_ip since that
+# already encodes "this is a CP" in the template (null for workers).
 cluster:
   etcd:
     # Once the siderolabs/tailscale extension is up each node has two IPs
@@ -45,6 +49,7 @@ cluster:
     # it belongs.
     advertisedSubnets:
       - ${node_subnet}
+%{ endif ~}
 ---
 # Talos 1.12+ multi-doc config: dedicated HostnameConfig document.
 # `auto: off` makes the static value authoritative; without it the
