@@ -34,6 +34,17 @@ machine:
         - ${node_subnet}
   time:
     servers: ${jsonencode(ntp_servers)}
+cluster:
+  etcd:
+    # Once the siderolabs/tailscale extension is up each node has two IPs
+    # (LAN + 100.64/10 tailnet). Without this constraint Talos may pick the
+    # tailnet address for `advertise-peer-urls`, which Tailscale ACLs and
+    # NAT path don't reliably route between CPs — etcd peer joins then hang
+    # with "i/o timeout" calling 100.x.y.z:2380. Pinning advertisement to
+    # the LAN subnet keeps etcd peer traffic on the local network where
+    # it belongs.
+    advertisedSubnets:
+      - ${node_subnet}
 ---
 # Talos 1.12+ multi-doc config: dedicated HostnameConfig document.
 # `auto: off` makes the static value authoritative; without it the
