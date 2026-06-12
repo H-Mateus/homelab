@@ -2,9 +2,15 @@
 # Per-node patch applied to every Talos machine, control plane and worker.
 # Rendered from Terraform with: hostname, node_ip, gateway, dns_servers,
 # installer_image, tailscale_authkey, ntp_servers.
+#
+# Hostname intentionally NOT under machine.network here — Talos 1.12+
+# moved it to a dedicated HostnameConfig document (second doc below).
+# Setting both fails validation with "static hostname is already set in
+# v1alpha1 config" because the talos provider auto-emits a default
+# HostnameConfig and the deprecated machine.network.hostname is then a
+# duplicate source.
 machine:
   network:
-    hostname: ${hostname}
     nameservers: ${jsonencode(dns_servers)}
     interfaces:
       - deviceSelector:
@@ -28,3 +34,12 @@ machine:
         - ${node_subnet}
   time:
     servers: ${jsonencode(ntp_servers)}
+---
+# Talos 1.12+ multi-doc config: dedicated HostnameConfig document.
+# `auto: off` makes the static value authoritative; without it the
+# default `auto: stable` would also generate a name, and the validator
+# rejects ambiguity between sources.
+apiVersion: v1alpha1
+kind: HostnameConfig
+hostname: ${hostname}
+auto: off

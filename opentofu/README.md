@@ -78,16 +78,28 @@ On the Proxmox host (one-time):
 pveum user add tofu@pve --comment "OpenTofu — homelab cluster IaC"
 
 # Role with the privileges the bpg provider actually exercises.
-# Note: `VM.Monitor` existed in older Proxmox versions but was removed —
-# its functionality is covered by VM.Console + VM.PowerMgmt. Don't add
-# it back; recent `pveum` rejects the role creation outright.
+# Notes:
+# - `VM.Monitor` existed in older Proxmox versions but was removed; its
+#   functionality is covered by VM.Console + VM.PowerMgmt. Don't add it
+#   back; recent `pveum` rejects the role creation outright.
+# - `SDN.Use` is required on Proxmox 8+ to attach a NIC to a bridge,
+#   even the plain `vmbr0` Linux bridge — it sits in the SDN's default
+#   "localnetwork" zone now, and the permission check happens at VM
+#   create. `SDN.Audit` is for read operations against SDN config.
+# - `VM.GuestAgent.Audit` lets the provider query the QEMU guest agent
+#   to discover VM-reported network interfaces (post-boot IP detection).
+#   Without it apply emits a warning ("error retrieving VM network
+#   interfaces from agent") but doesn't fail.
 pveum role add OpenTofu -privs "\
 VM.Allocate VM.Clone VM.Config.CDROM VM.Config.CPU VM.Config.Cloudinit \
 VM.Config.Disk VM.Config.HWType VM.Config.Memory VM.Config.Network \
 VM.Config.Options VM.Console VM.Migrate VM.PowerMgmt \
-VM.Audit Datastore.Allocate Datastore.AllocateSpace \
+VM.Audit VM.GuestAgent.Audit Datastore.Allocate Datastore.AllocateSpace \
 Datastore.AllocateTemplate Datastore.Audit Sys.Audit Sys.Modify \
-Pool.Allocate Pool.Audit"
+Pool.Allocate Pool.Audit SDN.Use SDN.Audit"
+
+# Already created the role with a smaller set? Update it in place:
+#   pveum role modify OpenTofu -privs "<full priv list above>"
 
 # Grant role at the root scope.
 pveum aclmod / -user tofu@pve -role OpenTofu
