@@ -56,6 +56,22 @@ empty and BIOS falls through to the ISO. Talos installs itself to the
 disk and reboots. Subsequent boots skip the ISO entirely. Leaving the ISO
 attached costs nothing and means re-imaging is just `tofu taint` + apply.
 
+**etcd pinned to the LAN subnet.** Once the Tailscale extension is up,
+each control plane node has two IPv4 addresses (the LAN one and the
+`100.64.0.0/10` tailnet one). Without `cluster.etcd.advertisedSubnets`
+Talos may pick the tailnet address for `etcd --advertise-peer-urls`,
+which Tailscale ACLs don't reliably route between peers — etcd joins
+then hang with `i/o timeout` calling the wrong IP. The patch in
+`modules/talos-cluster/patches/common.yaml.tftpl` constrains
+advertisement to the configured `node_subnet`.
+
+**HostnameConfig as a separate config document.** Talos 1.12 moved
+hostname out of `machine.network.hostname` into a dedicated
+`HostnameConfig` v1alpha1 document. The talos terraform provider
+auto-emits one; setting both at once fails validation with `static
+hostname is already set in v1alpha1 config`. The patch sets only the
+new form.
+
 ## Prerequisites
 
 1. **Proxmox host** reachable on the LAN with the bpg/proxmox provider's
@@ -196,6 +212,13 @@ talosctl health
 A clean apply on this hardware takes ~15 min: most of it is each VM
 booting from ISO, installing Talos, rebooting, joining the cluster.
 
+If your local machine can't reach the cluster API at the VIP (corporate
+network filtering, no LAN route, etc.), run `tofu` from a host that
+*can* — Proxmox itself is the obvious choice since it's on the same
+LAN as the VMs it just created. The remote-state backend (Garage over
+Tailscale) means it doesn't matter which machine drives `apply`;
+they share state.
+
 ## Cutover from the existing 1+2 cluster
 
 The Proxmox host has 16 GiB RAM and the new cluster wants 14 GiB — too
@@ -224,12 +247,26 @@ tofu apply
 
 # --- post-cutover ---
 
-# Flux: install in the new cluster, pointing at the same repo.
-kubectl --kubeconfig _generated/kubeconfig apply -k \
-  ../../../kubernetes/clusters/talos/flux-system
+# Flux: install in the new cluster, pointing at the same repo. Prefer
+# `flux bootstrap github` because it also creates the deploy key in
+# GitHub and the matching Secret in-cluster. `kubectl apply -k` works
+# but you'd then have to wire up auth yourself.
+export KUBECONFIG=./_generated/kubeconfig
+export GITHUB_TOKEN=ghp_...            # PAT with `repo` scope
+flux bootstrap github \
+  --owner=<your-gh-user> --repository=<repo-name> \
+  --branch=main --path=kubernetes/clusters/talos --personal
 
-# Or use `flux bootstrap github` per the repo's existing flow. Flux will
-# reconcile everything else from git on the new cluster.
+# Flux can now read the repo, but the kustomize-controller needs the
+# age private key to decrypt *.sops.yaml. This is an out-of-band step
+# because you can't decrypt secrets without already having the key:
+kubectl create secret generic sops-age \
+  --namespace=flux-system \
+  --from-file=age.agekey=$HOME/.config/sops/age/keys.txt
+
+# Reconciliation kicks off automatically. Watch the dependency chain
+# converge: sources Ready → infrastructure Ready → apps Ready.
+kubectl get kustomization -A -w
 
 # Verify democratic-csi finds the existing volumes by their pv handles
 # (they do — the iSCSI/NFS exports are stable across cluster rebuilds).
@@ -249,8 +286,9 @@ storage. Workloads come back where they were.
 | Add a system extension | Append to `talos_extensions`. New schematic ID, new ISO, new installer. Apply reimages nodes on next reboot. |
 | Resize a node | Bump `*_memory_mb` / `*_cpu` / `*_disk_gb`. Memory + CPU are hot-pluggable on the bpg provider; disk grows online too. |
 | Add a worker | Append to `var.workers`. Apply creates the VM and joins it. |
-| Replace a node | `tofu taint module.worker_vm[\"talos-w-02\"].proxmox_virtual_environment_vm.this` then apply. |
+| Replace a node | `tofu taint module.worker_vm[\"talos-worker-01\"].proxmox_virtual_environment_vm.this` then apply. |
 | Rotate Tailscale authkey | Edit `secrets.enc.yaml` with sops, apply. Existing nodes keep their existing TS device until they reboot or are reapplied. |
+| Access cluster from a remote machine | The generated kubeconfig points at the LAN VIP. For remote access, either swap the `server:` line to a control plane's tailnet IP (`tailscale status \| grep talos-cp`), or expose the API via the Tailscale Kubernetes Operator with a `tailscale.com/expose: "true"` Service. |
 
 ## State recovery
 

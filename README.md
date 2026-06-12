@@ -11,8 +11,8 @@ is the source of truth for all configuration, managed with GitOps.
 
 - **TrueNAS Scale** runs on an old desktop PC — handles storage (ZFS)
   and hosts Docker containers managed via Dockhand
-- **Proxmox** hosts a Talos Linux Kubernetes cluster, managed with
-  Flux CD v2 (GitOps)
+- **Proxmox** hosts a Talos Linux Kubernetes cluster, provisioned
+  with OpenTofu (IaC) and reconciled with Flux CD v2 (GitOps)
 - **SWAG** provides reverse proxy and TLS termination for all
   web-facing services
 - **Tailscale** provides secure remote access without exposing
@@ -53,6 +53,10 @@ Full ADRs in [docs/decisions/](docs/decisions/).
 - **SOPS + age for Kubernetes secrets** — encrypted secrets committed
   to git; the age private key lives only in the cluster (see
   [Secrets management](#secrets-management))
+- **OpenTofu for cluster IaC, not Terraform** — fork stewardship,
+  permissive licence, and the bpg/proxmox + siderolabs/talos
+  providers are first-class. The full design + cutover runbook lives
+  in [opentofu/README.md](opentofu/README.md)
 
 ## Repository structure
 
@@ -71,18 +75,21 @@ Full ADRs in [docs/decisions/](docs/decisions/).
 │   └── apps/                    # Workload manifests (one dir per app)
 │       ├── tailscale/           #   Tailscale Kubernetes Operator
 │       └── monitoring/          #   kube-prometheus-stack (Grafana et al.)
+├── opentofu/                    # IaC for the Talos cluster on Proxmox
+│   ├── modules/                 #   talos-image, proxmox-vm, talos-cluster
+│   └── live/homelab/            #   The one environment composing the modules
 ├── truenas/
 │   └── docker-compose/          # One directory per stack
 │       ├── adguardhome/
 │       ├── swag/
 │       ├── arr-stack/
+│       ├── garage/              #   S3-compatible store backing OpenTofu state
 │       ├── immich/              #   With tailscale sidecar — own Tailnet device
 │       └── immich-frame/        #   With tailscale sidecar — own Tailnet device
-├── proxmox/                     # Talos machine configs (UNTRACKED — PKI material)
+├── proxmox/                     # Legacy hand-built Talos configs (UNTRACKED — PKI)
 ├── docs/
 │   ├── architecture.md          # Network and service architecture
 │   ├── talos-extensions-rollout.md  # Runbook: rolling out Talos extensions
-│   └── blog/                    # Long-form write-ups
 └── scripts/
     └── check-sops-encrypted.sh  # Pre-commit helper (SOPS safety net)
 ```
@@ -164,6 +171,8 @@ pre-commit run --all-files
 - [x] Prometheus + Grafana + Alertmanager (kube-prometheus-stack)
 - [x] Migrate Immich from a TrueNAS app to a Docker Compose stack with
       a Tailscale sidecar (own Tailnet device, shareable to family)
+- [x] Rebuild Talos cluster from hand-built configs to OpenTofu IaC
+      with remote state on Garage (S3-compatible) over Tailscale
 - [ ] Migrate remaining Docker services to Kubernetes
 - [ ] Implement Renovate Bot for automated dependency updates
 - [ ] Add Home Assistant stack
