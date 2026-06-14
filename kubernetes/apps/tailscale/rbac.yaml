@@ -1,0 +1,24 @@
+---
+# Grants the tailnet user H-Mateus@github cluster-admin via the
+# Tailscale Operator's API server proxy (allowImpersonation: true
+# in helm-release.yaml). The proxy embeds the tailnet identity in
+# request headers; standard K8s RBAC takes over from there.
+#
+# See https://tailscale.com/docs/kubernetes-operator/quickstart —
+# this is the documented pattern, just in YAML so Flux owns it
+# rather than the binding living only in cluster state.
+#
+# Defense in depth: the Tailscale ACL only lets autogroup:admin
+# reach tag:k8s in the first place (see docs/architecture.md).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ts-cluster-admin
+subjects:
+  - kind: User
+    name: H-Mateus@github
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
