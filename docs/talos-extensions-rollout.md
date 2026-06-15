@@ -1,12 +1,36 @@
 # Talos system extensions rollout
 
+> **Status (2026-06-15): legacy / pre-cutover reference.**
+>
+> This runbook was written for the original hand-built 1-control-plane
+> + 2-worker Talos cluster whose machine configs lived in `proxmox/`.
+> That cluster has been replaced by a 3-CP + 2-worker cluster
+> provisioned by OpenTofu (see [`opentofu/README.md`](../opentofu/README.md)).
+>
+> On the OpenTofu cluster, extension changes are made by editing the
+> `talos_extensions` variable in `opentofu/live/homelab/main.tf` and
+> running `tofu apply` — the `talos-image` module re-derives the Image
+> Factory schematic ID and the `talos-cluster` module rolls nodes one
+> at a time via `staged_if_needing_reboot`. There is no need for the
+> manual `talosctl patch` + `talosctl upgrade` choreography below.
+>
+> The text below is retained because (1) it documents the
+> step-by-step reasoning for what each phase of an extension rollout
+> actually does, which remains educational, and (2) the `proxmox/`
+> cluster is kept powered off as a quick rollback option until the
+> new cluster has been stable for long enough.
+>
+> Paths in `proxmox/` referenced below no longer exist in the
+> OpenTofu world; their equivalents live under
+> `opentofu/modules/talos-cluster/patches/`.
+
 This runbook covers installing or updating Talos Linux system extensions
 on the existing cluster — specifically the first rollout of
 `siderolabs/tailscale` (joining each node to the tailnet so kubelet can
 mount NFS from off-site TrueNAS), but the procedure is the same for any
 future extension change.
 
-It is written for the current cluster topology: **one control plane node
+It is written for the legacy cluster topology: **one control plane node
 and two workers**. With a single control plane, the API server is
 unavailable during the few minutes the control plane reboots. This is
 acceptable for a homelab but worth being aware of — `kubectl` and Flux
