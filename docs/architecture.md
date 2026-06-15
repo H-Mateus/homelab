@@ -9,8 +9,10 @@ The homelab spans two pieces of hardware:
 
 - A **TrueNAS Scale server** hosted **off-site at a family member's
   house**, running Docker Compose stacks managed by Dockge/Dockhand.
-- A **Proxmox host** (HP ProDesk 400 G5 Mini) running a **Talos Linux Kubernetes cluster** (1
-  control plane + 2 workers) locally, managed by Flux CD v2.
+- A **Proxmox host** (HP ProDesk 400 G5 Mini) running a **Talos Linux
+  Kubernetes cluster** (3 control plane + 2 workers, HA via Talos's
+  native VIP) locally, provisioned end-to-end with **OpenTofu** and
+  managed in-cluster by Flux CD v2.
 
 Remote access is via Tailscale; no services are exposed publicly
 currently.
@@ -219,19 +221,29 @@ no shell; all configuration is applied declaratively via `talosctl`.
 ```
 Proxmox host (HP ProDesk 400 G5 Mini)
 └── Talos VMs
-    ├── controlplane  (1x)
+    ├── controlplane  (3x, HA via Talos native VIP at 192.168.1.55)
     └── workers       (2x)
 ```
 
-The single-control-plane choice is a deliberate homelab compromise:
-etcd has no replicas, and the API server is unavailable for the few
-minutes a Talos upgrade takes to reboot it. In exchange, the cluster
-fits comfortably on one Mini PC. Future growth to three CP nodes is
-on the table but not urgent.
+The cluster runs three control planes for actual high availability —
+etcd has two replicas to lose, and the Kubernetes API stays reachable
+through a rolling Talos upgrade because the VIP holder fails over to
+another CP within seconds. This replaced an earlier 1+2 topology in
+June 2026 as part of the OpenTofu IaC cutover. Five VMs fit on 16 GiB
+of host RAM with headroom for a worker bump.
 
-Machine configs live in `proxmox/` (untracked — contains PKI material
-and secrets, must never be committed). The current schematic
-(`proxmox/schematic.yaml`) bundles four official system extensions:
+The cluster is provisioned with OpenTofu — see
+[`opentofu/README.md`](../opentofu/README.md) for the module structure
+and design notes. The legacy hand-built machine configs live in
+`proxmox/` (untracked — contains PKI material) and are retained
+read-only as a frozen pre-cutover reference, to be deleted once the
+new cluster has been stable for long enough.
+
+The Talos installer image bundles four official system extensions,
+defined in code in
+[`opentofu/live/homelab/main.tf`](../opentofu/live/homelab/main.tf) and
+turned into a deterministic Image Factory schematic ID by the
+`talos-image` module:
 
 | Extension | Purpose |
 |-----------|---------|
@@ -240,10 +252,13 @@ and secrets, must never be committed). The current schematic
 | `siderolabs/tailscale` | Joins each Talos node to the tailnet as `tag:k8s-node`, used by kubelet to mount NFS from off-site TrueNAS |
 | `siderolabs/util-linux-tools` | NFS mount helpers required by democratic-csi |
 
-The `tailscale` extension's runtime configuration lives in
-`proxmox/tailscale-extension.yaml`. See
-[`docs/talos-extensions-rollout.md`](talos-extensions-rollout.md) for
-the runbook used to roll out or update an extension.
+The `tailscale` extension's runtime configuration is templated and
+SOPS-encrypted via the `talos-cluster` module
+(`patches/tailscale-extension.yaml.tftpl` + `secrets.enc.yaml`).
+[`docs/talos-extensions-rollout.md`](talos-extensions-rollout.md)
+captures the legacy runbook used on the 1+2 cluster; for the OpenTofu
+cluster, extension changes are made by editing the `talos_extensions`
+variable and re-applying.
 
 ### Flux GitOps flow
 
