@@ -15,6 +15,14 @@
 # namespace and break DNS resolution back to siblings. Same reasoning as
 # the immich stack in this repo.
 #
+# Each sidecar sets `hostname: <svc>-ts` (NOT `<svc>`) plus `TS_HOSTNAME=<svc>`:
+# the tailnet device name comes from TS_HOSTNAME, while the container hostname is
+# kept distinct so it doesn't shadow the app's `<svc>` service name in the
+# sidecar's own /etc/hosts. If the sidecar's hostname equals the proxy target
+# (`http://<svc>:<port>`), that name resolves to the sidecar itself and
+# `tailscale serve` returns "connection refused" (immich avoids this only
+# because its target `immich-server` differs from the sidecar hostname).
+#
 # Why per-service sidecars (not one shared "arr" device):
 #   - Clean root-path URLs (jellyfin.<tailnet>.ts.net) — no URL base
 #     configuration needed inside each *arr.
@@ -106,6 +114,10 @@ services:
     image: ghcr.io/seerr-team/seerr:latest
     init: true
     container_name: seerr
+    # seerr is rootless and ignores PUID/PGID (those require starting as root,
+    # which the image's USER directive prevents). Pin it to 568 so it matches
+    # the rest of the stack; the CONFIG_PATH/seerr dir must be chowned to 568.
+    user: "568:568"
     environment:
       - LOG_LEVEL=info
       - TZ=Europe/London
@@ -226,9 +238,10 @@ services:
   jellyfin-ts:
     container_name: jellyfin-ts
     image: tailscale/tailscale:latest
-    hostname: jellyfin
+    hostname: jellyfin-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY_JELLYFIN}"
+      - TS_HOSTNAME=jellyfin
       - TS_STATE_DIR=/var/lib/tailscale
       - TS_SERVE_CONFIG=/config/serve.json
       - TS_USERSPACE=true
@@ -244,9 +257,10 @@ services:
   radarr-ts:
     container_name: radarr-ts
     image: tailscale/tailscale:latest
-    hostname: radarr
+    hostname: radarr-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY_RADARR}"
+      - TS_HOSTNAME=radarr
       - TS_STATE_DIR=/var/lib/tailscale
       - TS_SERVE_CONFIG=/config/serve.json
       - TS_USERSPACE=true
@@ -262,9 +276,10 @@ services:
   sonarr-ts:
     container_name: sonarr-ts
     image: tailscale/tailscale:latest
-    hostname: sonarr
+    hostname: sonarr-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY_SONARR}"
+      - TS_HOSTNAME=sonarr
       - TS_STATE_DIR=/var/lib/tailscale
       - TS_SERVE_CONFIG=/config/serve.json
       - TS_USERSPACE=true
@@ -280,9 +295,10 @@ services:
   lidarr-ts:
     container_name: lidarr-ts
     image: tailscale/tailscale:latest
-    hostname: lidarr
+    hostname: lidarr-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY_LIDARR}"
+      - TS_HOSTNAME=lidarr
       - TS_STATE_DIR=/var/lib/tailscale
       - TS_SERVE_CONFIG=/config/serve.json
       - TS_USERSPACE=true
@@ -298,9 +314,10 @@ services:
   bazarr-ts:
     container_name: bazarr-ts
     image: tailscale/tailscale:latest
-    hostname: bazarr
+    hostname: bazarr-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY_BAZARR}"
+      - TS_HOSTNAME=bazarr
       - TS_STATE_DIR=/var/lib/tailscale
       - TS_SERVE_CONFIG=/config/serve.json
       - TS_USERSPACE=true
@@ -316,9 +333,10 @@ services:
   prowlarr-ts:
     container_name: prowlarr-ts
     image: tailscale/tailscale:latest
-    hostname: prowlarr
+    hostname: prowlarr-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY_PROWLARR}"
+      - TS_HOSTNAME=prowlarr
       - TS_STATE_DIR=/var/lib/tailscale
       - TS_SERVE_CONFIG=/config/serve.json
       - TS_USERSPACE=true
@@ -334,9 +352,10 @@ services:
   seerr-ts:
     container_name: seerr-ts
     image: tailscale/tailscale:latest
-    hostname: seerr
+    hostname: seerr-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY_SEERR}"
+      - TS_HOSTNAME=seerr
       - TS_STATE_DIR=/var/lib/tailscale
       - TS_SERVE_CONFIG=/config/serve.json
       - TS_USERSPACE=true
