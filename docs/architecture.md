@@ -347,7 +347,15 @@ the device's `--advertise-tags` / OAuth client config (for machines).
 | `tag:truenas` | The TrueNAS host's `tailscaled` | Lets ACLs grant NFS / API access to the TrueNAS host without naming a specific user. Replaces the previous model where TrueNAS was owned by my user account. |
 | `tag:k8s` | Tailscale `Ingress` / `Service` devices created by the Tailscale Kubernetes Operator | Identifies operator-managed devices (one per `Ingress`, e.g. `grafana`) so ACLs can grant access to them. |
 | `tag:k8s-node` | Talos nodes joining the tailnet via the `siderolabs/tailscale` extension | Distinguishes Talos *nodes* from operator-managed Ingresses. Used to grant kubelet NFS access to `tag:truenas`. |
-| `tag:family-immich` | The Tailscale sidecar in the Immich Docker Compose stack | The single device shared (via [Tailscale node sharing](https://tailscale.com/kb/1084/sharing)) with family members. Restricts what they can reach. |
+| `tag:immich` | The Tailscale sidecar in the Immich Docker Compose stack | The single device shared (via [Tailscale node sharing](https://tailscale.com/kb/1084/sharing)) with family members through `autogroup:shared`. Restricts what they can reach to just Immich. |
+| `tag:dockhand` | The Tailscale sidecar for the Dockhand TrueNAS app (`dockhand-ts` stack) | Gives the container-management UI its own Tailnet device. Kept as its own tag rather than a shared generic app tag because Dockhand is effectively root on the box (start/stop/delete any container, read every stack's secrets). |
+
+Planned as the arr-stack migration completes: a generic `tag:ts-apps` for the
+low-sensitivity, self-only \*arr/Seerr admin UIs, and `tag:family-jellyfin` for
+Jellyfin once it's shared to family (mirroring `tag:immich`). The live ACL in
+the admin console also carries operational tags not tabled here (e.g.
+`tag:garage`, `tag:k8s-operator`, `tag:k8s-readers`, `tag:truenas-backup` /
+`tag:truenas-primary`) — the console remains the source of truth.
 
 Two notable subtleties live in this model:
 
@@ -375,12 +383,16 @@ The full ACL lives in the Tailscale admin console. The shape of the
 
 ```jsonc
 "tagOwners": {
-  "tag:truenas":        ["autogroup:admin"],
-  "tag:k8s":            ["autogroup:admin"],
-  "tag:k8s-node":       ["autogroup:admin"],
-  "tag:family-immich":  ["autogroup:admin"]
+  "tag:truenas":   ["autogroup:admin"],
+  "tag:k8s":       ["autogroup:admin"],
+  "tag:k8s-node":  ["autogroup:admin"],
+  "tag:immich":    ["autogroup:admin"],
+  "tag:dockhand":  ["autogroup:admin"]
 }
 ```
+
+(Representative — the live `tagOwners` in the admin console also owns the
+operational tags noted above.)
 
 And the load-bearing grants are:
 
@@ -397,6 +409,16 @@ And the load-bearing grants are:
 { "src": ["autogroup:member"], "dst": ["tag:k8s"],
   "ip":  ["*"] }
 ```
+
+A leading catch-all grant (`autogroup:member → *:*`) currently gives all
+personal (member) devices full access to every tag, so app sidecars like
+`tag:immich` / `tag:dockhand` need **no** per-device grant for owner access —
+the catch-all covers it. Because Tailscale grants are allow-only (additive, no
+deny), a service can't be restricted *below* that catch-all by adding a grant;
+tightening one service means narrowing the catch-all itself. The explicit
+per-service grants (e.g. `autogroup:shared → tag:immich:443`, `group:admin →
+tag:garage:443`) exist for non-member principals (shared family users) rather
+than for owner access.
 
 ### democratic-csi controller traffic to TrueNAS
 
