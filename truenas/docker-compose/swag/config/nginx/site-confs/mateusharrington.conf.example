@@ -22,7 +22,7 @@
 # Centralising the backend host means LAN changes only need editing here.
 
 upstream docker_host    { server {{ DOCKER_HOST_IP }}; }
-upstream truenas_ui     { server {{ TRUENAS_UI_IP }}:444; }
+upstream truenas_ui     { server {{ TRUENAS_UI_IP }}:443; }
 
 # ----- HTTP -> HTTPS redirect -----------------------------------------------
 
@@ -218,7 +218,8 @@ server {
 # --- TrueNAS web UI ---
 # Restricted to specific Tailnet device IPs as a defence-in-depth measure
 # on top of Tailscale ACLs. Note `proxy_pass https://` — TrueNAS terminates
-# its own TLS on port 444.
+# its own TLS on port 443 (the default, restored after SWAG was retired from
+# the host's 80/443).
 server {
     listen 443 ssl;
     listen [::]:443 ssl;
