@@ -1,0 +1,6 @@
+# truenas/docker-compose/dockhand-ts/.gitignore
+# Tailscale node state (contains the device's private key).
+ts-state/
+
+# Local env (LAN IP + auth key).
+.env

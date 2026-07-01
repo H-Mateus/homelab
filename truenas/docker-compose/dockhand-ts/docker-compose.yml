@@ -1,0 +1,45 @@
+#
+# dockhand-ts: standalone Tailscale sidecar giving the Dockhand TrueNAS app
+# its own Tailnet device + MagicDNS hostname (dockhand.<tailnet>.ts.net),
+# matching the per-service device model used by arr-stack / immich.
+#
+# Dockhand runs as a TrueNAS *app*, not a Compose project, so it can't host an
+# in-Compose sidecar the way arr-stack / immich do — those work because the
+# tailscale/tailscale container shares a Compose network with the app and
+# proxies by container name (http://immich-server:2283). Here there is no
+# shared network: the sidecar runs in userspace mode and `tailscale serve`
+# proxies to Dockhand on the host's LAN IP:port. The sidecar only needs to be
+# able to reach that port, which any bridge-network container can.
+#
+# ${DOCKHAND_UPSTREAM} (from .env, e.g. 192.168.1.10:3050) is interpolated by
+# Compose at deploy time and kept out of git because the LAN IP is
+# environment-specific. $${TS_CERT_DOMAIN} is escaped ($$) so Tailscale, not
+# Compose, expands it inside the container.
+#
+name: dockhand-ts
+
+configs:
+  dockhand-ts-serve:
+    content: |
+      { "TCP": { "443": { "HTTPS": true } },
+        "Web": { "$${TS_CERT_DOMAIN}:443": { "Handlers": { "/": { "Proxy": "http://${DOCKHAND_UPSTREAM}" } } } },
+        "AllowFunnel": { "$${TS_CERT_DOMAIN}:443": false } }
+
+services:
+  dockhand-ts:
+    container_name: dockhand-ts
+    image: tailscale/tailscale:latest
+    hostname: dockhand
+    environment:
+      - "TS_AUTHKEY=${TS_AUTHKEY_DOCKHAND}"
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/serve.json
+      - TS_USERSPACE=true
+    volumes:
+      - ./ts-state/dockhand:/var/lib/tailscale
+    configs:
+      - source: dockhand-ts-serve
+        target: /config/serve.json
+    restart: unless-stopped
+
+networks: {}
