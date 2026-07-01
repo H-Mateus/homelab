@@ -117,13 +117,14 @@ tank/media                 ← MEDIA_PATH; mounted /media in all *arr + Jellyfin
 
 **`apps` (SSD, fast) — application config/databases:**
 
-The `./configs/*` binds are SQLite databases (Sonarr/Radarr/etc.) plus
-Jellyfin's metadata + transcode cache — small, latency-sensitive, painful to
-rebuild, so they belong on the SSD pool. You don't relocate them per-service:
-they're *relative* bind mounts, so they land wherever Dockhand stores this
-stack's directory. **Point Dockhand's stacks directory at a dataset on the
-`apps` pool** and every managed stack's config lands on SSD for free, while
-`MEDIA_PATH` still reaches across to `tank` (see the `dockhand-ts/` stack).
+Each service's `/config` (Sonarr/Radarr/etc. SQLite databases, Jellyfin
+metadata, qBittorrent + WireGuard) plus the Tailscale sidecar node state are
+small, latency-sensitive, and painful to rebuild, so they live on the SSD pool.
+`CONFIG_PATH` (default `/mnt/apps/arr-stack`) pins them to a **dedicated
+dataset** — independent of where Dockhand keeps the stack — so the whole stack's
+persistent state sits in one place you can snapshot / roll back / back up on its
+own schedule, while `MEDIA_PATH` reaches across to `tank`. Create it with the
+TrueNAS "Apps" preset, owned by uid/gid 568.
 
 ### Dataset options
 
@@ -132,8 +133,8 @@ written blocks, so changing it later doesn't rewrite existing files.
 
 | Dataset          | recordsize     | atime | Rationale                                                              |
 |------------------|----------------|-------|------------------------------------------------------------------------|
-| `tank/media`     | `1M`           | `off` | Large sequential video: more throughput, less metadata; no per-read writes |
-| `apps/*` config  | default (128K) | `off` | SQLite does small random IO; default is fine                           |
+| `tank/media`            | `1M`           | `off` | Large sequential video: more throughput, less metadata; no per-read writes |
+| `apps/arr-stack` (`CONFIG_PATH`) | default (128K) | `off` | SQLite does small random IO; default is fine                    |
 
 ```bash
 zfs set recordsize=1M atime=off tank/media
@@ -173,8 +174,9 @@ ls -li /mnt/tank/media/downloads/<file>  /mnt/tank/media/tv/<imported-file>
 
 ### Prerequisites
 
-- **Stack directory on the `apps` (SSD) pool** — the `./configs/*` binds land
-  here; point Dockhand's stacks directory at `apps` (see "Storage layout")
+- **Config dataset `apps/arr-stack` on the SSD pool** (TrueNAS "Apps" preset,
+  owned by uid 568) — set `CONFIG_PATH` to it; holds every `/config` + the
+  sidecar node state (see "Storage layout")
 - **Single media dataset on `tank` (HDD)** (e.g. `/mnt/tank/media`) with
   `recordsize=1M`, `atime=off`, owned by uid 568 — set `MEDIA_PATH` to it
 - Proton VPN account with WireGuard config generated (see above)
@@ -184,10 +186,11 @@ ls -li /mnt/tank/media/downloads/<file>  /mnt/tank/media/tv/<imported-file>
 
 ```bash
 cp .env.example .env
-# Edit .env: set MEDIA_PATH and VPN_LAN_NETWORK
-mkdir -p configs/qbit/wireguard
-cp configs/qbit/wireguard/wg0.conf.example configs/qbit/wireguard/wg0.conf
-# Paste real Proton WireGuard config into wg0.conf
+# Edit .env: set MEDIA_PATH, CONFIG_PATH, LAN_IP_RANGE, and the TS_AUTHKEY_* keys
+# Put the Proton WireGuard config where qBittorrent reads it (in CONFIG_PATH):
+mkdir -p "$CONFIG_PATH/qbit/wireguard"
+cp configs/qbit/wireguard/wg0.conf.example "$CONFIG_PATH/qbit/wireguard/wg0.conf"
+# Paste the real Proton WireGuard config into $CONFIG_PATH/qbit/wireguard/wg0.conf
 docker compose up -d
 ```
 
@@ -220,31 +223,34 @@ WireGuard config.
 
 - **Application-level backups**: Sonarr, Radarr, Prowlarr, Lidarr each run
   weekly internal backups (zipped DB + config.xml) into their own
-  `Backups/` folder under `configs/<service>/`. Configured per-app in
-  **Settings → General → Backup**.
-- **Filesystem snapshots**: weekly ZFS snapshots of the pool capture the
-  entire `configs/` tree at a consistent point.
+  `Backups/` folder under `<service>/` in the `CONFIG_PATH` dataset. Configured
+  per-app in **Settings → General → Backup**.
+- **Filesystem snapshots**: weekly ZFS snapshots of the `CONFIG_PATH` dataset
+  capture the entire config + sidecar state at a consistent point.
 - **Off-site**: not yet — eventual replication target is the
   remote TrueNAS at parents' house, once local hardware is migrated.
 
 ### What's NOT in git
 
-The entire `configs/` directory is gitignored. It contains:
+Application state lives in the `CONFIG_PATH` dataset (`/mnt/apps/arr-stack`),
+outside git and the repo working tree. It contains:
 
 - `config.xml` files with API keys
 - SQLite databases with indexer credentials, download client passwords,
   notification webhooks, and full history
 - The real `wg0.conf` with the Proton private key
+- Tailscale sidecar node state (device keys) under `ts-state/`
 
-Recovery does **not** depend on git — git only carries the compose file,
-env template, and documentation. State recovery is via snapshot rollback.
+Recovery does **not** depend on git — git carries only the compose file, env
+template, README, and the sanitised `wg0.conf.example`. State recovery is via
+ZFS snapshot rollback of the `CONFIG_PATH` dataset.
 
 ### Recovery procedure
 
 From a clean TrueNAS install:
 
-1. Restore the `configs/` dataset from the most recent ZFS snapshot (or
-   from replicated off-site copy).
+1. Restore the `CONFIG_PATH` dataset (`apps/arr-stack`) from the most recent
+   ZFS snapshot (or from a replicated off-site copy).
 2. Clone this repo into the stack directory.
 3. Recreate `.env` from `.env.example`.
 4. Verify `wg0.conf` is present and has a valid Proton key (regenerate if
@@ -271,17 +277,17 @@ If the snapshot is unavailable but the *arr internal backups exist:
 ## Files
 
 ```
-prowlarr/
+arr-stack/
 ├── docker-compose.yml
 ├── .env.example
 ├── .gitignore
 ├── README.md
 └── configs/
-    ├── .gitkeep
     └── qbit/
         └── wireguard/
-            └── wg0.conf.example
+            └── wg0.conf.example   # template only
 ```
 
-Everything else under `configs/` is runtime state, gitignored, and recovered
-from snapshot rather than git.
+Runtime state (each service's `/config` plus `ts-state/`) lives in the
+`CONFIG_PATH` dataset, not the repo — recovered from ZFS snapshot rather than
+git.

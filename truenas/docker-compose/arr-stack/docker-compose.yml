@@ -1,3 +1,80 @@
+#
+# arr-stack: media management + Jellyfin, exposed per-service via Tailscale.
+#
+# Architecture
+# ------------
+# Each user-facing service (Jellyfin, Sonarr, Radarr, Lidarr, Bazarr,
+# Prowlarr, Seerr) gets its own Tailscale sidecar with its own Tailnet
+# identity and MagicDNS hostname. The sidecars share the default Compose
+# network so they can resolve sibling containers by service name, and use
+# `tailscale serve` (HTTPS termination via MagicDNS cert) to proxy
+# https://<host>.<tailnet>.ts.net to the target service on its native port.
+#
+# We deliberately do NOT use `network_mode: service:<service>-ts` on the
+# app containers — that would put each app into its sidecar's network
+# namespace and break DNS resolution back to siblings. Same reasoning as
+# the immich stack in this repo.
+#
+# Why per-service sidecars (not one shared "arr" device):
+#   - Clean root-path URLs (jellyfin.<tailnet>.ts.net) — no URL base
+#     configuration needed inside each *arr.
+#   - Per-service ACL tags / Tailnet identity if you want different access
+#     scopes (e.g. jellyfin shared to family, radarr admin-only).
+#   - Matches the existing immich / immich-frame pattern in this repo.
+#
+# Transitional dual-access: `ports:` mappings are preserved on the app
+# containers so existing SWAG / direct-LAN paths keep working during the
+# migration. Strip them once Tailnet access is verified and SWAG retires.
+#
+# qBittorrent is intentionally NOT given a sidecar in this pass: it runs
+# with VPN_LAN_LEAK_ENABLED=false (killswitch). A sidecar on the Compose
+# network is NOT inside VPN_LAN_NETWORK, so qBit drops responses to it.
+# Solving that requires adding the Compose subnet to VPN_LAN_NETWORK
+# (hotio-specific, fragile) or a deeper rework. qBit stays reachable on
+# its host LAN port (8080) until that's revisited.
+#
+# flaresolverr is a backend service used by Prowlarr and does not need
+# Tailnet exposure.
+
+name: arr-stack
+
+configs:
+  jellyfin-ts-serve:
+    content: |
+      { "TCP": { "443": { "HTTPS": true } },
+        "Web": { "$${TS_CERT_DOMAIN}:443": { "Handlers": { "/": { "Proxy": "http://jellyfin:8096" } } } },
+        "AllowFunnel": { "$${TS_CERT_DOMAIN}:443": false } }
+  radarr-ts-serve:
+    content: |
+      { "TCP": { "443": { "HTTPS": true } },
+        "Web": { "$${TS_CERT_DOMAIN}:443": { "Handlers": { "/": { "Proxy": "http://radarr:7878" } } } },
+        "AllowFunnel": { "$${TS_CERT_DOMAIN}:443": false } }
+  sonarr-ts-serve:
+    content: |
+      { "TCP": { "443": { "HTTPS": true } },
+        "Web": { "$${TS_CERT_DOMAIN}:443": { "Handlers": { "/": { "Proxy": "http://sonarr:8989" } } } },
+        "AllowFunnel": { "$${TS_CERT_DOMAIN}:443": false } }
+  lidarr-ts-serve:
+    content: |
+      { "TCP": { "443": { "HTTPS": true } },
+        "Web": { "$${TS_CERT_DOMAIN}:443": { "Handlers": { "/": { "Proxy": "http://lidarr:8686" } } } },
+        "AllowFunnel": { "$${TS_CERT_DOMAIN}:443": false } }
+  bazarr-ts-serve:
+    content: |
+      { "TCP": { "443": { "HTTPS": true } },
+        "Web": { "$${TS_CERT_DOMAIN}:443": { "Handlers": { "/": { "Proxy": "http://bazarr:6767" } } } },
+        "AllowFunnel": { "$${TS_CERT_DOMAIN}:443": false } }
+  prowlarr-ts-serve:
+    content: |
+      { "TCP": { "443": { "HTTPS": true } },
+        "Web": { "$${TS_CERT_DOMAIN}:443": { "Handlers": { "/": { "Proxy": "http://prowlarr:9696" } } } },
+        "AllowFunnel": { "$${TS_CERT_DOMAIN}:443": false } }
+  seerr-ts-serve:
+    content: |
+      { "TCP": { "443": { "HTTPS": true } },
+        "Web": { "$${TS_CERT_DOMAIN}:443": { "Handlers": { "/": { "Proxy": "http://seerr:5055" } } } },
+        "AllowFunnel": { "$${TS_CERT_DOMAIN}:443": false } }
+
 services:
   radarr:
     image: lscr.io/linuxserver/radarr:latest
@@ -7,7 +84,7 @@ services:
       - PGID=568
       - TZ=Europe/London
     volumes:
-      - ./configs/radarr/:/config
+      - ${CONFIG_PATH}/radarr/:/config
       - ${MEDIA_PATH}:/media # Use the MEDIA_PATH variable
     ports:
       - 7878:7878
@@ -20,7 +97,7 @@ services:
       - PGID=568
       - TZ=Europe/London
     volumes:
-      - ./configs/sonarr/:/config
+      - ${CONFIG_PATH}/sonarr/:/config
       - ${MEDIA_PATH}:/media
     ports:
       - 8989:8989
@@ -36,7 +113,7 @@ services:
     ports:
       - 5055:5055
     volumes:
-      - ./configs/seerr/:/app/config
+      - ${CONFIG_PATH}/seerr/:/app/config
     healthcheck:
       test: wget --no-verbose --tries=1 --spider http://localhost:5055/api/v1/status
         || exit 1
@@ -57,7 +134,7 @@ services:
     # - NVIDIA_VISIBLE_DEVICES=all
     # - NVIDIA_DRIVER_CAPABILITIES=all
     volumes:
-      - ./configs/jellyfin:/config
+      - ${CONFIG_PATH}/jellyfin:/config
       - ${MEDIA_PATH}:/media
     ports:
       - 8096:8096
@@ -70,7 +147,7 @@ services:
       - PGID=568
       - TZ=Europe/London
     volumes:
-      - ./configs/lidarr/:/config
+      - ${CONFIG_PATH}/lidarr/:/config
       - ${MEDIA_PATH}:/media
     ports:
       - 8686:8686
@@ -83,7 +160,7 @@ services:
       - PGID=568
       - TZ=Europe/London
     volumes:
-      - ./configs/bazarr/:/config
+      - ${CONFIG_PATH}/bazarr/:/config
       - ${MEDIA_PATH}:/media
     ports:
       - 6767:6767
@@ -96,8 +173,7 @@ services:
       - PGID=568
       - TZ=Europe/London
     volumes:
-      - ./configs/prowlarr/:/config
-      - ${MEDIA_PATH}:/media/
+      - ${CONFIG_PATH}/prowlarr/:/config
     ports:
       - 9696:9696
     restart: unless-stopped
@@ -144,6 +220,133 @@ services:
       - net.ipv4.conf.all.src_valid_mark=1
       - net.ipv6.conf.all.disable_ipv6=1
     volumes:
-      - ./configs/qbit/:/config
+      - ${CONFIG_PATH}/qbit/:/config
       - ${MEDIA_PATH}:/media
+
+  jellyfin-ts:
+    container_name: jellyfin-ts
+    image: tailscale/tailscale:latest
+    hostname: jellyfin
+    environment:
+      - "TS_AUTHKEY=${TS_AUTHKEY_JELLYFIN}"
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/serve.json
+      - TS_USERSPACE=true
+    volumes:
+      - ${CONFIG_PATH}/ts-state/jellyfin:/var/lib/tailscale
+    configs:
+      - source: jellyfin-ts-serve
+        target: /config/serve.json
+    depends_on:
+      - jellyfin
+    restart: unless-stopped
+
+  radarr-ts:
+    container_name: radarr-ts
+    image: tailscale/tailscale:latest
+    hostname: radarr
+    environment:
+      - "TS_AUTHKEY=${TS_AUTHKEY_RADARR}"
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/serve.json
+      - TS_USERSPACE=true
+    volumes:
+      - ${CONFIG_PATH}/ts-state/radarr:/var/lib/tailscale
+    configs:
+      - source: radarr-ts-serve
+        target: /config/serve.json
+    depends_on:
+      - radarr
+    restart: unless-stopped
+
+  sonarr-ts:
+    container_name: sonarr-ts
+    image: tailscale/tailscale:latest
+    hostname: sonarr
+    environment:
+      - "TS_AUTHKEY=${TS_AUTHKEY_SONARR}"
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/serve.json
+      - TS_USERSPACE=true
+    volumes:
+      - ${CONFIG_PATH}/ts-state/sonarr:/var/lib/tailscale
+    configs:
+      - source: sonarr-ts-serve
+        target: /config/serve.json
+    depends_on:
+      - sonarr
+    restart: unless-stopped
+
+  lidarr-ts:
+    container_name: lidarr-ts
+    image: tailscale/tailscale:latest
+    hostname: lidarr
+    environment:
+      - "TS_AUTHKEY=${TS_AUTHKEY_LIDARR}"
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/serve.json
+      - TS_USERSPACE=true
+    volumes:
+      - ${CONFIG_PATH}/ts-state/lidarr:/var/lib/tailscale
+    configs:
+      - source: lidarr-ts-serve
+        target: /config/serve.json
+    depends_on:
+      - lidarr
+    restart: unless-stopped
+
+  bazarr-ts:
+    container_name: bazarr-ts
+    image: tailscale/tailscale:latest
+    hostname: bazarr
+    environment:
+      - "TS_AUTHKEY=${TS_AUTHKEY_BAZARR}"
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/serve.json
+      - TS_USERSPACE=true
+    volumes:
+      - ${CONFIG_PATH}/ts-state/bazarr:/var/lib/tailscale
+    configs:
+      - source: bazarr-ts-serve
+        target: /config/serve.json
+    depends_on:
+      - bazarr
+    restart: unless-stopped
+
+  prowlarr-ts:
+    container_name: prowlarr-ts
+    image: tailscale/tailscale:latest
+    hostname: prowlarr
+    environment:
+      - "TS_AUTHKEY=${TS_AUTHKEY_PROWLARR}"
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/serve.json
+      - TS_USERSPACE=true
+    volumes:
+      - ${CONFIG_PATH}/ts-state/prowlarr:/var/lib/tailscale
+    configs:
+      - source: prowlarr-ts-serve
+        target: /config/serve.json
+    depends_on:
+      - prowlarr
+    restart: unless-stopped
+
+  seerr-ts:
+    container_name: seerr-ts
+    image: tailscale/tailscale:latest
+    hostname: seerr
+    environment:
+      - "TS_AUTHKEY=${TS_AUTHKEY_SEERR}"
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/serve.json
+      - TS_USERSPACE=true
+    volumes:
+      - ${CONFIG_PATH}/ts-state/seerr:/var/lib/tailscale
+    configs:
+      - source: seerr-ts-serve
+        target: /config/serve.json
+    depends_on:
+      - seerr
+    restart: unless-stopped
+
 networks: {}

@@ -12,5 +12,9 @@ configs/qbit/*
 configs/qbit/wireguard/*
 !configs/qbit/wireguard/wg0.conf.example
 
+# Tailscale sidecar node state, if ever created relative to the stack dir
+# (normally lives in the CONFIG_PATH dataset). Contains device private keys.
+ts-state/
+
 # Local env
 .env
