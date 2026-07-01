@@ -46,9 +46,12 @@ TrueNAS app itself. Recommended:
 
 ## Setup
 
-1. Confirm Dockhand's port (default **3050**) and the box's LAN IP.
+1. Confirm Dockhand's published port and the box's LAN IP. TrueNAS apps get a
+   high node-port (30000-32767) rather than the app's native port — check the
+   **Ports** panel on the Dockhand app (it should bind `0.0.0.0:<port>`, e.g.
+   `30328`; `0.0.0.0` is required so the sidecar can reach it over the LAN IP).
 2. `cp .env.example .env` and set:
-   - `DOCKHAND_UPSTREAM=<lan-ip>:3050`
+   - `DOCKHAND_UPSTREAM=<lan-ip>:<port>`
    - `TS_AUTHKEY_DOCKHAND` — reusable, pre-approved, tagged per your ACLs.
 3. Deploy the stack (via Dockhand, or `docker compose up -d`).
 4. Approve the new `dockhand` device in the Tailscale admin console if it isn't
