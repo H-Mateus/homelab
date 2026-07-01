@@ -13,8 +13,10 @@ is the source of truth for all configuration, managed with GitOps.
   and hosts Docker containers managed via Dockhand
 - **Proxmox** hosts a Talos Linux Kubernetes cluster, provisioned
   with OpenTofu (IaC) and reconciled with Flux CD v2 (GitOps)
-- **SWAG** provides reverse proxy and TLS termination for all
-  web-facing services
+- **SWAG** provided reverse proxy and TLS termination for web-facing
+  services (currently **disabled** — being retired in favour of
+  per-service Tailscale sidecars as the remote→local TrueNAS migration
+  proceeds)
 - **Tailscale** provides secure remote access without exposing
   ports to the internet, with the Tailscale Kubernetes Operator
   managing cluster ingress via Flux
@@ -27,7 +29,7 @@ is the source of truth for all configuration, managed with GitOps.
 | Service | Platform | Purpose | Access |
 |---------|----------|---------|--------|
 | AdGuard Home | TrueNAS | Network-wide DNS / ad blocking | LAN + Tailscale |
-| SWAG | TrueNAS | Reverse proxy + Let's Encrypt | LAN + Tailscale |
+| SWAG | TrueNAS | Reverse proxy + Let's Encrypt (disabled; being retired for Tailscale sidecars) | LAN + Tailscale |
 | CrowdSec | TrueNAS | Intrusion prevention | Internal |
 | *arr stack | TrueNAS | Media automation | Tailscale only |
 | Immich | TrueNAS | Self-hosted photo library | Tailscale (own device, shared to family) |

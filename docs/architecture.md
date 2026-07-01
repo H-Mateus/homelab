@@ -60,6 +60,14 @@ flowchart TB
 
 ## Service access patterns
 
+> **Status (2026-07):** SWAG is currently **disabled**. The TrueNAS web UI
+> has been reverted to the default `443`, and web-facing Compose services
+> are being migrated to per-service `tailscale/tailscale` sidecars (as
+> already done for Immich) as part of the remote→local TrueNAS move. The
+> SWAG-based paths below (2 and 5) are retained here for reference until
+> that migration completes, at which point this section will be rewritten
+> around the sidecar model.
+
 All services are accessed via nice domain names (e.g.
 `immich.tail.mateusharrington.com`) regardless of access path. There are
 three ways a request can reach a service:
