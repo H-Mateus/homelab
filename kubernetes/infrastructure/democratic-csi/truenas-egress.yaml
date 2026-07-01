@@ -17,5 +17,5 @@ spec:
   externalName: placeholder # The operator will automatically overwrite this
   ports:
     - name: https
-      port: 444
+      port: 443
       protocol: TCP
