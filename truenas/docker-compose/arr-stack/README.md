@@ -14,14 +14,19 @@ downloads.
 | Radarr         | 7878  | Film automation                                      |
 | Lidarr         | 8686  | Music automation                                     |
 | Bazarr         | 6767  | Subtitle automation for Sonarr/Radarr                |
-| Jellyfin       | 1337  | Media server / playback                              |
+| Jellyfin       | 8096  | Media server / playback                              |
 | Seerr          | 5055  | User-facing request frontend for Jellyfin            |
 | FlareSolverr   | 8191  | Cloudflare challenge solver for protected indexers   |
 | qBittorrent    | 8080  | Torrent client (VPN-bound)                           |
 | Privoxy        | 8118  | HTTP proxy exposing the VPN tunnel to LAN clients    |
 
-All services are reached via the SWAG reverse proxy on Tailscale; direct port
-access is LAN-only.
+Each user-facing service is reached over Tailscale via its own
+`tailscale/tailscale` sidecar — its own Tailnet device + MagicDNS hostname
+(e.g. `sonarr.<tailnet>.ts.net`), terminating HTTPS with `tailscale serve`
+(see the header comment in `docker-compose.yml`). The `ports:` mappings are
+retained transitionally for direct-LAN access and can be dropped now that SWAG
+is retired. qBittorrent deliberately has no sidecar (its VPN killswitch drops
+traffic to the Compose network) and stays reachable on its LAN port `8080`.
 
 ## Architecture notes
 
@@ -77,12 +82,101 @@ on certain indexers. No persistent state, no config needed beyond the
 compose entry. Prowlarr is configured to point at it under
 **Settings → Indexers → FlareSolverr**.
 
+## Storage layout (datasets)
+
+This stack spans both pools on the local TrueNAS box. Getting the split right
+is the single most important setup decision — it determines whether
+Radarr/Sonarr can **hardlink** imports or is forced to **copy** them.
+
+### The hardlink rule
+
+Radarr/Sonarr import a finished download into the library by a hardlink or an
+atomic (instant) move — but only when the download and the library live on the
+**same filesystem**. On TrueNAS every dataset is a separate filesystem, and
+hardlinks cannot cross datasets — not even a parent and its own child dataset.
+
+So the download directory and the organized library must be **directories
+inside one single dataset**, not separate datasets:
+
+- `tank/media` with a `downloads/` **directory** → hardlinks work ✅
+- `tank/media/downloads` as a **child dataset** → hardlinks break; every import
+  is a full copy (2× space during import, can't seed while keeping an organized
+  copy) ❌
+
+### Recommended layout
+
+**`tank` (HDD, bulk) — one media dataset, mounted `/media` in every container:**
+
+```
+tank/media                 ← MEDIA_PATH; mounted /media in all *arr + Jellyfin + qBit
+├── downloads/             qBittorrent save path (categories: downloads/{movies,tv,music})
+├── movies/                Radarr root folder  → /media/movies
+├── tv/                    Sonarr root folder  → /media/tv
+└── music/                 Lidarr root folder  → /media/music
+```
+
+**`apps` (SSD, fast) — application config/databases:**
+
+The `./configs/*` binds are SQLite databases (Sonarr/Radarr/etc.) plus
+Jellyfin's metadata + transcode cache — small, latency-sensitive, painful to
+rebuild, so they belong on the SSD pool. You don't relocate them per-service:
+they're *relative* bind mounts, so they land wherever Dockhand stores this
+stack's directory. **Point Dockhand's stacks directory at a dataset on the
+`apps` pool** and every managed stack's config lands on SSD for free, while
+`MEDIA_PATH` still reaches across to `tank` (see the `dockhand-ts/` stack).
+
+### Dataset options
+
+Set these **before** copying any data in — `recordsize` only applies to newly
+written blocks, so changing it later doesn't rewrite existing files.
+
+| Dataset          | recordsize     | atime | Rationale                                                              |
+|------------------|----------------|-------|------------------------------------------------------------------------|
+| `tank/media`     | `1M`           | `off` | Large sequential video: more throughput, less metadata; no per-read writes |
+| `apps/*` config  | default (128K) | `off` | SQLite does small random IO; default is fine                           |
+
+```bash
+zfs set recordsize=1M atime=off tank/media
+```
+
+- **Ownership**: everything runs as PUID/PGID `568` (TrueNAS `apps` user). The
+  media dataset and the config dataset must be owned by / writable by uid 568,
+  or imports and DB writes fail with permission errors.
+- **compression**: leave the default `lz4` on — near-free, and a no-op on
+  already-compressed media.
+- **Snapshots**: snapshot the **config** dataset aggressively (cheap DB
+  insurance); `tank/media` snapshots are optional — media is re-acquirable and
+  the `downloads/` churn makes them heavier.
+
+### Importing an existing library
+
+When copying old media in (e.g. the loose Jellyfin directories from the remote
+box), land it directly under `tank/media/{movies,tv,music}`, then use
+**"Import Existing"** in Radarr/Sonarr so they adopt it. For loose (non-dataset)
+directories, rsync over Tailscale:
+
+```bash
+zfs set recordsize=1M atime=off tank/media   # tune FIRST, then copy
+rsync -avP --info=progress2 user@remote:/mnt/<pool>/jellyfin/movies/ /mnt/tank/media/movies/
+```
+
+### Verifying hardlinks actually work
+
+After the first import, compare inode numbers — same inode = one copy on disk:
+
+```bash
+ls -li /mnt/tank/media/downloads/<file>  /mnt/tank/media/tv/<imported-file>
+# Identical number in column 1 = hardlinked.
+```
+
 ## Setup
 
 ### Prerequisites
 
-- TrueNAS dataset for the stack (e.g. `/mnt/HDDs/stacks/prowlarr`)
-- Media dataset reachable from the host (e.g. `/mnt/HDDs/media`)
+- **Stack directory on the `apps` (SSD) pool** — the `./configs/*` binds land
+  here; point Dockhand's stacks directory at `apps` (see "Storage layout")
+- **Single media dataset on `tank` (HDD)** (e.g. `/mnt/tank/media`) with
+  `recordsize=1M`, `atime=off`, owned by uid 568 — set `MEDIA_PATH` to it
 - Proton VPN account with WireGuard config generated (see above)
 - PUID/PGID `568` (TrueNAS `apps` user) owns the config and media datasets
 
