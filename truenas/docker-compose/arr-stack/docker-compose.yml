@@ -4,7 +4,7 @@
 # Architecture
 # ------------
 # Each user-facing service (Jellyfin, Sonarr, Radarr, Lidarr, Bazarr,
-# Prowlarr, Seerr) gets its own Tailscale sidecar with its own Tailnet
+# Prowlarr, Seerr, Profilarr) gets its own Tailscale sidecar with its own Tailnet
 # identity and MagicDNS hostname. The sidecars share the default Compose
 # network so they can resolve sibling containers by service name, and use
 # `tailscale serve` (HTTPS termination via MagicDNS cert) to proxy
@@ -82,6 +82,11 @@ configs:
       { "TCP": { "443": { "HTTPS": true } },
         "Web": { "$${TS_CERT_DOMAIN}:443": { "Handlers": { "/": { "Proxy": "http://seerr:5055" } } } },
         "AllowFunnel": { "$${TS_CERT_DOMAIN}:443": false } }
+  profilarr-ts-serve:
+    content: |
+      { "TCP": { "443": { "HTTPS": true } },
+        "Web": { "$${TS_CERT_DOMAIN}:443": { "Handlers": { "/": { "Proxy": "http://profilarr:6868" } } } },
+        "AllowFunnel": { "$${TS_CERT_DOMAIN}:443": false } }
 
 services:
   radarr:
@@ -127,7 +132,8 @@ services:
     volumes:
       - ${CONFIG_PATH}/seerr/:/app/config
     healthcheck:
-      test: wget --no-verbose --tries=1 --spider http://localhost:5055/api/v1/status
+      test:
+        wget --no-verbose --tries=1 --spider http://localhost:5055/api/v1/status
         || exit 1
       start_period: 20s
       timeout: 3s
@@ -234,6 +240,20 @@ services:
     volumes:
       - ${CONFIG_PATH}/qbit/:/config
       - ${MEDIA_PATH}:/media
+
+  profilarr:
+    image: ghcr.io/dictionarry-hub/profilarr:latest
+    container_name: profilarr
+    restart: unless-stopped
+    ports:
+      - "6868:6868"
+    volumes:
+      - ${CONFIG_PATH}/profilarr:/config
+    environment:
+      - PUID=568
+      - PGID=568
+      - UMASK=022
+      - TZ=Europe/London
 
   jellyfin-ts:
     container_name: jellyfin-ts
@@ -366,6 +386,25 @@ services:
         target: /config/serve.json
     depends_on:
       - seerr
+    restart: unless-stopped
+
+  profilarr-ts:
+    container_name: profilarr-ts
+    image: tailscale/tailscale:latest
+    hostname: profilarr-ts
+    environment:
+      - "TS_AUTHKEY=${TS_AUTHKEY_PROFILARR}"
+      - TS_HOSTNAME=profilarr
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/serve.json
+      - TS_USERSPACE=true
+    volumes:
+      - ${CONFIG_PATH}/ts-state/profilarr:/var/lib/tailscale
+    configs:
+      - source: profilarr-ts-serve
+        target: /config/serve.json
+    depends_on:
+      - profilarr
     restart: unless-stopped
 
 networks: {}

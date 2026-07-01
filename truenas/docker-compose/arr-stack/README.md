@@ -16,6 +16,7 @@ downloads.
 | Bazarr         | 6767  | Subtitle automation for Sonarr/Radarr                |
 | Jellyfin       | 8096  | Media server / playback                              |
 | Seerr          | 5055  | User-facing request frontend for Jellyfin            |
+| Profilarr      | 6868  | Syncs custom formats + quality profiles into *arrs   |
 | FlareSolverr   | 8191  | Cloudflare challenge solver for protected indexers   |
 | qBittorrent    | 8080  | Torrent client (VPN-bound)                           |
 | Privoxy        | 8118  | HTTP proxy exposing the VPN tunnel to LAN clients    |
