@@ -254,6 +254,11 @@ services:
       - PGID=568
       - UMASK=022
       - TZ=Europe/London
+      # Profilarr's SvelteKit frontend validates the request Origin; behind the
+      # tailscale-serve proxy it must equal the external MagicDNS URL or login is
+      # blocked ("origin mismatch"). Sourced from .env so the tailnet name stays
+      # out of git. Scheme + host only, no trailing slash.
+      - ORIGIN=${PROFILARR_ORIGIN}
 
   jellyfin-ts:
     container_name: jellyfin-ts
