@@ -51,8 +51,18 @@ services:
       # Do not edit the next line. If you want to change the media storage location on your system, edit the value of UPLOAD_LOCATION in the .env file
       - ${UPLOAD_LOCATION}:/data
       - /etc/localtime:/etc/localtime:ro
-    env_file:
-      - .env
+    # Diverges from the upstream template's `env_file: - .env`: Dockhand injects
+    # stack env for interpolation but writes no physical .env, so an explicit
+    # env_file errors ("env file ... not found"). Pass the vars immich-server
+    # needs via environment: interpolation instead. DB_HOSTNAME / REDIS_HOSTNAME
+    # are the Compose service names.
+    environment:
+      DB_HOSTNAME: database
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_DATABASE_NAME: ${DB_DATABASE_NAME}
+      REDIS_HOSTNAME: redis
+      TZ: ${TZ:-Etc/UTC}
     depends_on:
       - redis
       - database
@@ -70,8 +80,9 @@ services:
     #   service: cpu # set to one of [armnn, cuda, rocm, openvino, openvino-wsl, rknn] for accelerated inference - use the `-wsl` version for WSL2 where applicable
     volumes:
       - model-cache:/cache
-    env_file:
-      - .env
+    # See immich-server: env_file replaced with environment: for Dockhand.
+    environment:
+      TZ: ${TZ:-Etc/UTC}
     restart: always
     healthcheck:
       disable: false
