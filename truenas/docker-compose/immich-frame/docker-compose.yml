@@ -1,9 +1,33 @@
+#
+# ImmichFrame slideshow, exposed only via Tailscale as a dedicated device.
+#
+# Architecture
+# ------------
+# ImmichFrame talks to the Immich SERVER's HTTP API (ImmichServerUrl + ApiKey),
+# not to Postgres. The `immich` stack now runs on this same Docker host with no
+# host ports (Tailnet-only), so ImmichFrame reaches it EAST-WEST over Immich's
+# Compose network instead of over the tailnet:
+#
+#   - The immichframe-family-ts sidecar joins the external `immich_default`
+#     network (created by the `immich` stack, project name `immich`).
+#   - immichframe-family shares that sidecar's netns (network_mode: service:...),
+#     so it resolves `immich-server` via Docker DNS and dials it directly on 2283.
+#
+# We do NOT point ImmichServerUrl at the Immich tailnet name: the sidecar runs
+# in TS_USERSPACE mode, where outbound tailnet traffic would have to go through
+# tailscaled's SOCKS5/HTTP proxy. Direct Docker networking avoids that entirely.
+# The sidecar's `tailscale serve` is only for INBOUND access to the frame UI.
+#
+# Requires Immich v3+: ImmichFrame has a startup guard (since v1.0.36.0) that
+# refuses to boot against an older server. Image is pinned for reproducibility.
+
 configs:
   immichframe-family-ts-serve:
     content: |
       { "TCP": { "443": { "HTTPS": true } },
         "Web": { "$${TS_CERT_DOMAIN}:443": { "Handlers": { "/": { "Proxy": "http://127.0.0.1:8080" } } } },
         "AllowFunnel": { "$${TS_CERT_DOMAIN}:443": false } }
+
 services:
   immichframe-family:
     container_name: immichframe-family
@@ -11,6 +35,7 @@ services:
     network_mode: service:immichframe-family-ts
     environment:
       - TZ=Europe/London
+      # Reaches immich-server over the shared immich_default network (see header).
       - "ImmichServerUrl=${IMMICH_URL}"
       - "ApiKey=${IMMICH_API_KEY}"
       - "Albums=470366b8-1617-413d-b349-4d88c85554a8"
@@ -38,8 +63,16 @@ services:
       - TS_SERVE_CONFIG=/config/serve.json
       - TS_USERSPACE=true
     volumes:
-      - "/mnt/data/photos/immich/immichframe/family-ts:/var/lib/tailscale"
+      - ./ts-state/immichframe-family:/var/lib/tailscale
     configs:
       - source: immichframe-family-ts-serve
         target: /config/serve.json
+    networks:
+      - default
+      - immich_default
     restart: unless-stopped
+
+networks:
+  # The Immich stack's Compose network (project `immich`). Must be up first.
+  immich_default:
+    external: true

@@ -132,9 +132,7 @@ services:
       - TS_SERVE_CONFIG=/config/serve.json
       - TS_USERSPACE=true
     volumes:
-      # Persist tailscaled state (device identity, certs) across restarts.
-      # Path lives next to the rest of the Immich data on /mnt/HDDs/immich.
-      - /mnt/HDDs/immich/family-ts:/var/lib/tailscale
+      - ./ts-state/immich-family:/var/lib/tailscale
     configs:
       - source: immich-family-ts-serve
         target: /config/serve.json

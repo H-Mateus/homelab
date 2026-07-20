@@ -1,9 +1,9 @@
 # Real env file holds DB password and Tailscale auth key — never commit.
 .env
 
-# Runtime data directories. These are mounted from /mnt/HDDs/immich on the
-# TrueNAS host, but if they ever get created relative to this dir by accident,
-# don't commit them.
+# Runtime data. Media (/mnt/tank/immich) and pgData (/mnt/apps/immich) are
+# absolute host mounts; the tailscale sidecar state is a RELATIVE bind mount
+# created next to this compose file. Never commit any of it.
+ts-state/
 library/
 postgres/
-family-ts/

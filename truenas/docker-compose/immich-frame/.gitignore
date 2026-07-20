@@ -1,2 +1,5 @@
 # Real env file holds Tailscale auth key, Immich API key, and weather API key.
 .env
+
+# Tailscale sidecar state — relative bind mount created next to the compose file.
+ts-state/
