@@ -1,0 +1,100 @@
+# Frigate config — Home Assistant box (Proxmox LXC).
+# Setup + testing steps: ../README.md
+# Design rationale: /docs/frigate-camera-project.md
+#
+# Credentials come from .env via {FRIGATE_RTSP_USER} / {FRIGATE_RTSP_PASSWORD}
+# substitution. If the camera password contains RTSP-URL-breaking characters
+# (@ : / # ? & + space), URL-encode it in .env, or set an alphanumeric password
+# on the camera (safe — cameras sit on an isolated CCTV VLAN). See README.
+
+mqtt:
+  enabled: false # turn on later to integrate detections/state with Home Assistant
+
+detectors:
+  ov:
+    type: openvino
+    device: GPU # Intel HD 530 iGPU — requires /dev/dri passthrough into the LXC
+
+model:
+  width: 300
+  height: 300
+  input_tensor: nhwc
+  input_pixel_format: bgr
+  path: /openvino-model/ssdlite_mobilenet_v2.xml
+  labelmap_path: /openvino-model/coco_91cl_bkgr.txt
+
+ffmpeg:
+  hwaccel_args: preset-vaapi # Intel QuickSync decode (handles H.264 and H.265)
+  output_args:
+    # Reolink main-stream audio is AAC, so copy it into recordings (Frigate
+    # strips audio by default). Use preset-record-generic-audio-aac if a camera
+    # turns out to be PCM/G711 instead.
+    record: preset-record-generic-audio-copy
+
+record:
+  enabled: true
+  # Test-safe for the small 24 GB LXC disk: motion-only continuous (drops idle
+  # segments) + 1-day retention so 3x 4K can't fill the rootfs. Switch to
+  # mode: all + longer retention once ./media points at the NFS cctv pool.
+  retain:
+    days: 1
+    mode: motion
+  alerts:
+    retain:
+      days: 7
+  detections:
+    retain:
+      days: 7
+
+snapshots:
+  enabled: true
+  retain:
+    default: 14
+
+# Addressing plan (pfSense static maps):
+#   .40 doorbell   .41 camera_1   .42 camera_2
+# Rename blocks to install location once cameras are mounted.
+cameras:
+  camera_1: # 192.168.1.41 — confirmed (VLC): 4K H.265 main, 640x360 H.264 sub
+    ffmpeg:
+      inputs:
+        # main stream (3840x2160 H.265) -> recording (stream-copied, not re-encoded)
+        - path: rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.1.41:554/h265Preview_01_main
+          roles:
+            - record
+        # substream (640x360 H.264) -> detection (low-res, cheap to decode)
+        - path: rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.1.41:554/h264Preview_01_sub
+          roles:
+            - detect
+    detect:
+      width: 640
+      height: 360
+      fps: 5
+
+  doorbell: # 192.168.1.40 — confirmed (VLC): 2560x1920 H.264 main, 640x480 H.264 sub, AAC audio
+    ffmpeg:
+      inputs:
+        - path: rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.1.40:554/h264Preview_01_main
+          roles:
+            - record
+        - path: rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.1.40:554/h264Preview_01_sub
+          roles:
+            - detect
+    detect:
+      width: 640
+      height: 480
+      fps: 5
+
+  camera_2: # 192.168.1.42 — confirmed (VLC): H.265 main, 640x360 H.264 sub, AAC audio
+    ffmpeg:
+      inputs:
+        - path: rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.1.42:554/h265Preview_01_main
+          roles:
+            - record
+        - path: rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.1.42:554/h264Preview_01_sub
+          roles:
+            - detect
+    detect:
+      width: 640
+      height: 360
+      fps: 5

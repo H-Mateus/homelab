@@ -1,0 +1,12 @@
+# Secrets
+.env
+
+# Recordings / snapshots
+media/
+
+# Frigate runtime state
+config/frigate.db
+config/frigate.db-*
+config/model_cache/
+config/.exports/
+config/*.log

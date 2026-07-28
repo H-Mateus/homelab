@@ -1,0 +1,25 @@
+services:
+  frigate:
+    container_name: frigate
+    image: ghcr.io/blakeblackshear/frigate:stable
+    restart: unless-stopped
+    # tmpfs cache lives in shm; bump this up as cameras are added
+    # (rough guide: ~50MB + (width*height*1.5*9 per camera)). 256mb suits a few.
+    shm_size: "256mb"
+    env_file: .env
+    devices:
+      - /dev/dri/renderD128 # Intel HD 530 iGPU: OpenVINO detection + VAAPI decode
+      # - /dev/bus/usb       # uncomment when the Coral USB TPU is fitted
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./config:/config
+      - ./media:/media/frigate # local disk for testing; bind to the NFS cctv pool later
+      - type: tmpfs
+        target: /tmp/cache
+        tmpfs:
+          size: 1000000000
+    ports:
+      - "8971:8971"      # authenticated web UI (use this one)
+      - "8554:8554"      # RTSP restream (go2rtc)
+      - "8555:8555/tcp"  # WebRTC
+      - "8555:8555/udp"  # WebRTC
