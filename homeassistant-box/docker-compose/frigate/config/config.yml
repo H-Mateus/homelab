@@ -8,7 +8,11 @@
 # on the camera (safe — cameras sit on an isolated CCTV VLAN). See README.
 
 mqtt:
-  enabled: false # turn on later to integrate detections/state with Home Assistant
+  enabled: true
+  host: "{FRIGATE_MQTT_HOST}" # Home Assistant / Mosquitto host IP (set in .env)
+  port: 1883
+  user: "{FRIGATE_MQTT_USER}"
+  password: "{FRIGATE_MQTT_PASSWORD}"
 
 tls:
   # Serve the UI/API over plain HTTP on 8971 (no self-signed cert). Required for
