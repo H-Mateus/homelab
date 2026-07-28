@@ -10,6 +10,13 @@
 mqtt:
   enabled: false # turn on later to integrate detections/state with Home Assistant
 
+tls:
+  # Serve the UI/API over plain HTTP on 8971 (no self-signed cert). Required for
+  # the Home Assistant Frigate integration to connect without cert-validation
+  # errors, and fine on a trusted LAN. Re-enable with a real cert / reverse
+  # proxy if this is ever exposed beyond the LAN.
+  enabled: false
+
 detectors:
   ov:
     type: openvino
