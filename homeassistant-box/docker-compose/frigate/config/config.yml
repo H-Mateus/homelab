@@ -23,8 +23,28 @@ model:
   path: /openvino-model/ssdlite_mobilenet_v2.xml
   labelmap_path: /openvino-model/coco_91cl_bkgr.txt
 
+detect:
+  enabled: true # explicit; per-camera width/height/fps are set in each block below
+
+objects:
+  # Only labels the COCO model knows are valid. 'face' is NOT an object label —
+  # face recognition is a separate Frigate feature with its own model. Full list:
+  # person, bicycle, car, motorcycle, bus, truck, cat, dog, bird, etc.
+  track:
+    - person
+    - car
+    - bicycle
+    - motorcycle
+    - cat
+    - dog
+
 ffmpeg:
-  hwaccel_args: preset-vaapi # Intel QuickSync decode (handles H.264 and H.265)
+  # No hwaccel on purpose: the only stream that gets *decoded* is the low-res
+  # detect substream (CPU-trivial); main streams are stream-copied for recording
+  # (never decoded). preset-vaapi caused VAAPI "Failed to sync surface" /
+  # "hwdownload" crashes on the doorbell's detect stream in the LXC. OpenVINO
+  # object detection still runs on the iGPU regardless of this setting.
+  # hwaccel_args: preset-vaapi
   output_args:
     # Reolink main-stream audio is AAC, so copy it into recordings (Frigate
     # strips audio by default). Use preset-record-generic-audio-aac if a camera
