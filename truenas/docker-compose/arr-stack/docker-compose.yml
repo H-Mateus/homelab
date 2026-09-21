@@ -46,48 +46,6 @@
 
 name: arr-stack
 
-configs:
-  jellyfin-ts-serve:
-    content: |
-      { "TCP": { "443": { "HTTPS": true } },
-        "Web": { "$${TS_CERT_DOMAIN}:443": { "Handlers": { "/": { "Proxy": "http://jellyfin:8096" } } } },
-        "AllowFunnel": { "$${TS_CERT_DOMAIN}:443": false } }
-  radarr-ts-serve:
-    content: |
-      { "TCP": { "443": { "HTTPS": true } },
-        "Web": { "$${TS_CERT_DOMAIN}:443": { "Handlers": { "/": { "Proxy": "http://radarr:7878" } } } },
-        "AllowFunnel": { "$${TS_CERT_DOMAIN}:443": false } }
-  sonarr-ts-serve:
-    content: |
-      { "TCP": { "443": { "HTTPS": true } },
-        "Web": { "$${TS_CERT_DOMAIN}:443": { "Handlers": { "/": { "Proxy": "http://sonarr:8989" } } } },
-        "AllowFunnel": { "$${TS_CERT_DOMAIN}:443": false } }
-  lidarr-ts-serve:
-    content: |
-      { "TCP": { "443": { "HTTPS": true } },
-        "Web": { "$${TS_CERT_DOMAIN}:443": { "Handlers": { "/": { "Proxy": "http://lidarr:8686" } } } },
-        "AllowFunnel": { "$${TS_CERT_DOMAIN}:443": false } }
-  bazarr-ts-serve:
-    content: |
-      { "TCP": { "443": { "HTTPS": true } },
-        "Web": { "$${TS_CERT_DOMAIN}:443": { "Handlers": { "/": { "Proxy": "http://bazarr:6767" } } } },
-        "AllowFunnel": { "$${TS_CERT_DOMAIN}:443": false } }
-  prowlarr-ts-serve:
-    content: |
-      { "TCP": { "443": { "HTTPS": true } },
-        "Web": { "$${TS_CERT_DOMAIN}:443": { "Handlers": { "/": { "Proxy": "http://prowlarr:9696" } } } },
-        "AllowFunnel": { "$${TS_CERT_DOMAIN}:443": false } }
-  seerr-ts-serve:
-    content: |
-      { "TCP": { "443": { "HTTPS": true } },
-        "Web": { "$${TS_CERT_DOMAIN}:443": { "Handlers": { "/": { "Proxy": "http://seerr:5055" } } } },
-        "AllowFunnel": { "$${TS_CERT_DOMAIN}:443": false } }
-  profilarr-ts-serve:
-    content: |
-      { "TCP": { "443": { "HTTPS": true } },
-        "Web": { "$${TS_CERT_DOMAIN}:443": { "Handlers": { "/": { "Proxy": "http://profilarr:6868" } } } },
-        "AllowFunnel": { "$${TS_CERT_DOMAIN}:443": false } }
-
 services:
   radarr:
     image: lscr.io/linuxserver/radarr:latest
@@ -272,9 +230,9 @@ services:
       - TS_USERSPACE=true
     volumes:
       - ${CONFIG_PATH}/ts-state/jellyfin:/var/lib/tailscale
-    configs:
-      - source: jellyfin-ts-serve
-        target: /config/serve.json
+      # serve.json as a real directory mount, not a Compose `configs:` entry —
+      # see the header note on Dockhand auto-update recreates.
+      - ./ts-config/jellyfin:/config
     depends_on:
       - jellyfin
     restart: unless-stopped
@@ -291,9 +249,7 @@ services:
       - TS_USERSPACE=true
     volumes:
       - ${CONFIG_PATH}/ts-state/radarr:/var/lib/tailscale
-    configs:
-      - source: radarr-ts-serve
-        target: /config/serve.json
+      - ./ts-config/radarr:/config
     depends_on:
       - radarr
     restart: unless-stopped
@@ -310,9 +266,7 @@ services:
       - TS_USERSPACE=true
     volumes:
       - ${CONFIG_PATH}/ts-state/sonarr:/var/lib/tailscale
-    configs:
-      - source: sonarr-ts-serve
-        target: /config/serve.json
+      - ./ts-config/sonarr:/config
     depends_on:
       - sonarr
     restart: unless-stopped
@@ -329,9 +283,7 @@ services:
       - TS_USERSPACE=true
     volumes:
       - ${CONFIG_PATH}/ts-state/lidarr:/var/lib/tailscale
-    configs:
-      - source: lidarr-ts-serve
-        target: /config/serve.json
+      - ./ts-config/lidarr:/config
     depends_on:
       - lidarr
     restart: unless-stopped
@@ -348,9 +300,7 @@ services:
       - TS_USERSPACE=true
     volumes:
       - ${CONFIG_PATH}/ts-state/bazarr:/var/lib/tailscale
-    configs:
-      - source: bazarr-ts-serve
-        target: /config/serve.json
+      - ./ts-config/bazarr:/config
     depends_on:
       - bazarr
     restart: unless-stopped
@@ -367,9 +317,7 @@ services:
       - TS_USERSPACE=true
     volumes:
       - ${CONFIG_PATH}/ts-state/prowlarr:/var/lib/tailscale
-    configs:
-      - source: prowlarr-ts-serve
-        target: /config/serve.json
+      - ./ts-config/prowlarr:/config
     depends_on:
       - prowlarr
     restart: unless-stopped
@@ -386,9 +334,7 @@ services:
       - TS_USERSPACE=true
     volumes:
       - ${CONFIG_PATH}/ts-state/seerr:/var/lib/tailscale
-    configs:
-      - source: seerr-ts-serve
-        target: /config/serve.json
+      - ./ts-config/seerr:/config
     depends_on:
       - seerr
     restart: unless-stopped
@@ -405,9 +351,7 @@ services:
       - TS_USERSPACE=true
     volumes:
       - ${CONFIG_PATH}/ts-state/profilarr:/var/lib/tailscale
-    configs:
-      - source: profilarr-ts-serve
-        target: /config/serve.json
+      - ./ts-config/profilarr:/config
     depends_on:
       - profilarr
     restart: unless-stopped

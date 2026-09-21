@@ -29,16 +29,6 @@
 
 name: immich
 
-configs:
-  immich-family-ts-serve:
-    # Proxies https://<host>.<tailnet>.ts.net (port 443, HTTPS) to the
-    # immich-server container on its native port 2283. Resolved via Docker's
-    # embedded DNS using the Compose service name.
-    content: |
-      { "TCP": { "443": { "HTTPS": true } },
-        "Web": { "$${TS_CERT_DOMAIN}:443": { "Handlers": { "/": { "Proxy": "http://immich-server:2283" } } } },
-        "AllowFunnel": { "$${TS_CERT_DOMAIN}:443": false } }
-
 services:
   immich-server:
     container_name: immich_server
@@ -133,9 +123,16 @@ services:
       - TS_USERSPACE=true
     volumes:
       - ./ts-state/immich-family:/var/lib/tailscale
-    configs:
-      - source: immich-family-ts-serve
-        target: /config/serve.json
+      # serve.json lives in a real directory (not a Compose `configs:` mount):
+      # Dockhand's image auto-update recreates containers without materialising
+      # Compose configs, leaving TS_SERVE_CONFIG pointing at nothing and the
+      # sidecar crash-looping on fsnotify ENOENT. A plain bind mount is part of
+      # the container spec and survives any recreate path.
+      #
+      # Proxies https://<host>.<tailnet>.ts.net (port 443, HTTPS) to the
+      # immich-server container on its native port 2283, resolved via Docker's
+      # embedded DNS using the Compose service name.
+      - ./ts-config/immich-family:/config
     depends_on:
       - immich-server
     restart: always

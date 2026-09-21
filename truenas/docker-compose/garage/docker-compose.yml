@@ -21,23 +21,6 @@
 
 name: garage
 
-configs:
-  garage-ts-serve:
-    # Path-style URLs work out of the box (use_path_style=true on
-    # the Tofu side). Garage's S3 API listens on 3900.
-    #
-    # Upstream is referenced via the `garage-app` network alias rather
-    # than the service name `garage`, because the sidecar sets
-    # `hostname: garage` (so its tailnet URL is `garage.<tailnet>.ts.net`)
-    # and Docker writes that hostname into the sidecar's /etc/hosts
-    # pointing at its own IP — making `http://garage:3900` proxy to
-    # the sidecar itself (502 Bad Gateway). The alias sidesteps the
-    # collision while keeping the public URL unchanged.
-    content: |
-      { "TCP": { "443": { "HTTPS": true } },
-        "Web": { "$${TS_CERT_DOMAIN}:443": { "Handlers": { "/": { "Proxy": "http://garage-app:3900" } } } },
-        "AllowFunnel": { "$${TS_CERT_DOMAIN}:443": false } }
-
 services:
   garage:
     container_name: garage
@@ -87,9 +70,23 @@ services:
       - TS_EXTRA_ARGS=--advertise-tags=tag:garage
     volumes:
       - ${GARAGE_TS_STATE_DIR}:/var/lib/tailscale
-    configs:
-      - source: garage-ts-serve
-        target: /config/serve.json
+      # serve.json lives in a real directory (not a Compose `configs:` mount):
+      # Dockhand's image auto-update recreates containers without materialising
+      # Compose configs, leaving TS_SERVE_CONFIG pointing at nothing and the
+      # sidecar crash-looping on fsnotify ENOENT. A plain bind mount is part of
+      # the container spec and survives any recreate path.
+      #
+      # Upstream is referenced via the `garage-app` network alias rather
+      # than the service name `garage`, because the sidecar sets
+      # `hostname: garage` (so its tailnet URL is `garage.<tailnet>.ts.net`)
+      # and Docker writes that hostname into the sidecar's /etc/hosts
+      # pointing at its own IP — making `http://garage:3900` proxy to
+      # the sidecar itself (502 Bad Gateway). The alias sidesteps the
+      # collision while keeping the public URL unchanged.
+      #
+      # Path-style URLs work out of the box (use_path_style=true on the
+      # Tofu side). Garage's S3 API listens on 3900.
+      - ./ts-config/garage:/config
     depends_on:
       - garage
     restart: always
