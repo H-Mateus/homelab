@@ -21,13 +21,6 @@
 # Requires Immich v3+: ImmichFrame has a startup guard (since v1.0.36.0) that
 # refuses to boot against an older server. Image is pinned for reproducibility.
 
-configs:
-  immichframe-family-ts-serve:
-    content: |
-      { "TCP": { "443": { "HTTPS": true } },
-        "Web": { "$${TS_CERT_DOMAIN}:443": { "Handlers": { "/": { "Proxy": "http://127.0.0.1:8080" } } } },
-        "AllowFunnel": { "$${TS_CERT_DOMAIN}:443": false } }
-
 services:
   immichframe-family:
     container_name: immichframe-family
@@ -64,9 +57,12 @@ services:
       - TS_USERSPACE=true
     volumes:
       - ./ts-state/immichframe-family:/var/lib/tailscale
-    configs:
-      - source: immichframe-family-ts-serve
-        target: /config/serve.json
+      # serve.json as a committed file in a real directory (not a Compose
+      # `configs:` single-file mount). containerboot fsnotify-watches this path
+      # to hot-reload; a single-file mount isn't reliably watchable and makes
+      # the sidecar crash-loop after an image update with
+      # "serve proxy: failed to add fsnotify watch: no such file or directory".
+      - ./ts-config/immichframe-family:/config
     networks:
       - default
       - immich_default
