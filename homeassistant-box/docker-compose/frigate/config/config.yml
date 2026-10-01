@@ -92,22 +92,25 @@ snapshots:
   retain:
     default: 14
 
-# Addressing plan (pfSense static maps):
-#   .40 doorbell   .41 camera_1   .42 camera_2
-# Rename blocks to install location once cameras are mounted.
+# Addressing: cameras live on the isolated CCTV VLAN 30 (pfSense "Cameras"
+# interface, 192.168.30.0/24) behind Omada port 1/0/9 (PVID 30, untagged).
+# pfSense static DHCP maps by MAC: .40 doorbell  .41 camera_1  .42 camera_2.
+# Frigate (LXC 192.168.1.39) and HA (192.168.1.10) reach them via pfSense
+# LAN -> VLAN30 rules on 443/554/9000. Rename blocks to install location
+# once cameras are mounted.
 cameras:
-  camera_1: # 192.168.1.41 — confirmed (VLC): 4K H.265 main, 640x360 H.264 sub
+  camera_1: # 192.168.30.41 — confirmed (VLC): 4K H.265 main, 640x360 H.264 sub
     # Not mounted yet (2026-10). Disabled so Frigate doesn't spam ffmpeg
     # reconnect errors for an absent camera; flip to true on install day.
     enabled: false
     ffmpeg:
       inputs:
         # main stream (3840x2160 H.265) -> recording (stream-copied, not re-encoded)
-        - path: rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.1.41:554/h265Preview_01_main
+        - path: rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.41:554/h265Preview_01_main
           roles:
             - record
         # substream (640x360 H.264) -> detection (low-res, cheap to decode)
-        - path: rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.1.41:554/h264Preview_01_sub
+        - path: rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.41:554/h264Preview_01_sub
           roles:
             - detect
     detect:
@@ -115,13 +118,13 @@ cameras:
       height: 360
       fps: 5
 
-  doorbell: # 192.168.1.40 — confirmed (VLC): 2560x1920 H.264 main, 640x480 H.264 sub, AAC audio
+  doorbell: # 192.168.30.40 — confirmed (VLC): 2560x1920 H.264 main, 640x480 H.264 sub, AAC audio
     ffmpeg:
       inputs:
-        - path: rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.1.40:554/h264Preview_01_main
+        - path: rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.40:554/h264Preview_01_main
           roles:
             - record
-        - path: rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.1.40:554/h264Preview_01_sub
+        - path: rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.40:554/h264Preview_01_sub
           roles:
             - detect
     detect:
@@ -129,16 +132,16 @@ cameras:
       height: 480
       fps: 5
 
-  camera_2: # 192.168.1.42 — confirmed (VLC): H.265 main, 640x360 H.264 sub, AAC audio
+  camera_2: # 192.168.30.42 — confirmed (VLC): H.265 main, 640x360 H.264 sub, AAC audio
     # Not mounted yet (2026-10). Disabled so Frigate doesn't spam ffmpeg
     # reconnect errors for an absent camera; flip to true on install day.
     enabled: false
     ffmpeg:
       inputs:
-        - path: rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.1.42:554/h265Preview_01_main
+        - path: rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.42:554/h265Preview_01_main
           roles:
             - record
-        - path: rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.1.42:554/h264Preview_01_sub
+        - path: rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.42:554/h264Preview_01_sub
           roles:
             - detect
     detect:
