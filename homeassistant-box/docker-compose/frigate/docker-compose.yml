@@ -51,8 +51,17 @@ services:
     hostname: frigate
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY}"
+      # Keep TS_HOSTNAME even though hostname: is set: the node name is stored
+      # in tailscale's state as a non-default pref, and containerboot's
+      # `tailscale up` must keep mentioning it or it refuses to start
+      # ("requires mentioning all non-default flags") and the sidecar
+      # crash-loops - taking Frigate's shared netns with it.
+      - TS_HOSTNAME=frigate
       - TS_STATE_DIR=/var/lib/tailscale
       - TS_SERVE_CONFIG=/config/serve.json
+      # The image defaults to userspace networking; this is what actually
+      # switches it to kernel mode (tun device + NET_ADMIN below).
+      - TS_USERSPACE=false
     cap_add:
       - NET_ADMIN
     devices:
