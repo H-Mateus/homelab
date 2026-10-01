@@ -144,22 +144,27 @@ Three parts, all required:
    System → go2rtc should list `doorbell` with a 🎤 (backchannel) and
    `doorbell_sub`.
 3. **HTTPS:** browsers only allow microphone access on secure pages, and 8971
-   is plain HTTP so the HA integration can talk to it. Put Tailscale in front
-   (same pattern as the immich stacks) — valid cert, remote access, no change
-   for HA:
+   is plain HTTP so the HA integration can talk to it. The `frigate-ts`
+   Tailscale sidecar in `docker-compose.yml` fronts it with a valid cert (same
+   pattern as the immich stacks; see the comments there for the two
+   deliberate differences). One-time bring-up:
 
    ```bash
-   # in the Frigate LXC (privileged; needs /dev/net/tun — present by default)
-   curl -fsSL https://tailscale.com/install.sh | sh
-   tailscale up --hostname frigate          # auth in the browser; tag it like the other sidecars
-   tailscale serve --bg 8971                # https://frigate.<tailnet>.ts.net -> http://127.0.0.1:8971
-   tailscale ip -4                          # -> put <ip>:8555 in go2rtc.webrtc.candidates, commit, pull, restart
+   # Tailscale admin → Settings → Keys → generate an auth key (reusable, tagged
+   # like the other sidecars), put it in .env as TS_AUTHKEY, then:
+   docker compose up -d                     # starts frigate-ts alongside frigate
+   docker compose logs -f frigate-ts        # wait for "Serve started" / cert issued
+   docker compose exec frigate-ts tailscale ip -4   # Tailscale IP of the node
    ```
 
-   Then open `https://frigate.<tailnet>.ts.net`, Live → doorbell → the
-   microphone button appears (it is hidden on plain-HTTP pages). On the LAN the
-   WebRTC media flows to 192.168.1.39:8555; over Tailscale to the LXC's
-   Tailscale IP — both are listed as candidates.
+   Put that IP (`100.x.y.z:8555`) into `go2rtc.webrtc.candidates` in
+   `config/config.yml`, commit, pull, `docker compose restart frigate`.
+
+   Then open `https://frigate.<tailnet>.ts.net` → Live → doorbell. The
+   microphone button only appears on HTTPS **and** only when the player is
+   WebRTC (not MSE) — Frigate picks WebRTC automatically when a candidate is
+   reachable. On the LAN the media flows to 192.168.1.39:8555; over Tailscale
+   to the Tailscale IP.
 
 For talk from a Home Assistant dashboard, install **Advanced Camera Card**
 (HACS; formerly frigate-hass-card) and use its `go2rtc` live provider with the

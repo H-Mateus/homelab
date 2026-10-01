@@ -29,3 +29,38 @@ services:
       - "8554:8554"      # RTSP restream (go2rtc)
       - "8555:8555/tcp"  # WebRTC
       - "8555:8555/udp"  # WebRTC
+
+  # Tailscale sidecar: gives Frigate an HTTPS URL on the tailnet
+  # (https://frigate.<tailnet>.ts.net) with a valid cert, which browsers need
+  # before they will hand over the microphone for two-way talk; also = remote
+  # access to the Frigate UI without going through HA.
+  #
+  # Differs from the TrueNAS stacks in two deliberate ways:
+  #   - the SIDECAR joins Frigate's network namespace (not the other way round)
+  #     so Frigate keeps its own `ports:` and the HA integration's plain-HTTP
+  #     8971 on the LAN is untouched; serve.json proxies to 127.0.0.1:8971.
+  #   - kernel networking (NET_ADMIN + /dev/net/tun) instead of TS_USERSPACE,
+  #     because WebRTC media is UDP to go2rtc on 8555 via the Tailscale IP, and
+  #     userspace mode only reliably forwards TCP inbound. The LXC is
+  #     privileged, so /dev/net/tun is available.
+  frigate-ts:
+    container_name: frigate-ts
+    image: tailscale/tailscale:latest
+    hostname: frigate
+    network_mode: service:frigate
+    depends_on:
+      - frigate
+    environment:
+      - "TS_AUTHKEY=${TS_AUTHKEY}"
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/serve.json
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    volumes:
+      - ./ts-state/frigate:/var/lib/tailscale
+      # serve.json in a real directory, not a Compose `configs:` single-file
+      # mount — containerboot fsnotify-watches it (see truenas stacks).
+      - ./ts-config/frigate:/config
+    restart: unless-stopped

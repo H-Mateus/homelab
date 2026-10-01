@@ -10,3 +10,6 @@ config/frigate.db-*
 config/model_cache/
 config/.exports/
 config/*.log
+
+# Tailscale sidecar state (node key) — relative bind mount next to the compose file.
+ts-state/
