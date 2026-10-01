@@ -64,18 +64,23 @@ ffmpeg:
 
 record:
   enabled: true
-  # Test-safe for the small 24 GB LXC disk: motion-only continuous (drops idle
-  # segments) + 1-day retention so 3x 4K can't fill the rootfs. Switch to
-  # mode: all + longer retention once ./media points at the NFS cctv pool.
-  retain:
-    days: 1
-    mode: motion
+  # Frigate 0.16 schema: the old `record.retain` block was removed, replaced by
+  # `continuous` / `motion` day counts plus per-type alert/detection retention.
+  # Sized for the 2 TB single-disk `cctv` pool on TrueNAS mounted at
+  # /media/frigate (see docker-compose.yml). Do NOT apply these values while
+  # ./media still lives on the 24 GB LXC rootfs - mount the NFS share first.
+  # No `continuous` key = 0 days of idle footage; motion-only is plenty.
+  motion:
+    days: 7
   alerts:
+    # person/car/etc inside a camera's `review.alerts.required_zones`
     retain:
-      days: 7
+      days: 30
+      mode: motion
   detections:
     retain:
-      days: 7
+      days: 14
+      mode: motion
 
 snapshots:
   enabled: true
@@ -87,6 +92,9 @@ snapshots:
 # Rename blocks to install location once cameras are mounted.
 cameras:
   camera_1: # 192.168.1.41 — confirmed (VLC): 4K H.265 main, 640x360 H.264 sub
+    # Not mounted yet (2026-10). Disabled so Frigate doesn't spam ffmpeg
+    # reconnect errors for an absent camera; flip to true on install day.
+    enabled: false
     ffmpeg:
       inputs:
         # main stream (3840x2160 H.265) -> recording (stream-copied, not re-encoded)
@@ -117,6 +125,9 @@ cameras:
       fps: 5
 
   camera_2: # 192.168.1.42 — confirmed (VLC): H.265 main, 640x360 H.264 sub, AAC audio
+    # Not mounted yet (2026-10). Disabled so Frigate doesn't spam ffmpeg
+    # reconnect errors for an absent camera; flip to true on install day.
+    enabled: false
     ffmpeg:
       inputs:
         - path: rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.1.42:554/h265Preview_01_main

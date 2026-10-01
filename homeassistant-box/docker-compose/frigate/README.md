@@ -87,6 +87,51 @@ ffprobe "rtsp://USER:ENCODED_PW@CAM_IP:554/h264Preview_01_main"   # or open in V
 - Reolink substream: 640x360 **H.264**, ~10fps → detection. `detect.fps: 5`
   samples this cleanly (1-in-2); 5fps is plenty for detection.
 
+## Storage (TrueNAS `cctv` pool over NFS)
+
+Recordings go to the single-disk `cctv` pool on the primary TrueNAS; the
+Frigate SQLite DB stays on the LXC's local disk. Order matters: mount the
+share **before** applying the 7-day retention in `config/config.yml`, or the
+24 GB LXC rootfs fills up.
+
+**TrueNAS (UI):**
+
+1. Datasets → `cctv` → Add Dataset `frigate` (Record Size **1M**; compression
+   can stay lz4, video is incompressible so it is a no-op).
+2. Shares → NFS → Add: path `/mnt/cctv/frigate`, Authorized Hosts = the
+   Frigate LXC IP only, Maproot User/Group `root`/`root` (Frigate runs as
+   root in the container). Enable the NFS service, start on boot.
+3. The pool is ZFS-native encrypted with a TrueNAS-managed key, so it unlocks
+   itself at boot. Export the key once (Datasets → `cctv` → Export Key) so the
+   footage survives a lost TrueNAS config.
+
+**Frigate LXC (mounts the share directly — it is a privileged LXC, so NFS
+mounts work inside it; no Proxmox-side bind mount needed):**
+
+```bash
+apt install -y nfs-common
+mkdir -p /mnt/cctv
+chattr +i /mnt/cctv        # empty mountpoint is immutable → nothing can write
+                           # to the LXC rootfs if the NFS mount is ever missing
+cat >> /etc/fstab <<'FSTAB'
+192.168.1.2:/mnt/cctv/frigate /mnt/cctv nfs4 noatime,_netdev,nofail 0 0
+FSTAB
+systemctl daemon-reload && mount /mnt/cctv && df -h /mnt/cctv
+touch /mnt/cctv/write-test && rm /mnt/cctv/write-test   # proves maproot=root
+
+# Make Docker wait for the share at boot. Deliberately NOT x-systemd.automount:
+# Docker bind-mounts the autofs placeholder and the trigger does not propagate
+# into the container, so Frigate would see an empty directory.
+mkdir -p /etc/systemd/system/docker.service.d
+printf '[Unit]\nRequiresMountsFor=/mnt/cctv\n' > /etc/systemd/system/docker.service.d/nfs.conf
+systemctl daemon-reload
+```
+
+The NFS share's Authorized Hosts is therefore the **LXC's** IP (192.168.1.39),
+with Maproot User/Group `root`/`root`. `docker-compose.yml` binds `/mnt/cctv`
+to `/media/frigate`. Verify with `docker compose exec frigate df -h
+/media/frigate` after `docker compose up -d`.
+
 ## Later / production TODO
 
 - Switch `ffmpeg.inputs` to the **go2rtc restream** (`preset-rtsp-restream`) so
@@ -98,8 +143,5 @@ ffprobe "rtsp://USER:ENCODED_PW@CAM_IP:554/h264Preview_01_main"   # or open in V
 - Add the official **Reolink HA integration** alongside Frigate for the doorbell
   *button-press* event + two-way audio in the HA dashboard (Frigate stays the
   NVR/detection layer).
-- Bind `./media` to the **NFS `cctv` pool** on TrueNAS; keep the DB local.
-- Record **on motion** (not 24/7) and/or size storage up — 4 cameras incl. the
-  16MP floodlight is ~230 GB/day continuous.
 - Add the **Coral USB** device to `docker-compose.yml` if OpenVINO gets tight.
 - Set `mqtt.enabled: true` and wire into Home Assistant.

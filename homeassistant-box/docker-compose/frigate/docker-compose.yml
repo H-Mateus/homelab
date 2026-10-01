@@ -13,7 +13,11 @@ services:
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ./config:/config
-      - ./media:/media/frigate # local disk for testing; bind to the NFS cctv pool later
+      # Recordings/snapshots on the TrueNAS `cctv` pool (single 2 TB disk) over
+      # NFS, mounted inside this (privileged) LXC at /mnt/cctv via fstab — see
+      # README "Storage". The SQLite DB
+      # stays in ./config on the local disk - SQLite on NFS corrupts/locks.
+      - /mnt/cctv:/media/frigate
       - type: tmpfs
         target: /tmp/cache
         tmpfs:
