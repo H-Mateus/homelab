@@ -24,37 +24,33 @@ services:
         target: /tmp/cache
         tmpfs:
           size: 1000000000
-    ports:
-      - "8971:8971"      # authenticated web UI (use this one)
-      - "8554:8554"      # RTSP restream (go2rtc)
-      - "8555:8555/tcp"  # WebRTC
-      - "8555:8555/udp"  # WebRTC
+    # No ports: here - Frigate shares the frigate-ts sidecar's network namespace
+    # (network_mode below), so the published ports live on that service.
+    network_mode: service:frigate-ts
+    depends_on:
+      - frigate-ts
 
   # Tailscale sidecar: gives Frigate an HTTPS URL on the tailnet
   # (https://frigate.<tailnet>.ts.net) with a valid cert, which browsers need
   # before they will hand over the microphone for two-way talk; also = remote
   # access to the Frigate UI without going through HA.
   #
-  # Differs from the TrueNAS stacks in two deliberate ways:
-  #   - the SIDECAR joins Frigate's network namespace (not the other way round)
-  #     so Frigate keeps its own `ports:` and the HA integration's plain-HTTP
-  #     8971 on the LAN is untouched; serve.json proxies to 127.0.0.1:8971.
-  #   - kernel networking (NET_ADMIN + /dev/net/tun) instead of TS_USERSPACE,
-  #     because WebRTC media is UDP to go2rtc on 8555 via the Tailscale IP, and
-  #     userspace mode only reliably forwards TCP inbound. The LXC is
-  #     privileged, so /dev/net/tun is available.
+  # Same shape as the TrueNAS stacks: the sidecar OWNS the network namespace
+  # and publishes the ports; Frigate joins it (network_mode: service:frigate-ts).
+  # This direction matters: Frigate is restarted on every config change, and a
+  # container that joins another's netns loses networking when the owner
+  # restarts. The sidecar restarts rarely (image updates), and when it does,
+  # `docker compose up -d` recreates Frigate with it.
+  #
+  # One difference from TrueNAS: kernel networking (NET_ADMIN + /dev/net/tun)
+  # instead of TS_USERSPACE, because WebRTC media is UDP to go2rtc on 8555 via
+  # the Tailscale IP. The LXC exposes /dev/net/tun (added in its pve conf).
   frigate-ts:
     container_name: frigate-ts
     image: tailscale/tailscale:latest
-    network_mode: service:frigate
-    depends_on:
-      - frigate
+    hostname: frigate
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY}"
-      # Docker forbids `hostname:` on a container that shares another's netns
-      # ("conflicting options: hostname and the network mode"), so the tailnet
-      # node name is set here instead.
-      - TS_HOSTNAME=frigate
       - TS_STATE_DIR=/var/lib/tailscale
       - TS_SERVE_CONFIG=/config/serve.json
     cap_add:
@@ -66,4 +62,11 @@ services:
       # serve.json in a real directory, not a Compose `configs:` single-file
       # mount — containerboot fsnotify-watches it (see truenas stacks).
       - ./ts-config/frigate:/config
+    ports:
+      # Published here on behalf of Frigate (shared netns). Same LAN IP:port as
+      # before, so the HA integration at http://192.168.1.39:8971 is unchanged.
+      - "8971:8971"      # Frigate authenticated web UI / API (plain HTTP, LAN)
+      - "8554:8554"      # RTSP restream (go2rtc)
+      - "8555:8555/tcp"  # WebRTC
+      - "8555:8555/udp"  # WebRTC
     restart: unless-stopped
