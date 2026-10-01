@@ -7,6 +7,8 @@ services:
     # (rough guide: ~50MB + (width*height*1.5*9 per camera)). 256mb suits a few.
     shm_size: "256mb"
     env_file: .env
+    cap_add:
+      - CAP_PERFMON # lets Frigate read Intel iGPU stats (fixes "Failed to initialize PMU")
     devices:
       - /dev/dri/renderD128 # Intel HD 530 iGPU: OpenVINO detection + VAAPI decode
       # - /dev/bus/usb       # uncomment when the Coral USB TPU is fitted

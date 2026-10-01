@@ -7,6 +7,8 @@
 # (@ : / # ? & + space), URL-encode it in .env, or set an alphanumeric password
 # on the camera (safe — cameras sit on an isolated CCTV VLAN). See README.
 
+version: 0.17-0
+
 mqtt:
   enabled: true
   host: "{FRIGATE_MQTT_HOST}" # Home Assistant / Mosquitto host IP (set in .env)
@@ -50,12 +52,15 @@ objects:
     - dog
 
 ffmpeg:
-  # No hwaccel on purpose: the only stream that gets *decoded* is the low-res
-  # detect substream (CPU-trivial); main streams are stream-copied for recording
-  # (never decoded). preset-vaapi caused VAAPI "Failed to sync surface" /
-  # "hwdownload" crashes on the doorbell's detect stream in the LXC. OpenVINO
-  # object detection still runs on the iGPU regardless of this setting.
-  # hwaccel_args: preset-vaapi
+  # Software decoding on purpose. Frigate 0.16+ AUTO-DETECTS vaapi when this
+  # key is absent, and vaapi crashes the doorbell's detect stream in this LXC
+  # ("Failed to sync surface" / "Failed to download frame: -5" -> "Unable to
+  # read frames from ffmpeg process"). The only streams that get decoded are
+  # the 640px substreams (CPU-trivial); main streams are stream-copied for
+  # recording. OpenVINO object detection still runs on the iGPU regardless.
+  # Frigate's own troubleshooting guide lists `hwaccel_args: []` as the
+  # fallback for exactly this error.
+  hwaccel_args: []
   output_args:
     # Reolink main-stream audio is AAC, so copy it into recordings (Frigate
     # strips audio by default). Use preset-record-generic-audio-aac if a camera
