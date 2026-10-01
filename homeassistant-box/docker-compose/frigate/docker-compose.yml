@@ -46,12 +46,15 @@ services:
   frigate-ts:
     container_name: frigate-ts
     image: tailscale/tailscale:latest
-    hostname: frigate
     network_mode: service:frigate
     depends_on:
       - frigate
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY}"
+      # Docker forbids `hostname:` on a container that shares another's netns
+      # ("conflicting options: hostname and the network mode"), so the tailnet
+      # node name is set here instead.
+      - TS_HOSTNAME=frigate
       - TS_STATE_DIR=/var/lib/tailscale
       - TS_SERVE_CONFIG=/config/serve.json
     cap_add:
