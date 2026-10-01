@@ -41,11 +41,11 @@ go2rtc:
       - "ffmpeg:http://192.168.30.40/flv?port=1935&app=bcs&stream=channel0_ext.bcs&user={FRIGATE_RTSP_USER}&password={FRIGATE_RTSP_PASSWORD}"
   webrtc:
     # Addresses a browser can reach go2rtc's WebRTC port (8555, mapped in
-    # docker-compose.yml) on. LAN IP for home, Tailscale IP for remote (fill in
-    # once tailscale is installed in the LXC - see README "Two-way talk").
+    # docker-compose.yml) on. The sidecar shares Frigate's netns, so its
+    # Tailscale IP lands on the same 8555 (see README "Two-way talk").
     candidates:
-      - 192.168.1.39:8555
-      # - 100.x.y.z:8555   # Frigate LXC Tailscale IP
+      - 192.168.1.39:8555 # LXC LAN IP - browsers at home
+      - 100.107.54.14:8555 # frigate-ts sidecar Tailscale IP - browsers on the tailnet
       - stun:8555
 
 detectors:
