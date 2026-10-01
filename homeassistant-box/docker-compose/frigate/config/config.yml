@@ -23,6 +23,31 @@ tls:
   # proxy if this is ever exposed beyond the LAN.
   enabled: false
 
+go2rtc:
+  # Doorbell is opened ONCE by go2rtc and restreamed to Frigate (record +
+  # detect) and to browsers (WebRTC live view with two-way talk). Follows the
+  # Reolink recipe in the Frigate docs (configuration/camera_specific):
+  #  - http-flv for video+audio (needs HTTP enabled on the camera; if go2rtc
+  #    cannot connect, enable RTMP on the camera too),
+  #  - a plain RTSP source (NO ffmpeg: prefix) that go2rtc uses for the
+  #    talk-back audio channel. "#audio=opus" adds the codec WebRTC needs.
+  # Same {FRIGATE_*} substitution as the camera blocks; URL-encode the password
+  # if it has special characters (see README).
+  streams:
+    doorbell:
+      - "ffmpeg:http://192.168.30.40/flv?port=1935&app=bcs&stream=channel0_main.bcs&user={FRIGATE_RTSP_USER}&password={FRIGATE_RTSP_PASSWORD}#video=copy#audio=copy#audio=opus"
+      - "rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.40:554/h264Preview_01_sub"
+    doorbell_sub:
+      - "ffmpeg:http://192.168.30.40/flv?port=1935&app=bcs&stream=channel0_ext.bcs&user={FRIGATE_RTSP_USER}&password={FRIGATE_RTSP_PASSWORD}"
+  webrtc:
+    # Addresses a browser can reach go2rtc's WebRTC port (8555, mapped in
+    # docker-compose.yml) on. LAN IP for home, Tailscale IP for remote (fill in
+    # once tailscale is installed in the LXC - see README "Two-way talk").
+    candidates:
+      - 192.168.1.39:8555
+      # - 100.x.y.z:8555   # Frigate LXC Tailscale IP
+      - stun:8555
+
 detectors:
   ov:
     type: openvino
@@ -121,10 +146,14 @@ cameras:
   doorbell: # 192.168.30.40 — confirmed (VLC): 2560x1920 H.264 main, 640x480 H.264 sub, AAC audio
     ffmpeg:
       inputs:
-        - path: rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.40:554/h264Preview_01_main
+        # Both roles pull from go2rtc's restream (see go2rtc: above) so the
+        # camera is opened once and two-way talk works in the live view.
+        - path: rtsp://127.0.0.1:8554/doorbell
+          input_args: preset-rtsp-restream
           roles:
             - record
-        - path: rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.40:554/h264Preview_01_sub
+        - path: rtsp://127.0.0.1:8554/doorbell_sub
+          input_args: preset-rtsp-restream
           roles:
             - detect
     detect:

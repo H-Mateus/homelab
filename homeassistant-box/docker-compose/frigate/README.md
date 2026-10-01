@@ -132,12 +132,43 @@ with Maproot User/Group `root`/`root`. `docker-compose.yml` binds `/mnt/cctv`
 to `/media/frigate`. Verify with `docker compose exec frigate df -h
 /media/frigate` after `docker compose up -d`.
 
+## Two-way talk (doorbell)
+
+Three parts, all required:
+
+1. **Camera:** Reolink app → Server Settings → **HTTP on** (RTSP + ONVIF already
+   on). The http-flv stream go2rtc uses rides on HTTP. If go2rtc logs a
+   connection error for the flv source, enable **RTMP** as well.
+2. **Config:** the `go2rtc:` block + restream inputs in `config/config.yml`
+   (already there). After `docker compose restart frigate`, Frigate UI →
+   System → go2rtc should list `doorbell` with a 🎤 (backchannel) and
+   `doorbell_sub`.
+3. **HTTPS:** browsers only allow microphone access on secure pages, and 8971
+   is plain HTTP so the HA integration can talk to it. Put Tailscale in front
+   (same pattern as the immich stacks) — valid cert, remote access, no change
+   for HA:
+
+   ```bash
+   # in the Frigate LXC (privileged; needs /dev/net/tun — present by default)
+   curl -fsSL https://tailscale.com/install.sh | sh
+   tailscale up --hostname frigate          # auth in the browser; tag it like the other sidecars
+   tailscale serve --bg 8971                # https://frigate.<tailnet>.ts.net -> http://127.0.0.1:8971
+   tailscale ip -4                          # -> put <ip>:8555 in go2rtc.webrtc.candidates, commit, pull, restart
+   ```
+
+   Then open `https://frigate.<tailnet>.ts.net`, Live → doorbell → the
+   microphone button appears (it is hidden on plain-HTTP pages). On the LAN the
+   WebRTC media flows to 192.168.1.39:8555; over Tailscale to the LXC's
+   Tailscale IP — both are listed as candidates.
+
+For talk from a Home Assistant dashboard, install **Advanced Camera Card**
+(HACS; formerly frigate-hass-card) and use its `go2rtc` live provider with the
+microphone enabled — it goes through the Frigate integration's proxy.
+
 ## Later / production TODO
 
-- Switch `ffmpeg.inputs` to the **go2rtc restream** (`preset-rtsp-restream`) so
-  each camera is opened once. This is also the path for **two-way audio** — the
-  Reolink doorbell/cameras expose an ONVIF audio backchannel that go2rtc
-  negotiates for a talk button in the Frigate/HA live view.
+- Switch camera_1 / camera_2 to the **go2rtc restream** too (doorbell done)
+  once they are mounted.
 - **Audio in recordings** needs the main stream to be **AAC** (Reolink usually
   is — confirm in VLC). If a camera is PCM/G711, transcode it via go2rtc.
 - Add the official **Reolink HA integration** alongside Frigate for the doorbell
