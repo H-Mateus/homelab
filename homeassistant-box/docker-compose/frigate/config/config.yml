@@ -39,6 +39,18 @@ go2rtc:
       - "rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.40:554/h264Preview_01_sub"
     doorbell_sub:
       - "ffmpeg:http://192.168.30.40/flv?port=1935&app=bcs&stream=channel0_ext.bcs&user={FRIGATE_RTSP_USER}&password={FRIGATE_RTSP_PASSWORD}"
+    # Rear floodlight: RTSP, not http-flv (flv can't carry its H.265 main).
+    # Frigate's record/detect feeds get #backchannel=0 so go2rtc doesn't hold
+    # the camera's speaker channel 24/7 (which would block talk from the
+    # Reolink app / HA). rear_floodlight_talk is opened only while someone
+    # watches live: H.264 sub + backchannel, AAC transcoded to opus for WebRTC.
+    rear_floodlight:
+      - "rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.43:554/h265Preview_01_main#backchannel=0"
+    rear_floodlight_sub:
+      - "rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.43:554/h264Preview_01_sub#backchannel=0"
+    rear_floodlight_talk:
+      - "rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.43:554/h264Preview_01_sub"
+      - "ffmpeg:rear_floodlight_talk#audio=opus"
   webrtc:
     # Addresses a browser can reach go2rtc's WebRTC port (8555, mapped in
     # docker-compose.yml) on. The sidecar shares Frigate's netns, so its
@@ -182,16 +194,23 @@ cameras:
   rear_floodlight: # 192.168.30.43 — Elite Pro Floodlight PoE, mounted 2026-10-03.
     # Confirmed (ffprobe): dual-lens 180° panorama stitched into one 7680x2160
     # H.265 main (both main paths return HEVC), 1536x432 H.264 sub, both 20fps
-    # with AAC audio.
+    # with AAC audio. Pulled via the go2rtc restream (see go2rtc: above).
     ffmpeg:
       inputs:
-        - path: rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.43:554/h265Preview_01_main
+        - path: rtsp://127.0.0.1:8554/rear_floodlight
+          input_args: preset-rtsp-restream
           roles:
             - record
-        - path: rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.43:554/h264Preview_01_sub
+        - path: rtsp://127.0.0.1:8554/rear_floodlight_sub
+          input_args: preset-rtsp-restream
           roles:
             - detect
     detect:
       width: 1536
       height: 432
       fps: 5
+    live:
+      # Live view uses the talk stream (H.264 + backchannel). The 7680px H.265
+      # main is left out: most browsers can't decode it over WebRTC/MSE.
+      streams:
+        Live + talk: rear_floodlight_talk
