@@ -1,0 +1,8 @@
+# Real env file holds the DB password, Django secret key and Tailscale auth
+# key — never commit.
+.env
+
+# Runtime data. Everything else is an absolute host mount under
+# /mnt/apps/paperless; the tailscale sidecar state is a RELATIVE bind mount
+# created next to this compose file. Never commit any of it.
+ts-state/

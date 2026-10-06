@@ -1,0 +1,158 @@
+#
+# Paperless-ngx document archive, exposed only via Tailscale as a dedicated
+# device.
+#
+# Upstream reference (this file is adapted from docker-compose.postgres-tika.yml):
+#   https://github.com/paperless-ngx/paperless-ngx/tree/main/docker/compose
+# Config reference: https://docs.paperless-ngx.com/configuration/
+#
+# Architecture
+# ------------
+# Same shape as the immich stack: all services talk over the default Compose
+# network by service name, and the paperless-ts sidecar uses `tailscale serve`
+# to terminate HTTPS at https://paperless.<tailnet>.ts.net and proxy to
+# paperless:8000. No `ports:` anywhere — access is Tailnet-only. These are
+# bank/medical/tax documents; do not put this behind SWAG.
+#
+# Storage
+# -------
+# Everything lives under ${PAPERLESS_ROOT} (an encrypted dataset on the `apps`
+# NVMe pool — see README.md for the dataset layout). Keeping DB + media on one
+# pool means a recursive snapshot captures them atomically, so the DB and the
+# files it points at always line up on restore.
+#
+# Resources
+# ---------
+# The NAS is a 4c/8t i7-7700K shared with immich + arr. Workers are capped so
+# a burst of OCR can't starve the other stacks, and every container has a
+# mem_limit so a runaway job eats its own budget, not the ZFS ARC.
+#
+# Tika + Gotenberg (Office docs / .eml conversion) are deliberately left out
+# to save ~0.5–1 GB RAM. Uncomment the block at the bottom if you ever need
+# them.
+
+name: paperless
+
+services:
+  paperless:
+    container_name: paperless
+    image: ghcr.io/paperless-ngx/paperless-ngx:${PAPERLESS_VERSION:-latest}
+    # No `ports:` — access is Tailnet-only via the paperless-ts sidecar.
+    volumes:
+      - ${PAPERLESS_ROOT}/data:/usr/src/paperless/data
+      - ${PAPERLESS_ROOT}/media:/usr/src/paperless/media
+      - ${PAPERLESS_ROOT}/export:/usr/src/paperless/export
+      - ${PAPERLESS_ROOT}/consume:/usr/src/paperless/consume
+    # Diverges from upstream's `env_file: docker-compose.env`: Dockhand injects
+    # stack env for interpolation but writes no physical .env, so an explicit
+    # env_file errors. Pass everything via environment: interpolation instead.
+    environment:
+      # Run as the TrueNAS `apps` user so files on the dataset are 568:568,
+      # matching every other stack.
+      USERMAP_UID: 568
+      USERMAP_GID: 568
+      PAPERLESS_REDIS: redis://broker:6379
+      PAPERLESS_DBENGINE: postgresql
+      PAPERLESS_DBHOST: db
+      PAPERLESS_DBNAME: paperless
+      PAPERLESS_DBUSER: paperless
+      PAPERLESS_DBPASS: ${DB_PASSWORD}
+      PAPERLESS_SECRET_KEY: ${PAPERLESS_SECRET_KEY}
+      # Must be the MagicDNS URL the sidecar serves, or Django's CSRF check
+      # rejects logins/uploads coming through the proxy.
+      PAPERLESS_URL: ${PAPERLESS_URL}
+      PAPERLESS_TIME_ZONE: ${TZ:-Europe/London}
+      PAPERLESS_OCR_LANGUAGE: ${PAPERLESS_OCR_LANGUAGE:-eng}
+      # Resource caps (see header). One worker processing one document at a
+      # time with 2 OCR threads ≈ at most 2 of the 8 threads busy.
+      PAPERLESS_TASK_WORKERS: 1
+      PAPERLESS_THREADS_PER_WORKER: 2
+      PAPERLESS_WEBSERVER_WORKERS: 1
+      # Phone photos are often skewed/rotated; let OCRmyPDF straighten them.
+      PAPERLESS_OCR_DESKEW: "true"
+      PAPERLESS_OCR_ROTATE_PAGES: "true"
+      # Subfolders of consume/ are picked up too; handy if consume/ is ever
+      # shared over SMB with per-person drop folders.
+      PAPERLESS_CONSUMER_RECURSIVE: "true"
+      # First-run only: creates the superuser if it doesn't exist. Safe to
+      # blank these in Dockhand once you've logged in.
+      PAPERLESS_ADMIN_USER: ${PAPERLESS_ADMIN_USER:-}
+      PAPERLESS_ADMIN_PASSWORD: ${PAPERLESS_ADMIN_PASSWORD:-}
+      # PAPERLESS_TIKA_ENABLED: 1
+      # PAPERLESS_TIKA_GOTENBERG_ENDPOINT: http://gotenberg:3000
+      # PAPERLESS_TIKA_ENDPOINT: http://tika:9998
+    depends_on:
+      - db
+      - broker
+    mem_limit: 2g
+    restart: unless-stopped
+
+  db:
+    container_name: paperless_postgres
+    # Fresh install, so take the current upstream major. Like immich, once data
+    # exists this tag is pinned to the on-disk layout: a major bump needs
+    # pg_upgrade or dump/restore.
+    image: docker.io/library/postgres:18
+    environment:
+      POSTGRES_DB: paperless
+      POSTGRES_USER: paperless
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    volumes:
+      # Postgres 18+ expects the mount at /var/lib/postgresql (data goes in
+      # an 18/ subdirectory), not the old /var/lib/postgresql/data.
+      - ${PAPERLESS_ROOT}/pgdata:/var/lib/postgresql
+    mem_limit: 512m
+    restart: unless-stopped
+
+  broker:
+    container_name: paperless_redis
+    image: docker.io/valkey/valkey:9-alpine
+    # Celery task queue only — nothing here that isn't recreated on restart,
+    # so a Docker-managed volume (not the encrypted dataset) is fine.
+    volumes:
+      - redisdata:/data
+    mem_limit: 128m
+    restart: unless-stopped
+
+  paperless-ts:
+    container_name: paperless-ts
+    image: tailscale/tailscale:latest
+    hostname: paperless
+    environment:
+      - "TS_AUTHKEY=${TS_AUTHKEY}"
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/serve.json
+      - TS_USERSPACE=true
+    volumes:
+      - ./ts-state/paperless:/var/lib/tailscale
+      # Plain bind mount rather than Compose `configs:` — see the same note in
+      # immich/docker-compose.yml (Dockhand recreates drop Compose configs).
+      # Proxies https://paperless.<tailnet>.ts.net to paperless:8000.
+      - ./ts-config/paperless:/config
+    depends_on:
+      - paperless
+    mem_limit: 128m
+    restart: unless-stopped
+
+  # Office documents / emails. Uncomment together with the PAPERLESS_TIKA_*
+  # vars above and add both to paperless.depends_on.
+  # gotenberg:
+  #   container_name: paperless_gotenberg
+  #   image: docker.io/gotenberg/gotenberg:8.37
+  #   # Chromium renders .eml files; block JS and external content
+  #   # (tracking pixels etc.).
+  #   command:
+  #     - "gotenberg"
+  #     - "--chromium-disable-javascript=true"
+  #     - "--chromium-allow-list=file:///tmp/.*"
+  #   mem_limit: 512m
+  #   restart: unless-stopped
+  # tika:
+  #   container_name: paperless_tika
+  #   image: docker.io/apache/tika:3.3.1.0
+  #   mem_limit: 768m
+  #   restart: unless-stopped
+
+volumes:
+  redisdata:
