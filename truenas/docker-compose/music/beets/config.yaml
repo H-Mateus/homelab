@@ -24,6 +24,8 @@ import:
   # In `-q` (quiet) runs, import unmatched files with their existing tags
   # instead of skipping them; most files arrive reasonably tagged.
   quiet_fallback: asis
+  # Don't record skipped folders as done, so a later run offers them again.
+  incremental_skip_later: yes
   log: /config/import.log
 
 # Playlist-sourced additions are loose tracks, not whole albums, so most run
@@ -39,7 +41,9 @@ match:
   # falls back to as-is tags (see quiet_fallback).
   strong_rec_thresh: 0.10
 
-plugins: fetchart embedart lastgenre scrub ftintitle duplicates info
+# Since beets 2.4 MusicBrainz is itself a plugin, and an explicit list
+# replaces the default, so it must be named here or nothing ever matches.
+plugins: musicbrainz fetchart embedart lastgenre scrub ftintitle duplicates info
 
 fetchart:
   auto: yes
