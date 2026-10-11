@@ -1,0 +1,7 @@
+# Real env file holds the VPN key, service passwords and Tailscale auth
+# keys — never commit.
+.env
+
+# All runtime state is under ${CONFIG_PATH} on the host, but guard against a
+# stray relative mount or a local test run.
+ts-state/

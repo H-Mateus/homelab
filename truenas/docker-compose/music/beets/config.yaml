@@ -1,0 +1,51 @@
+# beets config, bind-mounted into the beets container at /config/config.yaml.
+# Docs: https://beets.readthedocs.io/en/stable/reference/config.html
+#
+# Role in this stack: tag new additions against MusicBrainz and file them
+# into the library Navidrome serves. The MusicBrainz IDs it writes matter
+# beyond tidiness: Navidrome forwards them with each scrobble, which is what lets
+# ListenBrainz match your plays reliably and recommend from them.
+#
+# Explo's discovery folder (music/explo) is deliberately NOT imported here —
+# it rotates weekly. Lidarr-managed albums are already tagged/filed by Lidarr.
+
+directory: /media/music
+library: /config/musiclibrary.db
+
+import:
+  # Move (not copy) out of the staging dirs so they empty as you import.
+  # The library is a separate dataset, so this is copy+delete.
+  move: yes
+  write: yes
+  # Skip what's already been imported when re-running on the same folder.
+  incremental: yes
+  # Keep the existing copy rather than prompting on duplicates.
+  duplicate_action: skip
+  # In `-q` (quiet) runs, import unmatched files with their existing tags
+  # instead of skipping them; most files arrive reasonably tagged.
+  quiet_fallback: asis
+  log: /config/import.log
+
+# Playlist-sourced additions are loose tracks, not whole albums, so most run
+# as singletons (`beet import -s`). Their folder layout below matters little:
+# Navidrome browses by tags, not paths.
+paths:
+  default: $albumartist/$album%aunique{}/$track $title
+  singleton: $albumartist/%if{$album,$album,Singles}/$title
+  comp: Compilations/$album%aunique{}/$track $title
+
+match:
+  # Slightly looser than the 0.04 default for quiet runs; anything weaker
+  # falls back to as-is tags (see quiet_fallback).
+  strong_rec_thresh: 0.10
+
+plugins: fetchart embedart lastgenre scrub ftintitle duplicates info
+
+fetchart:
+  auto: yes
+embedart:
+  auto: yes
+  maxwidth: 1000
+lastgenre:
+  auto: yes
+  count: 3

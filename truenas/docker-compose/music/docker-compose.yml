@@ -1,0 +1,209 @@
+#
+# Self-hosted music, replacing Spotify. Navidrome serves the library to the
+# web UI and Subsonic clients (phone, desktop); the other services keep the
+# library organised and feed it ListenBrainz recommendations via Explo.
+#
+# Access
+# ------
+# Tailnet-only, same sidecar pattern as immich/paperless/arr-stack: no
+# `ports:` anywhere; each user-facing service is its own Tailnet device and
+# its sidecar terminates HTTPS with `tailscale serve`:
+#   https://navidrome.<tailnet>.ts.net → navidrome:4533
+#   https://slskd.<tailnet>.ts.net     → gluetun:5030 (slskd lives in gluetun's netns)
+#   https://explo.<tailnet>.ts.net     → explo:7288
+# Sidecar container hostnames are `<svc>-ts`, never `<svc>`, so they don't
+# shadow the proxy target in their own /etc/hosts (see arr-stack header).
+#
+# Networking
+# ----------
+# slskd runs with `network_mode: service:gluetun`, so all of its traffic
+# leaves through gluetun's ProtonVPN WireGuard tunnel; if the tunnel is down
+# it has no route out. Other containers reach it at `gluetun:5030`.
+#
+# Storage
+# -------
+# Library: tank/media/music, a child dataset of the arr-stack's media dataset
+# (${MEDIA_PATH}), so Lidarr sees it at /media/music while it snapshots and
+# replicates on its own. Staging dirs sit in ${MEDIA_PATH}/downloads/ next to
+# the arr-stack's. Moves into the library cross a dataset boundary, so they
+# copy rather than rename; fine at music sizes. Docker bind mounts are
+# recursive, so mounting ${MEDIA_PATH} includes the child dataset.
+# App state: ${CONFIG_PATH} (apps/music), covered by the recursive apps
+# snapshot task.
+
+name: music
+
+services:
+  navidrome:
+    container_name: navidrome
+    image: deluan/navidrome:${NAVIDROME_VERSION:-latest}
+    user: "568:568"
+    environment:
+      ND_MUSICFOLDER: /music
+      ND_DATAFOLDER: /data
+      # The file watcher catches most changes; the hourly scan is a backstop.
+      ND_SCANNER_SCHEDULE: "@every 1h"
+      # Each user links their own ListenBrainz token under Personal settings.
+      ND_LISTENBRAINZ_ENABLED: "true"
+      ND_ENABLEINSIGHTSCOLLECTOR: "false"
+      ND_LOGLEVEL: info
+      TZ: ${TZ:-Europe/London}
+    volumes:
+      - ${CONFIG_PATH}/navidrome:/data
+      - ${MEDIA_PATH}/music:/music:ro
+    mem_limit: 512m
+    restart: unless-stopped
+
+  gluetun:
+    container_name: gluetun
+    image: qmcgaw/gluetun:${GLUETUN_VERSION:-latest}
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      VPN_SERVICE_PROVIDER: protonvpn
+      VPN_TYPE: wireguard
+      WIREGUARD_PRIVATE_KEY: ${PROTON_WIREGUARD_PRIVATE_KEY}
+      SERVER_COUNTRIES: ${VPN_SERVER_COUNTRIES:-Netherlands}
+      # Proton only forwards ports on some servers; select only those.
+      PORT_FORWARD_ONLY: "on"
+      VPN_PORT_FORWARDING: "on"
+      # slskd reads the forwarded port from this API and binds to it.
+      HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE: '{"auth":"apikey","apikey":"${GLUETUN_API_KEY}"}'
+      TZ: ${TZ:-Europe/London}
+    volumes:
+      - ${CONFIG_PATH}/gluetun:/gluetun
+    mem_limit: 256m
+    restart: unless-stopped
+
+  slskd:
+    container_name: slskd
+    image: slskd/slskd:${SLSKD_VERSION:-latest}
+    user: "568:568"
+    network_mode: service:gluetun
+    environment:
+      SLSKD_SLSK_USERNAME: ${SLSK_USERNAME}
+      SLSKD_SLSK_PASSWORD: ${SLSK_PASSWORD}
+      SLSKD_USERNAME: ${SLSKD_WEB_USERNAME:-admin}
+      SLSKD_PASSWORD: ${SLSKD_WEB_PASSWORD}
+      # Administrator API key; Explo authenticates with it.
+      SLSKD_API_KEY: ${SLSKD_API_KEY}
+      # Wait for the tunnel and its forwarded port before connecting.
+      SLSKD_VPN: "true"
+      SLSKD_VPN_PORT_FORWARDING: "true"
+      SLSKD_VPN_GLUETUN_URL: http://localhost:8000
+      SLSKD_VPN_GLUETUN_API_KEY: ${GLUETUN_API_KEY}
+      SLSKD_DOWNLOADS_DIR: /downloads/complete
+      SLSKD_INCOMPLETE_DIR: /downloads/incomplete
+      # Explo's folder churns weekly, so it's left out.
+      SLSKD_SHARED_DIR: "/music;!/music/explo"
+      # Lets slskd.yml be edited from the web UI.
+      SLSKD_REMOTE_CONFIGURATION: "true"
+      TZ: ${TZ:-Europe/London}
+    volumes:
+      - ${CONFIG_PATH}/slskd:/app
+      - ${MEDIA_PATH}/downloads/slskd:/downloads
+      - ${MEDIA_PATH}/music:/music:ro
+    depends_on:
+      - gluetun
+    mem_limit: 512m
+    restart: unless-stopped
+
+  explo:
+    container_name: explo
+    image: ghcr.io/lumepart/explo:${EXPLO_VERSION:-latest}
+    environment:
+      PUID: 568
+      PGID: 568
+      # Must match the timezone in your ListenBrainz profile, or the weekly
+      # playlist lookups are off by a day.
+      TZ: ${TZ:-Europe/London}
+      WEB_UI: "true"
+      UI_USERNAME: ${EXPLO_UI_USERNAME:-admin}
+      UI_PASSWORD: ${EXPLO_UI_PASSWORD}
+    volumes:
+      # Explo's setup wizard writes its settings here. The file must exist
+      # before first start (touch it) or Docker creates a directory instead.
+      - ${CONFIG_PATH}/explo/explo.env:/opt/explo/.env
+      - ${CONFIG_PATH}/explo/config:/opt/explo/config
+      # Inside the library so Navidrome can build playlists from it.
+      - ${MEDIA_PATH}/music/explo:/data
+      - ${MEDIA_PATH}/downloads/slskd/complete:/slskd
+    depends_on:
+      - navidrome
+      - slskd
+    mem_limit: 256m
+    restart: unless-stopped
+
+  beets:
+    container_name: beets
+    image: lscr.io/linuxserver/beets:${BEETS_VERSION:-latest}
+    # Used via `docker exec beets beet ...`; not exposed on the Tailnet.
+    environment:
+      PUID: 568
+      PGID: 568
+      TZ: ${TZ:-Europe/London}
+    volumes:
+      - ${CONFIG_PATH}/beets:/config
+      # Tracked in git (no secrets); beets' DB and logs stay in /config.
+      - ./beets/config.yaml:/config/config.yaml
+      - ${MEDIA_PATH}:/media
+    mem_limit: 512m
+    restart: unless-stopped
+
+  navidrome-ts:
+    container_name: navidrome-ts
+    image: tailscale/tailscale:latest
+    hostname: navidrome-ts
+    environment:
+      - "TS_AUTHKEY=${TS_AUTHKEY_NAVIDROME}"
+      - TS_HOSTNAME=navidrome
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/serve.json
+      - TS_USERSPACE=true
+    volumes:
+      - ${CONFIG_PATH}/ts-state/navidrome:/var/lib/tailscale
+      # Plain bind mount, not Compose `configs:` (Dockhand recreates drop
+      # them — see immich/docker-compose.yml).
+      - ./ts-config/navidrome:/config
+    depends_on:
+      - navidrome
+    mem_limit: 128m
+    restart: unless-stopped
+
+  slskd-ts:
+    container_name: slskd-ts
+    image: tailscale/tailscale:latest
+    hostname: slskd-ts
+    environment:
+      - "TS_AUTHKEY=${TS_AUTHKEY_SLSKD}"
+      - TS_HOSTNAME=slskd
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/serve.json
+      - TS_USERSPACE=true
+    volumes:
+      - ${CONFIG_PATH}/ts-state/slskd:/var/lib/tailscale
+      - ./ts-config/slskd:/config
+    depends_on:
+      - slskd
+    mem_limit: 128m
+    restart: unless-stopped
+
+  explo-ts:
+    container_name: explo-ts
+    image: tailscale/tailscale:latest
+    hostname: explo-ts
+    environment:
+      - "TS_AUTHKEY=${TS_AUTHKEY_EXPLO}"
+      - TS_HOSTNAME=explo
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/serve.json
+      - TS_USERSPACE=true
+    volumes:
+      - ${CONFIG_PATH}/ts-state/explo:/var/lib/tailscale
+      - ./ts-config/explo:/config
+    depends_on:
+      - explo
+    mem_limit: 128m
+    restart: unless-stopped
