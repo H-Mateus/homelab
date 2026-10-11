@@ -43,8 +43,12 @@ match:
 
 # Since beets 2.4 MusicBrainz is itself a plugin, and an explicit list
 # replaces the default, so it must be named here or nothing ever matches.
-plugins: musicbrainz fetchart embedart lastgenre scrub ftintitle duplicates info
+# chroma fingerprints the audio (AcoustID) so files with poor or romanised
+# tags still find their recording; the image ships chromaprint + pyacoustid.
+plugins: musicbrainz chroma fetchart embedart lastgenre scrub ftintitle duplicates info
 
+chroma:
+  auto: yes
 fetchart:
   auto: yes
 embedart:
