@@ -51,6 +51,21 @@ go2rtc:
     rear_floodlight_talk:
       - "rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.43:554/h264Preview_01_sub"
       - "ffmpeg:rear_floodlight_talk#audio=opus"
+    # Side-passage PTZs (E1 Outdoor SE): same pattern as rear_floodlight.
+    driveway:
+      - "rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.41:554/h265Preview_01_main#backchannel=0"
+    driveway_sub:
+      - "rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.41:554/h264Preview_01_sub#backchannel=0"
+    driveway_talk:
+      - "rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.41:554/h264Preview_01_sub"
+      - "ffmpeg:driveway_talk#audio=opus"
+    side_alley:
+      - "rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.42:554/h265Preview_01_main#backchannel=0"
+    side_alley_sub:
+      - "rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.42:554/h264Preview_01_sub#backchannel=0"
+    side_alley_talk:
+      - "rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.42:554/h264Preview_01_sub"
+      - "ffmpeg:side_alley_talk#audio=opus"
   webrtc:
     # Addresses a browser can reach go2rtc's WebRTC port (8555, mapped in
     # docker-compose.yml) on. The sidecar shares Frigate's netns, so its
@@ -131,30 +146,36 @@ snapshots:
 
 # Addressing: cameras live on the isolated CCTV VLAN 30 (pfSense "Cameras"
 # interface, 192.168.30.0/24) behind Omada port 1/0/9 (PVID 30, untagged).
-# pfSense static DHCP maps by MAC: .40 doorbell  .41 camera_1  .42 camera_2
+# pfSense static DHCP maps by MAC: .40 doorbell  .41 driveway  .42 side_alley
 # .43 rear_floodlight.
 # Frigate (LXC 192.168.1.39) and HA (192.168.1.10) reach them via pfSense
-# LAN -> VLAN30 rules on 443/554/9000. Rename blocks to install location
-# once cameras are mounted.
+# LAN -> VLAN30 rules on 443/554/9000.
 cameras:
-  camera_1: # 192.168.30.41 — confirmed (VLC): 4K H.265 main, 640x360 H.264 sub
-    # Not mounted yet (2026-10). Disabled so Frigate doesn't spam ffmpeg
-    # reconnect errors for an absent camera; flip to true on install day.
-    enabled: false
+  driveway: # 192.168.30.41 — E1 Outdoor SE PoE (pan/tilt), side of house, front end. Mounted 2026-10.
+    # Confirmed (VLC): 4K H.265 main, 640x360 H.264 sub.
+    # Pan/tilt tracking is the CAMERA's own auto-tracking, not Frigate's:
+    # Frigate autotracking needs ONVIF FOV RelativeMove, which no Reolink PTZ
+    # implements. Handoff with side_alley is done by HA automations, not here.
     ffmpeg:
       inputs:
-        # main stream (3840x2160 H.265) -> recording (stream-copied, not re-encoded)
-        - path: rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.41:554/h265Preview_01_main
+        # Via the go2rtc restream (see go2rtc: above): 4K H.265 main ->
+        # record (stream-copied), 640x360 H.264 sub -> detect.
+        - path: rtsp://127.0.0.1:8554/driveway
+          input_args: preset-rtsp-restream
           roles:
             - record
-        # substream (640x360 H.264) -> detection (low-res, cheap to decode)
-        - path: rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.41:554/h264Preview_01_sub
+        - path: rtsp://127.0.0.1:8554/driveway_sub
+          input_args: preset-rtsp-restream
           roles:
             - detect
     detect:
       width: 640
       height: 360
       fps: 5
+    live:
+      # H.264 sub + backchannel; the 4K H.265 main won't play in most browsers.
+      streams:
+        Live + talk: driveway_talk
 
   doorbell: # 192.168.30.40 — confirmed (VLC): 2560x1920 H.264 main, 640x480 H.264 sub, AAC audio
     ffmpeg:
@@ -174,22 +195,29 @@ cameras:
       height: 480
       fps: 5
 
-  camera_2: # 192.168.30.42 — confirmed (VLC): H.265 main, 640x360 H.264 sub, AAC audio
-    # Not mounted yet (2026-10). Disabled so Frigate doesn't spam ffmpeg
-    # reconnect errors for an absent camera; flip to true on install day.
-    enabled: false
+  side_alley: # 192.168.30.42 — E1 Outdoor SE PoE (pan/tilt), side of house, garden end, rests on the alley entrance. Mounted 2026-10.
+    # Confirmed (VLC): H.265 main, 640x360 H.264 sub, AAC audio.
+    # Camera-native auto-tracking, same as driveway above.
     ffmpeg:
       inputs:
-        - path: rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.42:554/h265Preview_01_main
+        # Via the go2rtc restream (see go2rtc: above): 4K H.265 main ->
+        # record (stream-copied), 640x360 H.264 sub -> detect.
+        - path: rtsp://127.0.0.1:8554/side_alley
+          input_args: preset-rtsp-restream
           roles:
             - record
-        - path: rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.42:554/h264Preview_01_sub
+        - path: rtsp://127.0.0.1:8554/side_alley_sub
+          input_args: preset-rtsp-restream
           roles:
             - detect
     detect:
       width: 640
       height: 360
       fps: 5
+    live:
+      # H.264 sub + backchannel; the 4K H.265 main won't play in most browsers.
+      streams:
+        Live + talk: side_alley_talk
 
   rear_floodlight: # 192.168.30.43 — Elite Pro Floodlight PoE, mounted 2026-10-03.
     # Confirmed (ffprobe): dual-lens 180° panorama stitched into one 7680x2160

@@ -172,7 +172,7 @@ microphone enabled — it goes through the Frigate integration's proxy.
 
 ## Later / production TODO
 
-- Switch camera_1 / camera_2 to the **go2rtc restream** too (doorbell done)
+- Switch driveway / side_alley to the **go2rtc restream** too (doorbell done)
   once they are mounted.
 - **Audio in recordings** needs the main stream to be **AAC** (Reolink usually
   is — confirm in VLC). If a camera is PCM/G711, transcode it via go2rtc.
