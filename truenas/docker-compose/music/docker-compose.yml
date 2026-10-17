@@ -45,6 +45,11 @@ services:
       ND_SCANNER_SCHEDULE: "@every 1h"
       # Each user links their own ListenBrainz token under Personal settings.
       ND_LISTENBRAINZ_ENABLED: "true"
+      # Album covers for tracks with no embedded or folder art. The `external`
+      # step of the default CoverArtPriority is Last.fm only, and does nothing
+      # without a key. Singleton imports never get art from beets' fetchart.
+      ND_LASTFM_APIKEY: ${LASTFM_API_KEY:-}
+      ND_LASTFM_SECRET: ${LASTFM_SECRET:-}
       ND_ENABLEINSIGHTSCOLLECTOR: "false"
       ND_LOGLEVEL: info
       TZ: ${TZ:-Europe/London}
