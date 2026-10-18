@@ -7,14 +7,14 @@
 # (@ : / # ? & + space), URL-encode it in .env, or set an alphanumeric password
 # on the camera (safe — cameras sit on an isolated CCTV VLAN). See README.
 
-version: 0.17-0
+version: 0.18-0
 
 mqtt:
   enabled: true
-  host: "{FRIGATE_MQTT_HOST}" # Home Assistant / Mosquitto host IP (set in .env)
+  host: '{FRIGATE_MQTT_HOST}' # Home Assistant / Mosquitto host IP (set in .env)
   port: 1883
-  user: "{FRIGATE_MQTT_USER}"
-  password: "{FRIGATE_MQTT_PASSWORD}"
+  user: '{FRIGATE_MQTT_USER}'
+  password: '{FRIGATE_MQTT_PASSWORD}'
 
 tls:
   # Serve the UI/API over plain HTTP on 8971 (no self-signed cert). Required for
@@ -35,37 +35,37 @@ go2rtc:
   # if it has special characters (see README).
   streams:
     doorbell:
-      - "ffmpeg:http://192.168.30.40/flv?port=1935&app=bcs&stream=channel0_main.bcs&user={FRIGATE_RTSP_USER}&password={FRIGATE_RTSP_PASSWORD}#video=copy#audio=copy#audio=opus"
-      - "rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.40:554/h264Preview_01_sub"
+      - ffmpeg:http://192.168.30.40/flv?port=1935&app=bcs&stream=channel0_main.bcs&user={FRIGATE_RTSP_USER}&password={FRIGATE_RTSP_PASSWORD}#video=copy#audio=copy#audio=opus
+      - rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.40:554/h264Preview_01_sub
     doorbell_sub:
-      - "ffmpeg:http://192.168.30.40/flv?port=1935&app=bcs&stream=channel0_ext.bcs&user={FRIGATE_RTSP_USER}&password={FRIGATE_RTSP_PASSWORD}"
+      - ffmpeg:http://192.168.30.40/flv?port=1935&app=bcs&stream=channel0_ext.bcs&user={FRIGATE_RTSP_USER}&password={FRIGATE_RTSP_PASSWORD}
     # Rear floodlight: RTSP, not http-flv (flv can't carry its H.265 main).
     # Frigate's record/detect feeds get #backchannel=0 so go2rtc doesn't hold
     # the camera's speaker channel 24/7 (which would block talk from the
     # Reolink app / HA). rear_floodlight_talk is opened only while someone
     # watches live: H.264 sub + backchannel, AAC transcoded to opus for WebRTC.
     rear_floodlight:
-      - "rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.43:554/h265Preview_01_main#backchannel=0"
+      - rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.43:554/h265Preview_01_main#backchannel=0
     rear_floodlight_sub:
-      - "rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.43:554/h264Preview_01_sub#backchannel=0"
+      - rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.43:554/h264Preview_01_sub#backchannel=0
     rear_floodlight_talk:
-      - "rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.43:554/h264Preview_01_sub"
-      - "ffmpeg:rear_floodlight_talk#audio=opus"
+      - rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.43:554/h264Preview_01_sub
+      - ffmpeg:rear_floodlight_talk#audio=opus
     # Side-passage PTZs (E1 Outdoor SE): same pattern as rear_floodlight.
     driveway:
-      - "rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.41:554/h265Preview_01_main#backchannel=0"
+      - rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.41:554/h265Preview_01_main#backchannel=0
     driveway_sub:
-      - "rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.41:554/h264Preview_01_sub#backchannel=0"
+      - rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.41:554/h264Preview_01_sub#backchannel=0
     driveway_talk:
-      - "rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.41:554/h264Preview_01_sub"
-      - "ffmpeg:driveway_talk#audio=opus"
+      - rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.41:554/h264Preview_01_sub
+      - ffmpeg:driveway_talk#audio=opus
     side_alley:
-      - "rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.42:554/h265Preview_01_main#backchannel=0"
+      - rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.42:554/h265Preview_01_main#backchannel=0
     side_alley_sub:
-      - "rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.42:554/h264Preview_01_sub#backchannel=0"
+      - rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.42:554/h264Preview_01_sub#backchannel=0
     side_alley_talk:
-      - "rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.42:554/h264Preview_01_sub"
-      - "ffmpeg:side_alley_talk#audio=opus"
+      - rtsp://{FRIGATE_RTSP_USER}:{FRIGATE_RTSP_PASSWORD}@192.168.30.42:554/h264Preview_01_sub
+      - ffmpeg:side_alley_talk#audio=opus
   webrtc:
     # Addresses a browser can reach go2rtc's WebRTC port (8555, mapped in
     # docker-compose.yml) on. The sidecar shares Frigate's netns, so its
@@ -177,6 +177,51 @@ cameras:
       streams:
         Live + talk: driveway_talk
 
+    # Alerts (and so the HA "nobody home" push) only once someone steps onto
+    # our property. pavement_approach/road are shared with the 3 houses further
+    # up the dead end, so they stay detections (recorded, no push).
+    review:
+      alerts:
+        required_zones:
+          - driveway_zone
+          - grass_in_front_of_living_room
+    zones:
+      pavement_approach:
+        coordinates: 0.249,0.243,0.052,0.191,0.056,0.152,0.254,0.152
+        enabled: true
+        inertia: 3
+        loitering_time: 0
+        friendly_name: Pavement approach
+      road:
+        coordinates:
+          0.062,0.132,0.065,0.059,0.154,0.025,0.234,0.021,0.342,0.021,0.484,0.025,0.647,0.055,0.704,0.079,0.841,0.138,0.997,0.245,0.99,0.487,0.735,0.364,0.328,0.214,0.254,0.148
+        enabled: true
+        inertia: 3
+        loitering_time: 0
+        friendly_name: Road
+      grass_in_front_of_living_room:
+        coordinates: 0.081,0.423,0.052,0.191,0.269,0.245
+        enabled: true
+        inertia: 3
+        loitering_time: 0
+        friendly_name: Grass in front of living room
+      driveway_zone:
+        coordinates: 0.312,0.2,0.003,0.564,0.006,0.996,0.822,0.998,0.852,0.421
+        enabled: true
+        inertia: 3
+        loitering_time: 0
+        friendly_name: Driveway zone
+      football_pitch:
+        coordinates: 0.823,0.048,0.995,0.155,0.995,0.005,0.826,0.004
+        enabled: true
+        inertia: 3
+        loitering_time: 0
+        friendly_name: Football pitch
+        objects:
+          - bicycle
+          - motorcycle
+          - dog
+          - cat
   doorbell: # 192.168.30.40 — confirmed (VLC): 2560x1920 H.264 main, 640x480 H.264 sub, AAC audio
     ffmpeg:
       inputs:
@@ -195,6 +240,55 @@ cameras:
       height: 480
       fps: 5
 
+    # Same rule as driveway: our driveway/grass alert, pavement/road don't.
+    review:
+      alerts:
+        required_zones:
+          - driveway_zone
+          - grass_in_front_of_living_room
+    zones:
+      road:
+        coordinates:
+          0.307,0.6,0.31,0.558,0.423,0.569,0.527,0.573,0.682,0.574,0.998,0.541,0.995,0.629,0.704,0.652,0.515,0.644,0.366,0.618
+        enabled: true
+        inertia: 3
+        loitering_time: 0
+        friendly_name: Road
+      pavement_approach:
+        coordinates: 0.306,0.606,0.309,0.627,0.423,0.653,0.432,0.635
+        enabled: true
+        inertia: 3
+        loitering_time: 0
+        friendly_name: Pavement approach
+      grass_in_front_of_living_room:
+        coordinates: 0.438,0.661,0.314,0.728,0.307,0.632
+        enabled: true
+        inertia: 3
+        loitering_time: 0
+        friendly_name: Grass in front of living room
+      driveway_zone:
+        coordinates:
+          0.474,0.641,0.021,0.908,0.063,0.997,0.997,0.996,0.996,0.639,0.705,0.66
+        enabled: true
+        inertia: 3
+        loitering_time: 0
+        friendly_name: Driveway zone
+      football_pitch:
+        coordinates:
+          0.307,0.523,0.308,0.458,0.705,0.47,0.977,0.436,0.981,0.513,0.657,0.538,0.454,0.529
+        enabled: true
+        inertia: 3
+        loitering_time: 0
+        friendly_name: Football pitch
+        objects:
+          - bicycle
+          - motorcycle
+    motion:
+      mask:
+        camera_timestamp:
+          friendly_name: Camera timestamp
+          enabled: true
+          coordinates: 0.291,0.013,0.283,0.055,0.706,0.059,0.707,0.008
   side_alley: # 192.168.30.42 — E1 Outdoor SE PoE (pan/tilt), side of house, garden end, rests on the alley entrance. Mounted 2026-10.
     # Confirmed (VLC): H.265 main, 640x360 H.264 sub, AAC audio.
     # Camera-native auto-tracking, same as driveway above.
@@ -219,6 +313,35 @@ cameras:
       streams:
         Live + talk: side_alley_talk
 
+    # Alerts only in our side alley; the neighbour's alley and the pitch stay
+    # detections (recorded, no push).
+    review:
+      alerts:
+        required_zones:
+          - side_alley_zone
+    zones:
+      football_pitch:
+        coordinates: 0.247,0.173,0.411,0.129,0.408,0.011,0.244,0.018
+        enabled: true
+        inertia: 3
+        loitering_time: 0
+        friendly_name: Football pitch
+        objects:
+          - bicycle
+          - motorcycle
+      side_alley_zone:
+        coordinates:
+          0.239,0.211,0.321,0.186,0.405,0.329,0.563,0.591,0.8,0.991,0.274,0.988,0.224,0.475,0.212,0.221
+        enabled: true
+        inertia: 3
+        loitering_time: 0
+        friendly_name: Side alley zone
+      neighbor_side_alley:
+        coordinates: 0.33,0.184,0.421,0.166,0.998,0.789,0.995,0.993,0.81,0.988
+        enabled: true
+        inertia: 3
+        loitering_time: 0
+        friendly_name: Neighbor side alley
   rear_floodlight: # 192.168.30.43 — Elite Pro Floodlight PoE, mounted 2026-10-03.
     # Confirmed (ffprobe): dual-lens 180° panorama stitched into one 7680x2160
     # H.265 main (both main paths return HEVC), 1536x432 H.264 sub, both 20fps
@@ -242,3 +365,40 @@ cameras:
       # main is left out: most browsers can't decode it over WebRTC/MSE.
       streams:
         Live + talk: rear_floodlight_talk
+
+    # Every zone here is our garden; the fences catch anyone climbing over.
+    review:
+      alerts:
+        required_zones:
+          - garden_zone
+          - patio_zone
+          - road_side_fence
+          - neighbor_side_fence
+    zones:
+      garden_zone:
+        coordinates:
+          0.17,0.564,0.291,0.636,0.26,0.832,0.411,0.954,0.427,0.675,0.601,0.693,0.629,0.993,0.904,0.986,0.942,0.854,0.728,0.054,0.645,0.007,0.536,0,0.304,0.029,0.23,0.257
+        enabled: true
+        inertia: 3
+        loitering_time: 0
+        friendly_name: Garden zone
+      patio_zone:
+        coordinates:
+          0.103,0.411,0.163,0.604,0.283,0.631,0.26,0.832,0.411,0.954,0.425,0.711,0.593,0.692,0.628,0.979,0.157,0.996,0.051,0.643
+        enabled: true
+        inertia: 3
+        loitering_time: 0
+        friendly_name: Patio Zone
+      road_side_fence:
+        coordinates: 0.942,0.854,0.737,0.036,0.993,0.011,0.997,0.614
+        enabled: true
+        inertia: 3
+        loitering_time: 0
+        friendly_name: Road side fence
+      neighbor_side_fence:
+        coordinates:
+          0.17,0.564,0.23,0.257,0.304,0.029,0.162,0.011,0.007,0.014,0.006,0.411,0.046,0.575,0.095,0.371
+        enabled: true
+        inertia: 3
+        loitering_time: 0
+        friendly_name: Neighbor side fence

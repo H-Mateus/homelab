@@ -8,8 +8,18 @@ media/
 config/frigate.db
 config/frigate.db-*
 config/model_cache/
-config/.exports/
+config/.exports
 config/*.log
+config/*.lock
+config/.jwt_secret
+config/.runtime_state.json
+config/.search_stats.json
+config/.timeline
+config/.vacuum
+config/backup.db
+# Copy Frigate keeps of config.yml before a UI save; git is the real backup.
+config/backup_config.yaml
+config/go2rtc_homekit.yml
 
 # Tailscale sidecar state (node key) — relative bind mount next to the compose file.
 ts-state/
