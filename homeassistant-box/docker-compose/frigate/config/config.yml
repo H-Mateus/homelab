@@ -211,17 +211,21 @@ cameras:
         inertia: 3
         loitering_time: 0
         friendly_name: Driveway zone
-      football_pitch:
-        coordinates: 0.823,0.048,0.995,0.155,0.995,0.005,0.826,0.004
-        enabled: true
-        inertia: 3
-        loitering_time: 0
-        friendly_name: Football pitch
-        objects:
-          - bicycle
-          - motorcycle
-          - dog
-          - cat
+    # Football pitch: behind a tall fence, no way onto the property, so it is
+    # masked out entirely - no motion (detection or motion recording) and no
+    # tracked objects there.
+    motion:
+      mask:
+        football_pitch:
+          friendly_name: Football pitch
+          enabled: true
+          coordinates: 0.823,0.048,0.995,0.155,0.995,0.005,0.826,0.004
+    objects:
+      mask:
+        football_pitch:
+          friendly_name: Football pitch
+          enabled: true
+          coordinates: 0.823,0.048,0.995,0.155,0.995,0.005,0.826,0.004
   doorbell: # 192.168.30.40 — confirmed (VLC): 2560x1920 H.264 main, 640x480 H.264 sub, AAC audio
     ffmpeg:
       inputs:
@@ -273,22 +277,25 @@ cameras:
         inertia: 3
         loitering_time: 0
         friendly_name: Driveway zone
-      football_pitch:
-        coordinates:
-          0.307,0.523,0.308,0.458,0.705,0.47,0.977,0.436,0.981,0.513,0.657,0.538,0.454,0.529
-        enabled: true
-        inertia: 3
-        loitering_time: 0
-        friendly_name: Football pitch
-        objects:
-          - bicycle
-          - motorcycle
+    # Football pitch: behind a tall fence, no way onto the property, so it is
+    # masked out entirely - no motion (detection or motion recording) and no
+    # tracked objects there.
     motion:
       mask:
+        football_pitch:
+          friendly_name: Football pitch
+          enabled: true
+          coordinates: 0.307,0.523,0.308,0.458,0.705,0.47,0.977,0.436,0.981,0.513,0.657,0.538,0.454,0.529
         camera_timestamp:
           friendly_name: Camera timestamp
           enabled: true
           coordinates: 0.291,0.013,0.283,0.055,0.706,0.059,0.707,0.008
+    objects:
+      mask:
+        football_pitch:
+          friendly_name: Football pitch
+          enabled: true
+          coordinates: 0.307,0.523,0.308,0.458,0.705,0.47,0.977,0.436,0.981,0.513,0.657,0.538,0.454,0.529
   side_alley: # 192.168.30.42 — E1 Outdoor SE PoE (pan/tilt), side of house, garden end, rests on the alley entrance. Mounted 2026-10.
     # Confirmed (VLC): H.265 main, 640x360 H.264 sub, AAC audio.
     # Camera-native auto-tracking, same as driveway above.
@@ -313,22 +320,13 @@ cameras:
       streams:
         Live + talk: side_alley_talk
 
-    # Alerts only in our side alley; the neighbour's alley and the pitch stay
-    # detections (recorded, no push).
+    # Alerts only in our side alley; the neighbour's alley stays a detection
+    # (recorded, no push). The football pitch is masked out below.
     review:
       alerts:
         required_zones:
           - side_alley_zone
     zones:
-      football_pitch:
-        coordinates: 0.247,0.173,0.411,0.129,0.408,0.011,0.244,0.018
-        enabled: true
-        inertia: 3
-        loitering_time: 0
-        friendly_name: Football pitch
-        objects:
-          - bicycle
-          - motorcycle
       side_alley_zone:
         coordinates:
           0.239,0.211,0.321,0.186,0.405,0.329,0.563,0.591,0.8,0.991,0.274,0.988,0.224,0.475,0.212,0.221
@@ -342,6 +340,21 @@ cameras:
         inertia: 3
         loitering_time: 0
         friendly_name: Neighbor side alley
+    # Football pitch: behind a tall fence, no way onto the property, so it is
+    # masked out entirely - no motion (detection or motion recording) and no
+    # tracked objects there.
+    motion:
+      mask:
+        football_pitch:
+          friendly_name: Football pitch
+          enabled: true
+          coordinates: 0.247,0.173,0.411,0.129,0.408,0.011,0.244,0.018
+    objects:
+      mask:
+        football_pitch:
+          friendly_name: Football pitch
+          enabled: true
+          coordinates: 0.247,0.173,0.411,0.129,0.408,0.011,0.244,0.018
   rear_floodlight: # 192.168.30.43 — Elite Pro Floodlight PoE, mounted 2026-10-03.
     # Confirmed (ffprobe): dual-lens 180° panorama stitched into one 7680x2160
     # H.265 main (both main paths return HEVC), 1536x432 H.264 sub, both 20fps
