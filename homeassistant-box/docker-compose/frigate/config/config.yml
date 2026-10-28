@@ -78,7 +78,12 @@ go2rtc:
 detectors:
   ov:
     type: openvino
-    device: GPU # Intel HD 530 iGPU — requires /dev/dri passthrough into the LXC
+    # CPU, not the Intel HD 530 iGPU: the i915 GPU hung on 2026-10-25 (dmesg
+    # "GPU HANG ... Resetting rcs0" every 3 s) and the detector stalled with it,
+    # so Frigate was blind for 3 days. A container restart can't reset the GPU.
+    # ssdlite_mobilenet_v2 on 4 cores is fine for 4 cameras at 5 fps with
+    # motion-gated detection. Switch back to GPU only after a host reboot.
+    device: CPU
 
 model:
   width: 300
