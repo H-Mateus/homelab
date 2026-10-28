@@ -177,14 +177,14 @@ cameras:
       streams:
         Live + talk: driveway_talk
 
-    # Alerts (and so the HA "nobody home" push) only once someone steps onto
-    # our property. pavement_approach/road are shared with the 3 houses further
-    # up the dead end, so they stay detections (recorded, no push).
+    # Alerts (and so the HA "nobody home" push) only for inner_driveway, the
+    # half nearest the house. Neighbours walking past clipped the outer edge of
+    # driveway_zone, so it, the grass, pavement and road stay detections
+    # (recorded, no push).
     review:
       alerts:
         required_zones:
-          - driveway_zone
-          - grass_in_front_of_living_room
+          - inner_driveway
     zones:
       pavement_approach:
         coordinates: 0.249,0.243,0.052,0.191,0.056,0.152,0.254,0.152
@@ -194,7 +194,7 @@ cameras:
         friendly_name: Pavement approach
       road:
         coordinates:
-          0.062,0.132,0.065,0.059,0.154,0.025,0.234,0.021,0.342,0.021,0.484,0.025,0.647,0.055,0.704,0.079,0.841,0.138,0.997,0.245,0.99,0.487,0.735,0.364,0.328,0.214,0.254,0.148
+          0.058,0.132,0.054,0.061,0.154,0.025,0.234,0.021,0.342,0.021,0.484,0.025,0.647,0.055,0.704,0.079,0.841,0.138,0.997,0.245,0.99,0.487,0.741,0.351,0.525,0.25,0.331,0.193,0.254,0.148
         enabled: true
         inertia: 3
         loitering_time: 0
@@ -206,7 +206,8 @@ cameras:
         loitering_time: 0
         friendly_name: Grass in front of living room
       driveway_zone:
-        coordinates: 0.312,0.2,0.003,0.564,0.006,0.996,0.822,0.998,0.852,0.421
+        coordinates:
+          0.309,0.196,0.141,0.37,0.077,0.434,0.044,0.18,0,0.214,0,0.56,0.003,0.992,0.819,0.994,0.849,0.417,0.537,0.255
         enabled: true
         inertia: 3
         loitering_time: 0
@@ -214,6 +215,18 @@ cameras:
     # Football pitch: behind a tall fence, no way onto the property, so it is
     # masked out entirely - no motion (detection or motion recording) and no
     # tracked objects there.
+      neighbor_driveway:
+        coordinates: 0.89,0.438,0.884,0.996,0.997,0.998,0.997,0.504
+        enabled: true
+        inertia: 3
+        loitering_time: 0
+        friendly_name: Neighbor driveway
+      inner_driveway:
+        coordinates:
+          0.176,0.337,0.782,0.679,0.741,0.994,0.005,0.992,0.002,0.218,0.042,0.186,0.078,0.445
+        enabled: true
+        inertia: 3
+        loitering_time: 0
     motion:
       mask:
         football_pitch:
@@ -244,12 +257,11 @@ cameras:
       height: 480
       fps: 5
 
-    # Same rule as driveway: our driveway/grass alert, pavement/road don't.
+    # Same rule as driveway: only inner_driveway alerts.
     review:
       alerts:
         required_zones:
-          - driveway_zone
-          - grass_in_front_of_living_room
+          - inner_driveway
     zones:
       road:
         coordinates:
@@ -272,7 +284,7 @@ cameras:
         friendly_name: Grass in front of living room
       driveway_zone:
         coordinates:
-          0.474,0.641,0.021,0.908,0.063,0.997,0.997,0.996,0.996,0.639,0.705,0.66
+          0.474,0.641,0.314,0.738,0.299,0.526,0.305,0.244,0,0.158,0,0.622,0,0.831,0,1,0.063,0.997,0.997,0.996,0.996,0.639,0.705,0.66
         enabled: true
         inertia: 3
         loitering_time: 0
@@ -280,12 +292,19 @@ cameras:
     # Football pitch: behind a tall fence, no way onto the property, so it is
     # masked out entirely - no motion (detection or motion recording) and no
     # tracked objects there.
+      inner_driveway:
+        coordinates:
+          0.385,0.704,0.976,0.711,0.993,0.995,0.003,0.998,0.004,0.16,0.302,0.242,0.29,0.536,0.308,0.744
+        enabled: true
+        inertia: 3
+        loitering_time: 0
     motion:
       mask:
         football_pitch:
           friendly_name: Football pitch
           enabled: true
-          coordinates: 0.307,0.523,0.308,0.458,0.705,0.47,0.977,0.436,0.981,0.513,0.657,0.538,0.454,0.529
+          coordinates:
+            0.307,0.523,0.308,0.458,0.705,0.47,0.977,0.436,0.981,0.513,0.657,0.538,0.454,0.529
         camera_timestamp:
           friendly_name: Camera timestamp
           enabled: true
@@ -295,7 +314,8 @@ cameras:
         football_pitch:
           friendly_name: Football pitch
           enabled: true
-          coordinates: 0.307,0.523,0.308,0.458,0.705,0.47,0.977,0.436,0.981,0.513,0.657,0.538,0.454,0.529
+          coordinates:
+            0.307,0.523,0.308,0.458,0.705,0.47,0.977,0.436,0.981,0.513,0.657,0.538,0.454,0.529
   side_alley: # 192.168.30.42 — E1 Outdoor SE PoE (pan/tilt), side of house, garden end, rests on the alley entrance. Mounted 2026-10.
     # Confirmed (VLC): H.265 main, 640x360 H.264 sub, AAC audio.
     # Camera-native auto-tracking, same as driveway above.
@@ -348,7 +368,7 @@ cameras:
         football_pitch:
           friendly_name: Football pitch
           enabled: true
-          coordinates: 0.247,0.173,0.411,0.129,0.408,0.011,0.244,0.018
+          coordinates: 0.233,0.171,0.411,0.129,0.408,0.011,0.231,0.02
     objects:
       mask:
         football_pitch:
@@ -397,13 +417,13 @@ cameras:
         friendly_name: Garden zone
       patio_zone:
         coordinates:
-          0.103,0.411,0.163,0.604,0.283,0.631,0.26,0.832,0.411,0.954,0.425,0.711,0.593,0.692,0.628,0.979,0.157,0.996,0.051,0.643
+          0.103,0.411,0.163,0.604,0.283,0.631,0.26,0.832,0.411,0.954,0.425,0.711,0.593,0.692,0.628,0.979,0.157,0.996,0.028,0.961,0.051,0.643
         enabled: true
         inertia: 3
         loitering_time: 0
         friendly_name: Patio Zone
       road_side_fence:
-        coordinates: 0.942,0.854,0.737,0.036,0.993,0.011,0.997,0.614
+        coordinates: 0.942,0.854,0.722,0,0.852,0,0.993,0.011,0.997,0.614
         enabled: true
         inertia: 3
         loitering_time: 0
