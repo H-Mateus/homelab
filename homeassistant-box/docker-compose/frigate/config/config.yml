@@ -232,6 +232,18 @@ cameras:
         enabled: true
         inertia: 3
         loitering_time: 0
+      # Same outline as inner_driveway, but a person only counts as in it
+      # after 45 s. Not an alert zone: HA watches it for the night-time
+      # loitering critical alert.
+      inner_driveway_loiter:
+        coordinates:
+          0.176,0.337,0.782,0.679,0.741,0.994,0.005,0.992,0.002,0.218,0.042,0.186,0.078,0.445
+        enabled: true
+        inertia: 3
+        loitering_time: 45
+        objects:
+          - person
+        friendly_name: Inner driveway (loitering)
     motion:
       mask:
         football_pitch:
@@ -303,6 +315,18 @@ cameras:
         enabled: true
         inertia: 3
         loitering_time: 0
+      # Same outline as inner_driveway, but a person only counts as in it
+      # after 45 s. Not an alert zone: HA watches it for the night-time
+      # loitering critical alert.
+      inner_driveway_loiter:
+        coordinates:
+          0.385,0.704,0.976,0.711,0.993,0.995,0.003,0.998,0.004,0.16,0.302,0.242,0.29,0.536,0.308,0.744
+        enabled: true
+        inertia: 3
+        loitering_time: 45
+        objects:
+          - person
+        friendly_name: Inner driveway (loitering)
     motion:
       mask:
         football_pitch:
