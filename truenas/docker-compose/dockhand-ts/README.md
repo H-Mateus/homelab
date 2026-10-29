@@ -12,8 +12,15 @@ in-Compose sidecar the way arr-stack / immich do — those work because the
 proxies by container name (`http://immich-server:2283`).
 
 Instead this stack runs **only** a `tailscale/tailscale` container in userspace
-mode and points `tailscale serve` at Dockhand on the host's **LAN IP:port**. No
-shared network is required; the sidecar just has to reach the port.
+mode and points `tailscale serve` at Dockhand's published node-port on the host,
+via `host.docker.internal` (mapped to Docker's `host-gateway`). No shared network
+or LAN IP is required; the sidecar just has to reach the port.
+
+`serve.json` is committed under `ts-config/dockhand/` and bind-mounted as a
+directory rather than defined with Compose `configs:`. Dockhand's image
+auto-update recreates containers without materialising `configs:`, which left
+the old version crash-looping (containerboot's fsnotify watch on a missing
+`/config/serve.json`) until a manual redeploy. A bind mount survives that path.
 
 Alternatives considered and rejected:
 
@@ -49,11 +56,13 @@ TrueNAS app itself. Recommended:
 1. Confirm Dockhand's published port and the box's LAN IP. TrueNAS apps get a
    high node-port (30000-32767) rather than the app's native port — check the
    **Ports** panel on the Dockhand app (it should bind `0.0.0.0:<port>`, e.g.
-   `30328`; `0.0.0.0` is required so the sidecar can reach it over the LAN IP).
-2. `cp .env.example .env` and set:
-   - `DOCKHAND_UPSTREAM=<lan-ip>:<port>`
-   - `TS_AUTHKEY_DOCKHAND` — reusable, pre-approved, tagged per your ACLs.
-3. Deploy the stack (via Dockhand, or `docker compose up -d`).
+   `30328`; `0.0.0.0` is required so the sidecar can reach it via the host
+   gateway). If it differs, update the `Proxy` URL in
+   `ts-config/dockhand/serve.json`.
+2. `cp .env.example .env` and set `TS_AUTHKEY_DOCKHAND` — reusable,
+   pre-approved, tagged per your ACLs.
+3. Deploy the stack git-wired in Dockhand (so `ts-config/` is synced alongside
+   the compose file), or `docker compose up -d` from a checkout.
 4. Approve the new `dockhand` device in the Tailscale admin console if it isn't
    auto-approved, then browse to `https://dockhand.<tailnet>.ts.net`.
 
@@ -62,6 +71,7 @@ TrueNAS app itself. Recommended:
 ```
 dockhand-ts/
 ├── docker-compose.yml
+├── ts-config/dockhand/serve.json
 ├── .env.example
 ├── .gitignore
 └── README.md
