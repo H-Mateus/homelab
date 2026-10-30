@@ -44,6 +44,14 @@ spec:
         size: 5Gi
       defaultDashboardsEnabled: true
       defaultDashboardsTimezone: browser
+      # Loki (loki-helm-release.yaml); monolithic mode serves the API on the
+      # main service.
+      additionalDataSources:
+        - name: Loki
+          type: loki
+          uid: loki
+          url: http://loki.monitoring.svc.cluster.local:3100
+          access: proxy
 
     # --- Prometheus ---
     prometheus:

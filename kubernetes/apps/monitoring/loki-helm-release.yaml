@@ -1,0 +1,86 @@
+---
+# Loki in monolithic mode: one pod, chunks + index on a single PVC. Plenty for
+# a homelab (the chart rates it to tens of GB/day). Logs arrive from Grafana
+# Alloy on each box; Grafana (kube-prometheus-stack) reads them via the
+# datasource added in helm-release.yaml.
+#
+# No auth (auth_enabled: false), so Loki stays cluster-internal. Exposing the
+# push endpoint to the other boxes over Tailscale is a separate step.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: loki
+  namespace: monitoring
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: loki
+      version: ">=20.2.0 <21.0.0"
+      sourceRef:
+        kind: HelmRepository
+        name: grafana-community
+        namespace: flux-system
+      interval: 24h
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    deploymentMode: Monolithic
+
+    loki:
+      auth_enabled: false
+      commonConfig:
+        replication_factor: 1
+      storage:
+        type: filesystem
+      schemaConfig:
+        configs:
+          - from: "2026-10-01"
+            store: tsdb
+            object_store: filesystem
+            schema: v13
+            index:
+              prefix: loki_index_
+              period: 24h
+      limits_config:
+        # Must stay below what fits in singleBinary.persistence.size.
+        retention_period: 30d
+      compactor:
+        retention_enabled: true
+        delete_request_store: filesystem
+
+    singleBinary:
+      replicas: 1
+      persistence:
+        enabled: true
+        storageClass: truenas-nfs
+        size: 20Gi
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          memory: 1Gi
+
+    # Monolithic needs none of these; the caches are memcached pods that would
+    # take more RAM than Loki itself at this scale.
+    chunksCache:
+      enabled: false
+    resultsCache:
+      enabled: false
+    gateway:
+      enabled: false
+    lokiCanary:
+      enabled: false
+    test:
+      enabled: false
+    backend:
+      replicas: 0
+    read:
+      replicas: 0
+    write:
+      replicas: 0

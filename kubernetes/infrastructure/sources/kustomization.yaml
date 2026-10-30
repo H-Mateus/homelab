@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
   - tailscale.yaml
   - prometheus-community.yaml
+  - grafana-community.yaml
   - democratic-csi.yaml
   - piraeus.yaml
   # Not a HelmRepository, but lives here because the `sources` Kustomization
