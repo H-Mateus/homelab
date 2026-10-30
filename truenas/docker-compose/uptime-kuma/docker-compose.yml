@@ -1,0 +1,62 @@
+#
+# Uptime Kuma: uptime checks + status page for the whole homelab, on the
+# primary TrueNAS. A second copy runs on the off-site box (offsite.yml) and
+# the two watch each other — see README.md.
+#
+# Networking
+# ----------
+# Unlike the other sidecar stacks, uptime-kuma shares the sidecar's network
+# namespace (network_mode: service:uptime-kuma-ts) and the sidecar runs in
+# kernel mode, not userspace. A monitor has to *reach* other tailnet devices,
+# not just be reachable: in userspace mode only the sidecar itself could dial
+# 100.x addresses. Sharing the namespace gives Kuma the tailnet, MagicDNS
+# (TS_ACCEPT_DNS) and the LAN at once. The sidecar's serve.json therefore
+# proxies to 127.0.0.1:3001 rather than a container name.
+#
+# No `ports:` — the UI and status page are Tailnet-only.
+#
+# Storage
+# -------
+# SQLite under ${KUMA_ROOT} on the `apps` NVMe pool. Must be a local dataset:
+# SQLite over NFS corrupts.
+
+name: uptime-kuma
+
+services:
+  uptime-kuma:
+    container_name: uptime-kuma
+    image: louislam/uptime-kuma:${KUMA_VERSION:-2}
+    network_mode: service:uptime-kuma-ts
+    volumes:
+      - ${KUMA_ROOT}:/app/data
+    environment:
+      TZ: ${TZ:-Europe/London}
+    depends_on:
+      - uptime-kuma-ts
+    mem_limit: 512m
+    restart: unless-stopped
+
+  uptime-kuma-ts:
+    container_name: uptime-kuma-ts
+    image: tailscale/tailscale:latest
+    hostname: uptime-kuma-ts
+    environment:
+      - "TS_AUTHKEY=${TS_AUTHKEY}"
+      - TS_HOSTNAME=uptime
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/serve.json
+      # Kernel mode + MagicDNS: see header.
+      - TS_USERSPACE=false
+      - TS_ACCEPT_DNS=true
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - ./ts-state/uptime-kuma:/var/lib/tailscale
+      # Plain bind mount rather than Compose `configs:` — see the same note in
+      # immich/docker-compose.yml (Dockhand recreates drop Compose configs).
+      - ./ts-config/uptime-kuma:/config
+    mem_limit: 128m
+    restart: unless-stopped

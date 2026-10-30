@@ -1,0 +1,72 @@
+#
+# Uptime Kuma on the OFF-SITE box (Quack01). Watches the primary's Kuma plus
+# a few key services from outside the house, so "the whole house is offline"
+# still produces an alert. See README.md.
+#
+# Not deployed by Dockhand (Quack01 has none): paste into TrueNAS → Apps →
+# Discover → ⋮ → Install via YAML. That means no .env and no relative paths,
+# so the values marked REPLACE_ME are filled in in the TrueNAS UI and stay
+# there — don't commit them back. serve.json is an inline Compose config; the
+# Dockhand configs-on-recreate bug (immich/docker-compose.yml) doesn't apply
+# to TrueNAS apps. `$$` escapes Compose interpolation so the sidecar sees a
+# literal ${TS_CERT_DOMAIN}.
+#
+# Same networking as docker-compose.yml: Kuma shares the kernel-mode
+# sidecar's namespace, so it reaches the tailnet and resolves MagicDNS. No
+# `ports:` — nothing is exposed on the family LAN.
+
+name: uptime-kuma
+
+services:
+  uptime-kuma:
+    container_name: uptime-kuma
+    image: louislam/uptime-kuma:2
+    network_mode: service:uptime-kuma-ts
+    volumes:
+      # Dataset HDDs/uptime-kuma (create it first).
+      - /mnt/HDDs/uptime-kuma/data:/app/data
+    environment:
+      TZ: Europe/London
+    depends_on:
+      - uptime-kuma-ts
+    mem_limit: 512m
+    restart: unless-stopped
+
+  uptime-kuma-ts:
+    container_name: uptime-kuma-ts
+    image: tailscale/tailscale:latest
+    hostname: uptime-kuma-ts
+    environment:
+      # Single-use, pre-approved, tag:uptime-kuma. Only needed for the first
+      # start; state is persisted below.
+      - TS_AUTHKEY=tskey-auth-REPLACE_ME
+      - TS_HOSTNAME=uptime-offsite
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/serve.json
+      - TS_USERSPACE=false
+      - TS_ACCEPT_DNS=true
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - /mnt/HDDs/uptime-kuma/ts-state:/var/lib/tailscale
+    configs:
+      - source: serve
+        target: /config/serve.json
+    mem_limit: 128m
+    restart: unless-stopped
+
+configs:
+  serve:
+    content: |
+      {
+        "TCP": { "443": { "HTTPS": true } },
+        "Web": {
+          "$${TS_CERT_DOMAIN}:443": {
+            "Handlers": { "/": { "Proxy": "http://127.0.0.1:3001" } }
+          }
+        },
+        "AllowFunnel": { "$${TS_CERT_DOMAIN}:443": false }
+      }
