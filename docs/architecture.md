@@ -5,24 +5,32 @@ requests flow through it, and the reasoning behind key design choices.
 
 ## Overview
 
-The homelab spans two pieces of hardware:
+The homelab spans two sites:
 
-- A **TrueNAS Scale server** hosted **off-site at a family member's
-  house**, running Docker Compose stacks managed by Dockge/Dockhand.
-- A **Proxmox host** (HP ProDesk 400 G5 Mini) running a **Talos Linux
-  Kubernetes cluster** (3 control plane + 2 workers, HA via Talos's
-  native VIP) locally, provisioned end-to-end with **OpenTofu** and
-  managed in-cluster by Flux CD v2.
+- **Local site (my flat)** — the primary infrastructure:
+  - A **primary TrueNAS Scale server** (`truenas`; pools `tank` (HDD
+    mirror) + `apps` (NVMe mirror)) running the Docker Compose stacks
+    managed by Dockhand.
+  - A **Proxmox host** (HP ProDesk 400 G5 Mini) running a **Talos Linux
+    Kubernetes cluster** (3 control plane + 2 workers, HA via Talos's
+    native VIP), provisioned end-to-end with **OpenTofu** and managed
+    in-cluster by Flux CD v2.
+- **Off-site (a family member's house)** — a second **TrueNAS Scale
+  server** (`Quack01`; pool `HDDs`) acting as the encrypted **ZFS
+  replication target** (the off-site copy of a 3-2-1 strategy) plus a
+  macOS Time Machine host. It was the *original* primary; services moved
+  to the local box and it was repurposed to backup-only. Reached over
+  Tailscale, with a **JetKVM** for out-of-band recovery (no physical
+  access).
 
 Remote access is via Tailscale; no services are exposed publicly
 currently.
 
-This off-site arrangement is unusual but deliberate: it provides
-geographic redundancy for storage, low-friction backups for family
-members on the same network, and isolates noisy/power-hungry hardware
-from my flat. It also creates interesting operational constraints -
-notably, no physical access for recovery - which have shaped several
-design decisions (see ADRs).
+Keeping an off-site copy is deliberate: geographic redundancy for
+storage, low-friction backups for family on that network, and it keeps
+noisy/power-hungry hardware out of my flat. It also creates operational
+constraints — notably no physical access for recovery — which have
+shaped several design decisions (see ADRs).
 
 ## Physical and network topology
 
@@ -30,7 +38,7 @@ design decisions (see ADRs).
 flowchart TB
     subgraph Remote[Remote site - family member's house]
         Router1[Router]
-        TrueNAS[TrueNAS Scale server]
+        TrueNAS["TrueNAS 'Quack01'<br/>backup target + Time Machine"]
         JetKVM[JetKVM<br/>out-of-band management]
         Router1 --- TrueNAS
         Router1 --- JetKVM
@@ -39,6 +47,8 @@ flowchart TB
 
     subgraph Local[Local site - my flat]
         Devices[Laptop, phone, etc.]
+        LocalTrueNAS["TrueNAS 'truenas'<br/>primary — compose stacks"]
+        Proxmox[Proxmox host<br/>Talos K8s cluster]
     end
 
     subgraph Cloud[External services]
@@ -54,8 +64,10 @@ flowchart TB
     Devices <--> Internet
     Internet <--> Cloud
 
+    Devices <-.Tailscale mesh.-> LocalTrueNAS
     Devices <-.Tailscale mesh.-> TrueNAS
     Devices <-.Tailscale mesh.-> JetKVM
+    LocalTrueNAS -.ZFS replication over Tailscale.-> TrueNAS
 ```
 
 ## Service access patterns
@@ -118,12 +130,28 @@ never needs to be publicly reachable for cert renewal.
 
 ## Storage layout
 
-- **Pool: `HDDs`** — main storage, mirrored vdevs
-  - `HDDs/Media` — Plex/arr media library
-  - `HDDs/appdata` — Docker volumes and compose configs
-  - `HDDs/backups` — local backup target
-- **Snapshots**:
-  - daily with 2 weekly retention
+### Primary TrueNAS (`truenas`, local)
+
+- **Pool `tank`** — bulk HDD mirror
+  - `tank/media` — Plex/arr media library
+  - `tank/immich` — Immich photo/video originals
+- **Pool `apps`** — NVMe mirror for latency-sensitive app data
+  - `apps/arr-stack`, `apps/immich` (Postgres), `apps/dockhand`, …
+- `tank/k8s/nfs` — democratic-csi PVCs for the Talos cluster (being
+  migrated here from the off-site box — see `docs/storage-migration.md`)
+- `tank/garage` — OpenTofu S3 state backend (Garage)
+
+### Off-site TrueNAS (`Quack01`, backup target)
+
+- **Pool `HDDs`**
+  - `HDDs/backups/local/*` — **encrypted** ZFS replication of the
+    primary's datasets (the off-site 3-2-1 copy)
+  - `HDDs/Mateus work macbook timemachine` — macOS Time Machine share
+  - Legacy self-hosted datasets (its own old Media/Immich) linger until
+    cleaned up
+
+- **Snapshots**: periodic pool-recursive tasks on both boxes;
+  replication carries the primary's snapshots off-site.
 
 ## Trust boundaries
 
@@ -152,18 +180,19 @@ intervention would mean a trip to the remote site.
 
 ### Current state
 
-- ZFS snapshots on the remote TrueNAS (local to that machine only)
-- No off-site backup beyond the remote location itself
+- The **local primary** replicates **encrypted** ZFS snapshots to the
+  **off-site TrueNAS** over Tailscale (the "Regular remote backup" task)
+  — geographic redundancy for irreplaceable data (Immich, app/service
+  configs).
+- ZFS snapshots on each box protect against accidental deletion.
+- Still missing: the third, off-line/cloud copy (below), so not yet
+  fully 3-2-1.
 
-This is insufficient: snapshots protect against accidental deletion
-but not against site loss (fire, theft, hardware failure of the whole
-pool). It's also not 3-2-1 compliant.
-
-### Planned: 3-2-1 with cloud backup
+### Planned: complete 3-2-1 with cloud backup
 
 ```
-ZFS snapshots (remote TrueNAS)  →  ZFS replication (future local TrueNAS)  →  encrypted cloud backup (Backblaze B2)
-        copy 1                              copy 2                                       copy 3
+ZFS snapshots (primary TrueNAS)  →  ZFS replication to off-site TrueNAS [DONE]  →  encrypted cloud backup (Backblaze B2) [planned]
+        copy 1                                    copy 2                                        copy 3
 ```
 
 - **Tool**: `restic` for cloud backups — client-side AES-256 encryption,
@@ -189,31 +218,31 @@ backup data at rest.
 
 ## Planned evolution
 
-The medium-term plan is a **two-site replication topology**:
+The **two-site replication topology is now in place** — the local
+TrueNAS is the primary and the off-site box is a ZFS replication target:
 
 ```mermaid
 flowchart LR
-    subgraph Local[Local site - planned]
-        NewTrueNAS[New TrueNAS<br/>primary]
+    subgraph Local[Local site]
+        NewTrueNAS[TrueNAS 'truenas'<br/>primary]
     end
-    subgraph Remote[Remote site - current]
-        OldTrueNAS[Existing TrueNAS<br/>replication target]
+    subgraph Remote[Off-site]
+        OldTrueNAS[TrueNAS 'Quack01'<br/>replication target]
     end
-    NewTrueNAS -->|ZFS send/receive| OldTrueNAS
+    NewTrueNAS -->|ZFS send/receive over Tailscale| OldTrueNAS
 ```
 
-Once built, the local server becomes the primary and the existing
-remote server becomes a ZFS replication target — providing geographic
-redundancy for snapshots without the latency of running services
-remotely. This has been delayed by the recent spike in hard drive
-prices.
+The local server runs all services; the off-site server provides
+geographic redundancy for snapshots without the latency of running
+services remotely. (This was delayed for a while by high hard-drive
+prices.)
 
-Other planned changes:
+Remaining:
 
-- An encrypted cloud backup is also planned.
-- Continue migrating Docker Compose services into the Kubernetes
-  cluster as they become candidates (Home Assistant, additional
-  monitoring exporters, etc.).
+- **Encrypted cloud backup** (restic → Backblaze B2) for the third copy.
+- Continue migrating Docker Compose services into the Kubernetes cluster
+  as they become candidates (Home Assistant, additional monitoring
+  exporters, etc.).
 
 ---
 
@@ -397,13 +426,11 @@ operational tags noted above.)
 And the load-bearing grants are:
 
 ```jsonc
-// Talos nodes can mount NFS from TrueNAS
-{ "src": ["tag:k8s-node"], "dst": ["tag:truenas"],
-  "ip":  ["tcp:2049"] },
-
-// democratic-csi controller can reach the TrueNAS API
-{ "src": ["tag:k8s-node"], "dst": ["tag:truenas"],
-  "ip":  ["tcp:443"] },
+// Talos nodes mount NFS from, and democratic-csi reaches the API of, the
+// primary TrueNAS only — the off-site backup box is unreachable from k8s
+{ "src": ["tag:k8s-operator", "tag:k8s", "tag:k8s-node"],
+  "dst": ["tag:truenas-primary"],
+  "ip":  ["tcp:443", "tcp:2049"] },
 
 // Personal devices reach Kubernetes-hosted services
 { "src": ["autogroup:member"], "dst": ["tag:k8s"],
@@ -432,9 +459,12 @@ work:
    can use the node's `tailscale0` interface.
 2. An `ExternalName` `Service` (`truenas-tailscale`) in the
    `democratic-csi` namespace, annotated for the Tailscale operator
-   to resolve to the TrueNAS tailnet IP. The driver config is then
-   pointed at that Service rather than a bare IP, which keeps the
-   IP out of the SOPS-encrypted driver config.
+   to resolve to the TrueNAS tailnet IP. The driver's **HTTPS API host**
+   points at that Service (keeping the IP out of the SOPS-encrypted
+   config). Note the **NFS `shareHost` is still a bare tailnet IP** — it
+   gets baked into each PV at provision time, which is why repointing
+   storage to a different TrueNAS requires re-adopting the existing PVs
+   (see `docs/storage-migration.md`), not just a config edit.
 
 This is documented inline in
 `kubernetes/infrastructure/democratic-csi/truenas-egress.yaml`.
