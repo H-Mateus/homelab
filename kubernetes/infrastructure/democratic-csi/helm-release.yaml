@@ -41,6 +41,20 @@ spec:
       config:
         driver: freenas-api-nfs
 
+    # Pin the driver image (chart default is `latest`). v1.9.5 is the last
+    # release on TrueNAS's REST API (25.x). The next release moves to the
+    # WebSocket API and drops 25.x entirely, so a floating tag would break
+    # provisioning the moment it ships. Bump this in the same change window as
+    # the TrueNAS 26+/27 upgrade, not before. See docs/storage-migration.md.
+    controller:
+      driver:
+        image:
+          tag: v1.9.5
+    node:
+      driver:
+        image:
+          tag: v1.9.5
+
     storageClasses:
       - name: truenas-nfs
         defaultClass: true
