@@ -3,10 +3,15 @@
 Uptime checks, alerts and a status page for the homelab. Two copies that
 watch each other:
 
-| Copy | Box | Tailnet name | Deployed by | Watches |
-|---|---|---|---|---|
-| `docker-compose.yml` | primary TrueNAS | `uptime` | Dockhand (git) | everything |
-| `offsite.yml` | Quack01 (off-site) | `uptime-offsite` | TrueNAS "Install via YAML" | the primary Kuma + a handful of key services |
+| Box | Tailnet name | Deployed by | Watches |
+|---|---|---|---|
+| primary TrueNAS | `uptime` | the primary's Dockhand (git) | everything |
+| Quack01 (off-site) | `uptime-offsite` | Quack01's own Dockhand (git) | the primary Kuma + a handful of key services |
+
+Both run this directory's `docker-compose.yml`; only `.env` differs (see
+`.env.example`). Quack01's Dockhand is a separate instance, not an agent of
+the primary's: the off-site box must not be controllable from the primary
+(backups are pulled by Quack01 for the same reason).
 
 Why two: the primary copy can't tell you the house is offline, because its
 alerts have to leave via the house's internet connection. The off-site copy
@@ -32,8 +37,11 @@ are among the things it watches.
 3. **Primary**: create dataset `apps/uptime-kuma`, add the stack in Dockhand
    pointed at this directory, fill `.env` from `.env.example`, deploy.
 4. **Off-site**: create dataset `HDDs/uptime-kuma` with `data/` and
-   `ts-state/` inside, paste `offsite.yml` into TrueNAS → Apps → Install via
-   YAML, replace `tskey-auth-REPLACE_ME` there (not in git), deploy.
+   `ts-state/` inside, add the stack in Quack01's Dockhand pointed at this
+   directory, and fill `.env` with `KUMA_ROOT=/mnt/HDDs/uptime-kuma/data`,
+   `TS_HOSTNAME=uptime-offsite`, `TS_STATE_PATH=/mnt/HDDs/uptime-kuma/ts-state`
+   and the auth key. (It was a TrueNAS "Install via YAML" app until
+   2026-10-31; the data and Tailscale state carried over in place.)
 5. Open `https://uptime.<tailnet>.ts.net` and `https://uptime-offsite.<tailnet>.ts.net`
    and create the admin user on each straight away.
 6. Check MagicDNS works from inside Kuma: add an HTTP monitor for another
@@ -56,9 +64,12 @@ are among the things it watches.
 - A few signals that mean "the house is up": Home Assistant, Immich, the
   primary TrueNAS.
 
-**Both**: a **Push** monitor on healthchecks.io (free) as a dead man's
-switch. If both copies are down at once (e.g. a power cut), healthchecks.io
-notices the missing heartbeats.
+**Both**: a dead man's switch on healthchecks.io (free). Make one check per
+Kuma (period 1 min, grace 5 min) with its own alert channel, then add a
+plain **HTTP** monitor in each Kuma pointed at that check's ping URL — every
+run doubles as a heartbeat. (Not a Kuma *Push* monitor: that waits to be
+pinged, the wrong direction.) If both copies are down at once (e.g. a power
+cut), healthchecks.io notices the missing heartbeats.
 
 ## Alerts
 

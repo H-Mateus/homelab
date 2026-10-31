@@ -1,0 +1,77 @@
+#
+# Dockhand on the OFF-SITE box (Quack01): its own instance, deliberately NOT
+# an agent of the primary's Dockhand. Dockhand is root on whatever it
+# manages, and the off-site box must not be controllable from the primary
+# (backups are pulled by Quack01 for the same reason). It deploys Quack01's
+# git stacks (uptime-kuma, alloy) from this public repo; no git credentials.
+#
+# Not itself deployed by Dockhand: paste into TrueNAS → Apps → Discover → ⋮ →
+# Install via YAML. The TrueNAS catalog app can only publish its port on
+# 0.0.0.0 or a LAN IP, which would put a root-equivalent UI on the family
+# LAN. Instead nothing is published: a userspace tailscale sidecar serves it
+# at https://dockhand-offsite.<tailnet>.ts.net (tag:dockhand), so it doesn't
+# depend on the host's Tailscale interface being up first either.
+#
+# REPLACE_ME values are filled in in the TrueNAS UI and stay there. `$$`
+# escapes Compose interpolation so the sidecar sees a literal
+# ${TS_CERT_DOMAIN}. Inline `configs:` are fine here (TrueNAS apps don't hit
+# the Dockhand configs-on-recreate bug — see dockhand-ts/docker-compose.yml).
+#
+# Paths: Dockhand runs `docker compose` inside its container, but the host's
+# Docker daemon resolves the bind mounts. So its data dir is mounted at the
+# SAME path inside and out (DATA_DIR), and a stack's `./ts-config` resolves
+# to a real host path. Dataset: HDDs/dockhand, with data/ and ts-state/.
+#
+# Versions are pinned so TrueNAS stops flagging an "update" on every upstream
+# push; bump them here deliberately.
+
+name: dockhand
+
+services:
+  dockhand:
+    container_name: dockhand
+    image: fnsys/dockhand:v1.0.55
+    environment:
+      DATA_DIR: /mnt/HDDs/dockhand/data
+      TZ: Europe/London
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /mnt/HDDs/dockhand/data:/mnt/HDDs/dockhand/data
+    # No `ports:` — reached only through dockhand-ts below.
+    mem_limit: 1g
+    restart: unless-stopped
+
+  dockhand-ts:
+    container_name: dockhand-ts
+    image: tailscale/tailscale:v1.104.4
+    hostname: dockhand-offsite-ts
+    environment:
+      # Single-use, pre-approved, NOT ephemeral, tagged tag:dockhand. Only
+      # used on first start; state is persisted below.
+      - TS_AUTHKEY=tskey-auth-REPLACE_ME
+      - TS_HOSTNAME=dockhand-offsite
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/serve.json
+      - TS_USERSPACE=true
+    volumes:
+      - /mnt/HDDs/dockhand/ts-state:/var/lib/tailscale
+    configs:
+      - source: serve
+        target: /config/serve.json
+    depends_on:
+      - dockhand
+    mem_limit: 128m
+    restart: unless-stopped
+
+configs:
+  serve:
+    content: |
+      {
+        "TCP": { "443": { "HTTPS": true } },
+        "Web": {
+          "$${TS_CERT_DOMAIN}:443": {
+            "Handlers": { "/": { "Proxy": "http://dockhand:3000" } }
+          }
+        },
+        "AllowFunnel": { "$${TS_CERT_DOMAIN}:443": false }
+      }

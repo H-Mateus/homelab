@@ -1,7 +1,8 @@
 #
-# Uptime Kuma: uptime checks + status page for the whole homelab, on the
-# primary TrueNAS. A second copy runs on the off-site box (offsite.yml) and
-# the two watch each other — see README.md.
+# Uptime Kuma: uptime checks + status page for the whole homelab. The same
+# file runs on the primary TrueNAS (`uptime`) and the off-site box Quack01
+# (`uptime-offsite`), each from its own Dockhand; only .env differs. The two
+# watch each other — see README.md.
 #
 # Networking
 # ----------
@@ -17,8 +18,7 @@
 #
 # Storage
 # -------
-# SQLite under ${KUMA_ROOT} on the `apps` NVMe pool. Must be a local dataset:
-# SQLite over NFS corrupts.
+# SQLite under ${KUMA_ROOT}, a local dataset (SQLite over NFS corrupts).
 
 name: uptime-kuma
 
@@ -42,7 +42,7 @@ services:
     hostname: uptime-kuma-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY}"
-      - TS_HOSTNAME=uptime
+      - TS_HOSTNAME=${TS_HOSTNAME:-uptime}
       - TS_STATE_DIR=/var/lib/tailscale
       - TS_SERVE_CONFIG=/config/serve.json
       # Kernel mode + MagicDNS: see header.
@@ -54,7 +54,9 @@ services:
       - NET_ADMIN
       - NET_RAW
     volumes:
-      - ./ts-state/uptime-kuma:/var/lib/tailscale
+      # Off-site keeps its state on its dataset (TS_STATE_PATH) so the
+      # existing `uptime-offsite` device carried over from the old app.
+      - ${TS_STATE_PATH:-./ts-state/uptime-kuma}:/var/lib/tailscale
       # Plain bind mount rather than Compose `configs:` — see the same note in
       # immich/docker-compose.yml (Dockhand recreates drop Compose configs).
       - ./ts-config/uptime-kuma:/config
