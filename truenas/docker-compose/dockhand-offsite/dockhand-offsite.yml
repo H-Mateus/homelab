@@ -9,7 +9,7 @@
 # Install via YAML. The TrueNAS catalog app can only publish its port on
 # 0.0.0.0 or a LAN IP, which would put a root-equivalent UI on the family
 # LAN. Instead nothing is published: a userspace tailscale sidecar serves it
-# at https://dockhand-offsite.<tailnet>.ts.net (tag:dockhand), so it doesn't
+# at https://dockhand-offsite.<tailnet>.ts.net (tag:dockhand-offsite), so it doesn't
 # depend on the host's Tailscale interface being up first either.
 #
 # REPLACE_ME values are filled in in the TrueNAS UI and stay there. `$$`
@@ -46,7 +46,7 @@ services:
     image: tailscale/tailscale:v1.104.4
     hostname: dockhand-offsite-ts
     environment:
-      # Single-use, pre-approved, NOT ephemeral, tagged tag:dockhand. Only
+      # Single-use, pre-approved, NOT ephemeral, tagged tag:dockhand-offsite. Only
       # used on first start; state is persisted below.
       - TS_AUTHKEY=tskey-auth-REPLACE_ME
       - TS_HOSTNAME=dockhand-offsite
