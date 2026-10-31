@@ -46,6 +46,11 @@ services:
       # WAL + log read positions; losing it only means some re-sent lines.
       - alloy-data:/var/lib/alloy/data
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Host journal (persistent and volatile; a box uses one or both).
+      # machine-id lets the reader find this host's journal files.
+      - /var/log/journal:/var/log/journal:ro
+      - /run/log/journal:/run/log/journal:ro
+      - /etc/machine-id:/etc/machine-id:ro
       # Node exporter.
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro

@@ -4,7 +4,9 @@
 homelab. The same files run on each box; only `.env` differs. Ships:
 
 - **Logs**: every container's output → Loki, labelled `host`, `stack`
-  (Compose project) and `container`. Secrets are scrubbed on the box first
+  (Compose project) and `container`; plus the host's own systemd journal
+  (kernel, sshd, TrueNAS middleware, ZFS, Docker daemon, ...), labelled
+  `host`, `unit` and `level` (`{host="truenas", job="loki.source.journal.host"}`). Secrets are scrubbed on the box first
   (`loki.process "redact"` in `config.alloy`).
 - **Metrics**: host (node exporter: CPU, memory, disks, ZFS ARC, network)
   and per-container (cAdvisor) → Prometheus remote-write, labelled `host`.

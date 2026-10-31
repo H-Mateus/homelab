@@ -27,7 +27,7 @@ prometheus.remote_write "cluster" {
 }
 
 // ---------------------------------------------------------------------------
-// Logs: every container's stdout/stderr.
+// Logs: every container's stdout/stderr (host journal further down).
 // ---------------------------------------------------------------------------
 
 discovery.docker "containers" {
@@ -53,6 +53,41 @@ loki.source.docker "containers" {
 	host          = "unix:///var/run/docker.sock"
 	targets       = discovery.docker.containers.targets
 	relabel_rules = discovery.relabel.containers.rules
+	forward_to    = [loki.process.redact.receiver]
+}
+
+// ---------------------------------------------------------------------------
+// Logs: the host itself (systemd journal: kernel, sshd, middleware, cron,
+// ZFS, Docker daemon, ...). Labelled unit + level; job is
+// loki.source.journal.host. Same redaction as container logs.
+// ---------------------------------------------------------------------------
+
+loki.relabel "journal" {
+	forward_to = []
+
+	// Containers using Docker's journald log driver would arrive twice
+	// (here and via loki.source.docker); keep only the Docker copy.
+	rule {
+		source_labels = ["__journal_container_name"]
+		regex         = ".+"
+		action        = "drop"
+	}
+
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		target_label  = "unit"
+	}
+
+	rule {
+		source_labels = ["__journal_priority_keyword"]
+		target_label  = "level"
+	}
+}
+
+loki.source.journal "host" {
+	// Only on first start (no saved cursor); afterwards it resumes.
+	max_age       = "12h"
+	relabel_rules = loki.relabel.journal.rules
 	forward_to    = [loki.process.redact.receiver]
 }
 
