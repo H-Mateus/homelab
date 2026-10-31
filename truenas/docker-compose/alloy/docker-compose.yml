@@ -1,0 +1,81 @@
+#
+# Grafana Alloy on the primary TrueNAS: container logs -> Loki, host +
+# container metrics -> Prometheus, both in the Talos cluster. Pipeline and
+# secret redaction live in config.alloy.
+#
+# Networking
+# ----------
+# Alloy runs on the HOST network: node exporter reads network stats through
+# /proc/net, which follows the reader's network namespace, so in a sidecar
+# namespace every interface metric would describe the sidecar, not the box.
+#
+# It still reaches the tailnet as its own device (tag:monitoring-agent, the
+# only tag allowed to push to tag:monitoring-ingest) via a userspace
+# tailscale sidecar that runs Tailscale's outbound HTTP proxy, published on
+# 127.0.0.1:1055 only. config.alloy sends both writes through it. Nothing is
+# listening on the LAN: Alloy's own UI is bound to 127.0.0.1 too.
+#
+# Privileges
+# ----------
+# privileged + docker.sock + read-only host mounts are what node exporter and
+# cAdvisor need (per the Alloy docs). docker.sock is root-equivalent, which
+# is why this stack has no inbound network exposure at all.
+
+name: alloy
+
+services:
+  alloy:
+    container_name: alloy
+    image: grafana/alloy:${ALLOY_VERSION:-latest}
+    network_mode: host
+    pid: host
+    privileged: true
+    command:
+      - run
+      - --server.http.listen-addr=127.0.0.1:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    environment:
+      HOST_LABEL: ${HOST_LABEL}
+      LOKI_PUSH_URL: ${LOKI_PUSH_URL}
+      PROM_WRITE_URL: ${PROM_WRITE_URL}
+    volumes:
+      - ./config.alloy:/etc/alloy/config.alloy:ro
+      # WAL + log read positions; losing it only means some re-sent lines.
+      - alloy-data:/var/lib/alloy/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Node exporter.
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro,rslave
+      # cAdvisor. TrueNAS keeps Docker's data root under /mnt/.ix-apps.
+      - /sys:/sys:ro
+      - ${DOCKER_DATA_ROOT:-/mnt/.ix-apps/docker}:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+    depends_on:
+      - alloy-ts
+    mem_limit: 512m
+    restart: unless-stopped
+
+  alloy-ts:
+    container_name: alloy-ts
+    image: tailscale/tailscale:latest
+    hostname: alloy-ts
+    environment:
+      - "TS_AUTHKEY=${TS_AUTHKEY}"
+      - TS_HOSTNAME=${TS_HOSTNAME:-alloy-truenas}
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=true
+      # Tailscale's outbound HTTP (CONNECT) proxy: dials tailnet addresses
+      # and resolves MagicDNS names on behalf of whoever uses it.
+      - TS_OUTBOUND_HTTP_PROXY_LISTEN=:1055
+    ports:
+      # Loopback only; Alloy on the host network is the sole client.
+      - "127.0.0.1:1055:1055"
+    volumes:
+      - ./ts-state/alloy:/var/lib/tailscale
+    mem_limit: 128m
+    restart: unless-stopped
+
+volumes:
+  alloy-data:

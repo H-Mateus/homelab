@@ -1,0 +1,121 @@
+// Grafana Alloy: ships this box's container logs to Loki and host +
+// container metrics to Prometheus, both in the Talos cluster, over the
+// tailnet. Box-specific values come from the environment (.env), so the same
+// file can be reused on other Docker hosts.
+
+// ---------------------------------------------------------------------------
+// Outputs. Every series and stream gets host=<box> (HOST_LABEL), so pushed
+// data never collides with what the cluster's Prometheus scrapes itself.
+// Requests go through the tailscale sidecar's outbound proxy (see
+// docker-compose.yml), which reaches the tailnet as tag:monitoring-agent.
+// ---------------------------------------------------------------------------
+
+loki.write "cluster" {
+	endpoint {
+		url       = sys.env("LOKI_PUSH_URL")
+		proxy_url = "http://127.0.0.1:1055"
+	}
+	external_labels = {host = sys.env("HOST_LABEL")}
+}
+
+prometheus.remote_write "cluster" {
+	endpoint {
+		url       = sys.env("PROM_WRITE_URL")
+		proxy_url = "http://127.0.0.1:1055"
+	}
+	external_labels = {host = sys.env("HOST_LABEL")}
+}
+
+// ---------------------------------------------------------------------------
+// Logs: every container's stdout/stderr.
+// ---------------------------------------------------------------------------
+
+discovery.docker "containers" {
+	host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "containers" {
+	targets = []
+
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		regex         = "/(.*)"
+		target_label  = "container"
+	}
+
+	rule {
+		source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+		target_label  = "stack"
+	}
+}
+
+loki.source.docker "containers" {
+	host          = "unix:///var/run/docker.sock"
+	targets       = discovery.docker.containers.targets
+	relabel_rules = discovery.relabel.containers.rules
+	forward_to    = [loki.process.redact.receiver]
+}
+
+// Scrub secrets BEFORE they leave the box: Loki keeps logs for 30 days and
+// Claude reads them via Grafana. Each stage replaces its capture group.
+loki.process "redact" {
+	// Credentials in URLs, e.g. rtsp://user:PASSWORD@camera (go2rtc, Frigate).
+	stage.replace {
+		expression = "[a-zA-Z][a-zA-Z0-9+.-]*://[^:/@\\s]+:([^@\\s]+)@"
+		replace    = "REDACTED"
+	}
+
+	// Keys and passwords in query strings or key=value pairs (arr apps log
+	// request URLs with ?apikey=...).
+	stage.replace {
+		expression = "(?i)(?:api[_-]?key|token|access_token|password|passwd|pwd|secret)=([^&\\s\"',;]+)"
+		replace    = "REDACTED"
+	}
+
+	// Auth headers.
+	stage.replace {
+		expression = "(?i)(?:authorization:\\s*(?:bearer|basic)|x-api-key:)\\s*([^\\s\"',;]+)"
+		replace    = "REDACTED"
+	}
+
+	// Tailscale auth keys.
+	stage.replace {
+		expression = "(tskey-[a-z]+-[A-Za-z0-9-]+)"
+		replace    = "REDACTED"
+	}
+
+	forward_to = [loki.write.cluster.receiver]
+}
+
+// ---------------------------------------------------------------------------
+// Metrics: the host (node exporter) and each container (cAdvisor).
+// ---------------------------------------------------------------------------
+
+prometheus.exporter.unix "host" {
+	procfs_path = "/host/proc"
+	sysfs_path  = "/host/sys"
+	rootfs_path = "/host/root"
+
+	filesystem {
+		// Docker's overlay mounts and TrueNAS's internal ones are noise.
+		mount_points_exclude = "^/(dev|proc|run|sys|var/lib/docker/.+|mnt/\\.ix-apps/.+)($|/)"
+	}
+}
+
+prometheus.exporter.cadvisor "containers" {
+	docker_host      = "unix:///var/run/docker.sock"
+	docker_only      = true
+	storage_duration = "5m"
+}
+
+prometheus.scrape "host" {
+	targets         = prometheus.exporter.unix.host.targets
+	scrape_interval = "30s"
+	forward_to      = [prometheus.remote_write.cluster.receiver]
+}
+
+prometheus.scrape "containers" {
+	targets         = prometheus.exporter.cadvisor.containers.targets
+	scrape_interval = "30s"
+	forward_to      = [prometheus.remote_write.cluster.receiver]
+}

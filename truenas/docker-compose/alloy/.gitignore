@@ -1,0 +1,5 @@
+# Real env file holds the Tailscale auth key — never commit.
+.env
+
+# Tailscale node state (contains the device's private key).
+ts-state/
