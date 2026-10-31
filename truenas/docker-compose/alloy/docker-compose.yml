@@ -48,9 +48,10 @@ services:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
       - /:/host/root:ro,rslave
-      # cAdvisor. TrueNAS keeps Docker's data root under /mnt/.ix-apps.
+      # cAdvisor. It asks Docker for its data root and opens that exact path,
+      # so mount it at the same path (TrueNAS: /mnt/.ix-apps/docker).
       - /sys:/sys:ro
-      - ${DOCKER_DATA_ROOT:-/mnt/.ix-apps/docker}:/var/lib/docker:ro
+      - ${DOCKER_DATA_ROOT:-/mnt/.ix-apps/docker}:${DOCKER_DATA_ROOT:-/mnt/.ix-apps/docker}:ro
       - /dev/disk:/dev/disk:ro
     depends_on:
       - alloy-ts
