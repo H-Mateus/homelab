@@ -42,6 +42,11 @@ spec:
         enabled: true
         storageClassName: truenas-nfs
         size: 5Gi
+      # The PVC is ReadWriteOnce: a rolling update starts the new pod while
+      # the old one still holds the volume, and the new pod waits forever on
+      # Multi-Attach. Recreate stops the old pod first (brief downtime).
+      deploymentStrategy:
+        type: Recreate
       defaultDashboardsEnabled: true
       defaultDashboardsTimezone: browser
       # Loki (loki-helm-release.yaml); monolithic mode serves the API on the
