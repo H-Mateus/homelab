@@ -75,6 +75,9 @@ spec:
         podMonitorSelectorNilUsesHelmValues: false
         ruleSelectorNilUsesHelmValues: false
         probeSelectorNilUsesHelmValues: false
+        # Accept pushed metrics at /api/v1/write from Alloy on the boxes
+        # outside the cluster (exposed via ingest-ingress.yaml).
+        enableRemoteWriteReceiver: true
 
     # --- Alertmanager ---
     alertmanager:

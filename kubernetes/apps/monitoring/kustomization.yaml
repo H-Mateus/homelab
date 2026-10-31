@@ -4,5 +4,6 @@ resources:
   - namespace.yaml
   - grafana-admin-secret.sops.yaml
   - grafana-ingress.yaml
+  - ingest-ingress.yaml
   - helm-release.yaml
   - loki-helm-release.yaml
