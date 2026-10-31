@@ -45,10 +45,17 @@ match:
 # replaces the default, so it must be named here or nothing ever matches.
 # chroma fingerprints the audio (AcoustID) so files with poor or romanised
 # tags still find their recording; the image ships chromaprint + pyacoustid.
-plugins: musicbrainz chroma fetchart embedart lastgenre scrub ftintitle duplicates info
+# web: the linuxserver image's long-running service is `beet web`; without
+# the plugin it exits instantly and s6 restarts it every ~1.6s, forever.
+plugins: musicbrainz chroma fetchart embedart lastgenre scrub ftintitle duplicates info web
 
 chroma:
   auto: yes
+# Nothing publishes this port and nothing uses the UI; keep it on loopback so
+# other containers on the stack network can't reach it either.
+web:
+  host: 127.0.0.1
+  port: 8337
 fetchart:
   auto: yes
 embedart:
