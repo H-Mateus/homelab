@@ -258,7 +258,7 @@ no shell; all configuration is applied declaratively via `talosctl`.
 ```
 Proxmox host (HP ProDesk 400 G5 Mini)
 └── Talos VMs
-    ├── controlplane  (3x, HA via Talos native VIP at 192.168.1.55)
+    ├── controlplane  (3x, HA via Talos native VIP at 192.168.1.36)
     └── workers       (2x)
 ```
 

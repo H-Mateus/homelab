@@ -23,7 +23,7 @@ are among the things it watches.
    ```jsonc
    "tagOwners": { "tag:uptime-kuma": ["autogroup:admin"] },
    "grants": [
-     { "src": ["tag:uptime-kuma"], "dst": ["*"], "ip": ["tcp:443", "tcp:80", "icmp:*"] }
+     { "src": ["tag:uptime-kuma"], "dst": ["*"], "ip": ["tcp:443", "tcp:80", "tcp:8006", "icmp:*"] }
    ]
    ```
    Narrow `dst` to specific tags later if you prefer.
@@ -45,8 +45,8 @@ are among the things it watches.
 
 - HTTP(S): every app's Tailnet URL (Sonarr, Radarr, Jellyfin, Immich,
   Paperless, Navidrome, Dockhand, Grafana, …), Home Assistant, Frigate,
-  Proxmox (`:8006`), pfSense web UI.
-- Ping: pfSense, the Proxmox host, TrueNAS, the Talos VIP (`192.168.1.55`),
+  Proxmox (`:8006`, tick "Ignore TLS errors": self-signed cert), pfSense web UI.
+- Ping: pfSense, the Proxmox host, TrueNAS, the Talos VIP (`192.168.1.36`),
   each camera (VLAN 30).
 - `https://uptime-offsite.<tailnet>.ts.net` — the other watcher.
 

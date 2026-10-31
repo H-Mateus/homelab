@@ -24,10 +24,10 @@ A few choices worth flagging because they matter for both correctness and
 portfolio-readability.
 
 **HA control plane via Talos native VIP.** The 3 control planes share a
-single floating IP (`var.cluster_vip`, default `192.168.1.55`). Talos
+single floating IP (`var.cluster_vip`, default `192.168.1.36`). Talos
 implements this with a built-in keepalived-style election — no external
 load balancer, no metallb-for-the-API chicken-and-egg. The Kubernetes API
-endpoint is `https://192.168.1.55:6443`. If the holder dies, another CP
+endpoint is `https://192.168.1.36:6443`. If the holder dies, another CP
 takes over within a few seconds.
 
 **Schematic ID is in code.** The previous `proxmox/schematic.yaml` was

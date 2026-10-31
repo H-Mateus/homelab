@@ -17,7 +17,7 @@ proxmox_insecure  = true
 
 # Shared VIP across the 3 control planes. Must be unused, in the node_subnet,
 # and outside any DHCP pool.
-cluster_vip = "192.168.1.55"
+cluster_vip = "192.168.1.36"
 
 # -----------------------------------------------------------------------------
 # Node identity. Pin MACs so DHCP reservations / Talos device matching stay
