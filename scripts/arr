@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Call an arr-stack (plus Seerr/Jellyfin) API without the API key ever being printed.
+#
+#   arr <app> <path> [METHOD] [JSON body]
+#   arr sonarr /api/v3/queue
+#   arr radarr /api/v3/command POST '{"name":"RefreshMonitoredDownloads"}'
+#
+# The key comes from Bitwarden Secrets Manager: a read-only machine account
+# whose access token sits in macOS Keychain (service "bws-homelab"). `bws run`
+# injects <APP>_API_KEY into this script's second pass (--inner), which hands
+# it to curl as a header. Only the response reaches stdout.
+#
+# Apps are reached over their Tailscale sidecars (https://<app>.<tailnet>).
+set -euo pipefail
+
+TAILNET=fairy-featherback.ts.net
+APPS="sonarr radarr lidarr prowlarr bazarr profilarr seerr jellyfin"
+
+if [[ "${1:-}" == "--inner" ]]; then
+  var="$(tr '[:lower:]' '[:upper:]' <<<"$ARR_APP")_API_KEY"
+  key="${!var:-}"
+  [[ -n "$key" ]] || { echo "arr: no $var in the Bitwarden project" >&2; exit 1; }
+  if [[ "$ARR_APP" == jellyfin ]]; then
+    auth="Authorization: MediaBrowser Token=\"$key\""
+  else
+    auth="X-Api-Key: $key"
+  fi
+  args=(-sS --fail-with-body -X "$ARR_METHOD" -H "$auth")
+  [[ -n "${ARR_BODY:-}" ]] && args+=(-H "Content-Type: application/json" --data "$ARR_BODY")
+  exec curl "${args[@]}" "https://$ARR_APP.$TAILNET$ARR_PATH"
+fi
+
+if [[ $# -lt 2 ]]; then
+  echo "usage: arr <app> <path> [METHOD] [JSON body]   (apps: $APPS)" >&2
+  exit 2
+fi
+[[ " $APPS " == *" $1 "* ]] || { echo "arr: unknown app '$1' (apps: $APPS)" >&2; exit 2; }
+
+export ARR_APP="$1" ARR_PATH="$2" ARR_METHOD="${3:-GET}" ARR_BODY="${4:-}"
+BWS_ACCESS_TOKEN="$(security find-generic-password -s bws-homelab -w)"
+export BWS_ACCESS_TOKEN
+exec bws run -o none -- "$0" --inner

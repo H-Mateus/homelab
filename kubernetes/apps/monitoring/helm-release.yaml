@@ -52,6 +52,33 @@ spec:
           uid: loki
           url: http://loki.monitoring.svc.cluster.local:3100
           access: proxy
+      # Community dashboards for the hosts outside the cluster (Alloy pushes
+      # node exporter + cAdvisor metrics labelled host=<box>). Downloaded from
+      # grafana.com at pod start; pinned revisions, read-only in the UI.
+      dashboardProviders:
+        dashboardproviders.yaml:
+          apiVersion: 1
+          providers:
+            - name: homelab
+              orgId: 1
+              folder: Homelab
+              type: file
+              disableDeletion: true
+              editable: false
+              options:
+                path: /var/lib/grafana/dashboards/homelab
+      dashboards:
+        homelab:
+          node-exporter-full:
+            gnetId: 1860
+            revision: 45
+            datasource: Prometheus
+          cadvisor-exporter:
+            gnetId: 14282
+            revision: 1
+            datasource:
+              - name: DS_PROMETHEUS
+                value: Prometheus
 
     # --- Prometheus ---
     prometheus:

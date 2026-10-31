@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Launch mcp-grafana (stdio) for Claude Code without the token ever being printed.
+#
+# Same pattern as scripts/arr: the Bitwarden Secrets Manager machine-account
+# token sits in macOS Keychain (service "bws-homelab"); `bws run` injects the
+# project's secrets into this script's second pass (--inner), which hands
+# only GRAFANA_SERVICE_ACCOUNT_TOKEN to mcp-grafana in a clean environment,
+# so the other API keys in the project never reach the server process.
+#
+# Read-only twice over: the service account is a Grafana Viewer, and
+# --disable-write drops the create/update tools.
+set -euo pipefail
+
+GRAFANA_URL=https://grafana.fairy-featherback.ts.net
+TOOLS="search,datasource,prometheus,loki,dashboard,folder,alerting,annotations,navigation"
+
+if [[ "${1:-}" == "--inner" ]]; then
+  [[ -n "${GRAFANA_SERVICE_ACCOUNT_TOKEN:-}" ]] ||
+    { echo "grafana-mcp: no GRAFANA_SERVICE_ACCOUNT_TOKEN in the Bitwarden project" >&2; exit 1; }
+  exec env -i HOME="$HOME" PATH="$PATH" \
+    GRAFANA_URL="$GRAFANA_URL" \
+    GRAFANA_SERVICE_ACCOUNT_TOKEN="$GRAFANA_SERVICE_ACCOUNT_TOKEN" \
+    mcp-grafana --disable-write --enabled-tools "$TOOLS"
+fi
+
+BWS_ACCESS_TOKEN="$(security find-generic-password -s bws-homelab -w)"
+export BWS_ACCESS_TOKEN
+exec bws run -o none -- "$0" --inner
