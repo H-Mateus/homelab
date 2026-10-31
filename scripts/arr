@@ -25,9 +25,11 @@ if [[ "${1:-}" == "--inner" ]]; then
   else
     auth="X-Api-Key: $key"
   fi
-  args=(-sS --fail-with-body -X "$ARR_METHOD" -H "$auth")
+  # The auth header goes in on stdin (-H @-), not argv, so `ps` never shows it.
+  # https only and no redirects, so the key can't be bounced elsewhere.
+  args=(-sS --fail-with-body --proto =https --max-redirs 0 -X "$ARR_METHOD" -H @-)
   [[ -n "${ARR_BODY:-}" ]] && args+=(-H "Content-Type: application/json" --data "$ARR_BODY")
-  exec curl "${args[@]}" "https://$ARR_APP.$TAILNET$ARR_PATH"
+  exec curl "${args[@]}" "https://$ARR_APP.$TAILNET$ARR_PATH" <<<"$auth"
 fi
 
 if [[ $# -lt 2 ]]; then
@@ -35,6 +37,10 @@ if [[ $# -lt 2 ]]; then
   exit 2
 fi
 [[ " $APPS " == *" $1 "* ]] || { echo "arr: unknown app '$1' (apps: $APPS)" >&2; exit 2; }
+# The path is appended straight after the host, so something like
+# "@evil.example/x" would turn the host into userinfo and send the key there.
+# Allow only an absolute path with ordinary URL characters.
+[[ "$2" =~ ^/[A-Za-z0-9._~/?\&=%:+,-]*$ ]] || { echo "arr: path must start with / and contain no @, \\ or spaces" >&2; exit 2; }
 
 export ARR_APP="$1" ARR_PATH="$2" ARR_METHOD="${3:-GET}" ARR_BODY="${4:-}"
 BWS_ACCESS_TOKEN="$(security find-generic-password -s bws-homelab -w)"
