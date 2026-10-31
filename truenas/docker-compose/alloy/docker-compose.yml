@@ -1,7 +1,9 @@
 #
-# Grafana Alloy on the primary TrueNAS: container logs -> Loki, host +
-# container metrics -> Prometheus, both in the Talos cluster. Pipeline and
-# secret redaction live in config.alloy.
+# Grafana Alloy for any Docker host (primary TrueNAS, Quack01, the Frigate
+# LXC): container logs -> Loki, host + container metrics -> Prometheus, both
+# in the Talos cluster. Pipeline and secret redaction live in config.alloy.
+# Everything box-specific comes from .env (see .env.example), so every box
+# runs these exact files.
 #
 # Networking
 # ----------
@@ -49,10 +51,11 @@ services:
       - /sys:/host/sys:ro
       - /:/host/root:ro,rslave
       # cAdvisor. It asks Docker for its data root and opens that exact path,
-      # so mount it at the same path (TrueNAS: /mnt/.ix-apps/docker).
+      # so mount it at the same path (`docker info -f '{{.DockerRootDir}}'`).
+      # No /dev/disk mount: LXCs don't have one, and node exporter already
+      # covers the disks.
       - /sys:/sys:ro
       - ${DOCKER_DATA_ROOT:-/mnt/.ix-apps/docker}:${DOCKER_DATA_ROOT:-/mnt/.ix-apps/docker}:ro
-      - /dev/disk:/dev/disk:ro
     depends_on:
       - alloy-ts
     mem_limit: 512m

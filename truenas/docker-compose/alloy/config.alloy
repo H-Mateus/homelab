@@ -97,7 +97,7 @@ prometheus.exporter.unix "host" {
 	rootfs_path = "/host/root"
 
 	filesystem {
-		// Docker's overlay mounts and TrueNAS's internal ones are noise.
+		// Docker's overlay mounts (plain Debian and TrueNAS paths) are noise.
 		mount_points_exclude = "^/(dev|proc|run|sys|var/lib/docker/.+|mnt/\\.ix-apps/.+)($|/)"
 	}
 }

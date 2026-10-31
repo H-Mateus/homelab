@@ -1,6 +1,7 @@
 # Alloy
 
-[Grafana Alloy](https://grafana.com/docs/alloy/) on the primary TrueNAS. Ships:
+[Grafana Alloy](https://grafana.com/docs/alloy/) for every Docker host in the
+homelab. The same files run on each box; only `.env` differs. Ships:
 
 - **Logs**: every container's output → Loki, labelled `host`, `stack`
   (Compose project) and `container`. Secrets are scrubbed on the box first
@@ -10,24 +11,49 @@
 
 Both go to the cluster's push-only endpoints
 (`kubernetes/apps/monitoring/ingest-ingress.yaml`) over the tailnet. Read
-them in Grafana (Explore → Loki: `{host="truenas"}`).
+them in Grafana (Explore → Loki: `{host="<HOST_LABEL>"}`; the Node Exporter
+Full and Cadvisor dashboards in the Homelab folder have a host picker).
+
+The stack lives under `truenas/` for history (moving it would orphan the
+primary's Dockhand stack and its Tailscale state); it is not TrueNAS-specific.
+
+## Per-box settings
+
+| Box | Deployed by | `HOST_LABEL` | `DOCKER_DATA_ROOT` | `TS_HOSTNAME` |
+|---|---|---|---|---|
+| Primary TrueNAS | Dockhand (git stack) | `truenas` | `/mnt/.ix-apps/docker` | `alloy-truenas` |
+| Quack01 | see its deployment notes | `quack01` | `/mnt/.ix-apps/docker` | `alloy-quack01` |
+| Frigate LXC | `docker compose` from the git clone | `frigate` | `/var/lib/docker` | `alloy-frigate` |
+
+Check a box's data root with `docker info -f '{{.DockerRootDir}}'`. A wrong
+value doesn't break logs, but cAdvisor falls back to reporting only the
+root cgroup (no per-container metrics).
 
 ## Deploy
 
 1. Tailscale admin: a single-use, pre-approved, non-ephemeral auth key
-   tagged `tag:monitoring-agent`. (The policy grant
+   tagged `tag:monitoring-agent`, one per box. (The policy grant
    `tag:monitoring-agent → tag:monitoring-ingest:443` already exists.)
-2. Dockhand: add the stack pointed at this directory, fill `.env` from
-   `.env.example`, deploy.
-3. Check: `alloy-ts` joins the tailnet as `alloy-truenas`; Alloy's logs show
-   no `loki.write` / `remote_write` errors; in Grafana,
-   `{host="truenas"}` returns logs and `up{host="truenas"}` returns 1.
+2. Fill `.env` from `.env.example` with the row above.
+   - **Dockhand**: add the stack pointed at this directory, paste the `.env`
+     in its UI, deploy.
+   - **Plain Docker** (Frigate LXC, repo cloned at `/root/homelab`):
+     ```bash
+     cd /root/homelab && git pull
+     cd truenas/docker-compose/alloy
+     cp .env.example .env && chmod 600 .env   # then edit it
+     docker compose up -d
+     ```
+     `.env` and `ts-state/` are gitignored, so `git pull` keeps working.
+     Update later with `git pull && docker compose up -d`.
+3. Check: `alloy-ts` joins the tailnet as `TS_HOSTNAME`; `docker logs alloy`
+   shows no `loki.write` / `remote_write` errors; in Grafana,
+   `{host="<HOST_LABEL>"}` returns logs and `up{host="<HOST_LABEL>"}` is 1.
 
-Alloy's debug UI is on `127.0.0.1:12345` of the TrueNAS host only (e.g.
-`ssh -L 12345:127.0.0.1:12345 truenas`).
+Alloy's debug UI listens on `127.0.0.1:12345` of each host only (e.g.
+`ssh -L 12345:127.0.0.1:12345 root@<box>`).
 
-## Reusing on another Docker host
+## Not covered here
 
-`config.alloy` takes everything box-specific from the environment. Copy the
-stack, change `HOST_LABEL`, `TS_HOSTNAME` and `DOCKER_DATA_ROOT` (usually
-`/var/lib/docker` off TrueNAS). Drop the `mnt/.ix-apps` exclude if you like.
+Hosts without Docker (the Proxmox hosts) run Alloy as a system package with
+their own config; pfSense can't run Alloy and sends syslog instead.
