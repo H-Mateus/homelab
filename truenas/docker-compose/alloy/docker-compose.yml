@@ -58,6 +58,9 @@ services:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
       - /:/host/root:ro,rslave
+      # udev's device database: disk model/serial labels on node_disk_*
+      # metrics. Absent in LXCs (Docker creates an empty dir; harmless).
+      - /run/udev/data:/run/udev/data:ro
       # cAdvisor. It asks Docker for its data root and opens that exact path,
       # so mount it at the same path (`docker info -f '{{.DockerRootDir}}'`).
       # No /dev/disk mount: LXCs don't have one, and node exporter already

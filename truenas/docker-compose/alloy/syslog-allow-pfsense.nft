@@ -1,0 +1,22 @@
+#!/usr/sbin/nft -f
+# Frigate LXC only: Alloy's syslog listener (UDP 1514, see config.alloy) has
+# no authentication, so accept it from pfSense alone. Its own table, so it
+# never touches Docker's rules.
+#
+# Install (see README "pfSense"):
+#   install -Dm644 syslog-allow-pfsense.nft /etc/nftables.d/syslog-allow-pfsense.nft
+#   echo 'include "/etc/nftables.d/*.nft"' >> /etc/nftables.conf   # once; loads at boot
+#   nft -f /etc/nftables.d/syslog-allow-pfsense.nft                # apply now
+# Never `systemctl restart nftables` on a Docker host: /etc/nftables.conf
+# starts with `flush ruleset`, which would wipe Docker's rules too.
+
+# Re-runnable: create-then-delete clears any previous copy atomically.
+table inet syslog_allow
+delete table inet syslog_allow
+
+table inet syslog_allow {
+	chain input {
+		type filter hook input priority filter - 10; policy accept;
+		udp dport 1514 ip saddr != 192.168.1.1 counter drop
+	}
+}

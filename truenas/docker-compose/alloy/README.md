@@ -80,9 +80,10 @@ pfSense side:
 2. **System → Package Manager**: install the node_exporter package, enable it
    under its Services page, listening on the **LAN** interface only, port 9100.
 
-The syslog listener has no authentication: anything on the LAN can send it
-lines (it can't read anything back). That's the usual trade-off for syslog
-on a home LAN; the cameras' VLAN can't reach it.
+The syslog listener has no authentication, so the Frigate LXC drops UDP 1514
+from anything but pfSense with an nftables rule in its own table
+(`syslog-allow-pfsense.nft`; install steps in its header). Every stream gets
+a fixed `host="pfsense"` label, never the sender-supplied hostname.
 
 ## Not covered here
 
