@@ -23,3 +23,7 @@ configMapGenerator:
       disableNameSuffixHash: true
       labels:
         grafana_dashboard: "1"
+      # Sidecar files it under this Grafana folder (helm-release.yaml
+      # sidecar.dashboards.folderAnnotation).
+      annotations:
+        grafana_folder: Homelab

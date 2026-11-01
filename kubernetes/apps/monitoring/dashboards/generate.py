@@ -162,8 +162,9 @@ glance_targets = [
     q(ROOT_USED, "ROOT", instant=True, fmt="table"),
     q(UPTIME, "UP", instant=True, fmt="table"),
 ]
+# "Boxes at a glance" and "ZFS pools" share a row (stacked on a phone).
 overview.append(panel(
-    "table", "Boxes at a glance", 0, y, 24, 8, glance_targets,
+    "table", "Boxes at a glance", 0, y, 12, 8, glance_targets,
     description="Memory excludes reclaimable cache (and the ZFS ARC on TrueNAS). Root disk = the OS disk (blank on ZFS boxes: TrueNAS and pfSense are in ZFS pools below).",
     transformations=[
         {"id": "merge", "options": {}},
@@ -184,10 +185,9 @@ overview.append(panel(
                          {"id": "unit", "value": "dtdurations"},
                          {"id": "custom.cellOptions", "value": {"type": "auto"}}]},
                  ]}))
-y += 8
 
 overview.append(panel(
-    "table", "ZFS pools", 0, y, 24, 7,
+    "table", "ZFS pools", 12, y, 12, 8,
     [q(ZFS_FREE_PCT, "FREE", instant=True, fmt="table"), q(ZFS_AVAIL, "AVAIL", instant=True, fmt="table")],
     description="Approximate (from per-dataset stats; snapshots and Docker's own datasets aren't counted, so the apps pool reads emptier than it is). Alerts at 20% / 10% free.",
     transformations=[
@@ -207,7 +207,7 @@ overview.append(panel(
             {"id": "custom.cellOptions", "value": {"type": "color-text"}}]},
         {"matcher": {"id": "byName", "options": "Free space"}, "properties": [{"id": "unit", "value": "bytes"}]},
     ]}))
-y += 7
+y += 8
 
 overview.append(panel(
     "logs", "System errors (all boxes)", 0, y, 24, 10,

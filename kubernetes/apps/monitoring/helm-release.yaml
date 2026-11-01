@@ -52,7 +52,17 @@ spec:
       # which the dashboard sidecar writes to /tmp/dashboards.
       grafana.ini:
         dashboards:
-          default_home_dashboard_path: /tmp/dashboards/homelab-overview.json
+          default_home_dashboard_path: /tmp/dashboards/Homelab/homelab-overview.json
+      # Dashboard ConfigMaps land in the Grafana folder named by their
+      # grafana_folder annotation: Homelab for ours (kustomization.yaml),
+      # Cluster for the chart's built-in Kubernetes/etcd/CoreDNS/... ones.
+      sidecar:
+        dashboards:
+          folderAnnotation: grafana_folder
+          annotations:
+            grafana_folder: Cluster
+          provider:
+            foldersFromFilesStructure: true
       defaultDashboardsTimezone: browser
       # Loki (loki-helm-release.yaml); monolithic mode serves the API on the
       # main service.
