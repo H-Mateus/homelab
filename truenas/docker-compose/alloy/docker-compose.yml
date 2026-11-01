@@ -54,6 +54,8 @@ services:
       - /var/log/journal:/var/log/journal:ro
       - /run/log/journal:/run/log/journal:ro
       - /etc/machine-id:/etc/machine-id:ro
+      # TrueNAS's middlewared / zettarepl / app_lifecycle log files.
+      - /var/log:/host/var/log:ro
       # Node exporter.
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro

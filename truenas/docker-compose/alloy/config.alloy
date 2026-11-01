@@ -92,6 +92,55 @@ loki.source.journal "host" {
 }
 
 // ---------------------------------------------------------------------------
+// Logs: TrueNAS's own log files. middlewared (alerts, pools, datasets, the
+// API), zettarepl (snapshot + replication tasks) and app lifecycle (catalog
+// and custom app up/down) write to /var/log, not the journal. On boxes
+// without these files (the Frigate LXC) the match is simply empty.
+// Labelled unit = file name (e.g. unit="zettarepl.log") and level.
+// ---------------------------------------------------------------------------
+
+local.file_match "truenas" {
+	path_targets = [{
+		__path__ = "/host/var/log/{middlewared,zettarepl,app_lifecycle}.log",
+		job      = "truenas-files",
+	}]
+}
+
+loki.source.file "truenas" {
+	targets       = local.file_match.truenas.targets
+	tail_from_end = true
+	forward_to    = [loki.process.truenas.receiver]
+}
+
+loki.process "truenas" {
+	// Python tracebacks span many lines; each entry starts "[2026/11/01 ...".
+	stage.multiline {
+		firstline     = "^\\[\\d{4}/\\d{2}/\\d{2} "
+		max_wait_time = "3s"
+	}
+
+	stage.regex {
+		expression = "^\\S+/(?P<unit>[^/]+)$"
+		source     = "filename"
+	}
+
+	// middlewared/app_lifecycle: "] (ERROR) ..."; zettarepl: "] ERROR [...".
+	stage.regex {
+		expression = "^\\[[^\\]]+\\] \\(?(?P<level>DEBUG|INFO|WARNING|ERROR|CRITICAL)\\b"
+	}
+
+	stage.labels {
+		values = {unit = "", level = ""}
+	}
+
+	stage.label_drop {
+		values = ["filename"]
+	}
+
+	forward_to = [loki.process.redact.receiver]
+}
+
+// ---------------------------------------------------------------------------
 // Logs: network devices that can only send syslog (pfSense). Every box runs
 // this listener, but only the Frigate LXC sets SYSLOG_LISTEN_ADDR to its LAN
 // address; elsewhere it stays on loopback and receives nothing. Streams get
