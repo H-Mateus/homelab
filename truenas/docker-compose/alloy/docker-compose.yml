@@ -41,6 +41,9 @@ services:
       HOST_LABEL: ${HOST_LABEL}
       LOKI_PUSH_URL: ${LOKI_PUSH_URL}
       PROM_WRITE_URL: ${PROM_WRITE_URL}
+      # Frigate LXC only (pfSense syslog + node_exporter); see .env.example.
+      SYSLOG_LISTEN_ADDR: ${SYSLOG_LISTEN_ADDR:-127.0.0.1:1514}
+      PFSENSE_EXPORTER: ${PFSENSE_EXPORTER:-}
     volumes:
       - ./config.alloy:/etc/alloy/config.alloy:ro
       # WAL + log read positions; losing it only means some re-sent lines.

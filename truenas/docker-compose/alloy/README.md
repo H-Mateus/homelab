@@ -55,8 +55,36 @@ root cgroup (no per-container metrics).
 Alloy's debug UI listens on `127.0.0.1:12345` of each host only (e.g.
 `ssh -L 12345:127.0.0.1:12345 root@<box>`).
 
+## pfSense (via the Frigate LXC)
+
+pfSense can't run Alloy, so the Frigate LXC's Alloy collects for it. Two
+optional `.env` values, set **only** there:
+
+| Variable | Frigate LXC | Elsewhere |
+|---|---|---|
+| `SYSLOG_LISTEN_ADDR` | `192.168.1.39:1514` (UDP syslog listener on its LAN IP) | unset → `127.0.0.1:1514`, receives nothing |
+| `PFSENSE_EXPORTER` | `<pfSense LAN IP>:9100` (node_exporter package) | unset → no target |
+
+Logs arrive as `{host="pfsense", job="syslog"}` with `unit` = program
+(`filterlog`, `unbound`, `dhcpd`, `sshd`, `php-fpm`, ...) and `level`; metrics
+as `up{host="pfsense"}`. FreeBSD's node_exporter names some memory and disk
+metrics differently, so parts of the Node Exporter Full dashboard stay empty.
+
+pfSense side:
+
+1. **Status → System Logs → Settings**:
+   - *Log Message Format*: **syslog (RFC 5424)**.
+   - *Enable Remote Logging*, *Source Address*: LAN, *IP Protocol*: IPv4,
+     *Remote log servers*: `192.168.1.39:1514`, *Remote Syslog Contents*:
+     Everything (untick firewall events if `filterlog` is too noisy).
+2. **System → Package Manager**: install the node_exporter package, enable it
+   under its Services page, listening on the **LAN** interface only, port 9100.
+
+The syslog listener has no authentication: anything on the LAN can send it
+lines (it can't read anything back). That's the usual trade-off for syslog
+on a home LAN; the cameras' VLAN can't reach it.
+
 ## Not covered here
 
 Hosts without Docker (the Proxmox hosts) run Alloy as a system package with
-their own config: see `proxmox-hosts/`. pfSense can't run Alloy and sends
-syslog instead.
+their own config: see `proxmox-hosts/`.

@@ -91,6 +91,52 @@ loki.source.journal "host" {
 	forward_to    = [loki.process.redact.receiver]
 }
 
+// ---------------------------------------------------------------------------
+// Logs: network devices that can only send syslog (pfSense). Every box runs
+// this listener, but only the Frigate LXC sets SYSLOG_LISTEN_ADDR to its LAN
+// address; elsewhere it stays on loopback and receives nothing. Streams are
+// labelled with the SENDER's hostname (host="pfsense"), which takes
+// precedence over this box's external host label; unit = program
+// (filterlog, unbound, dhcpd, ...), level = severity.
+// ---------------------------------------------------------------------------
+
+loki.source.syslog "network" {
+	listener {
+		address       = sys.env("SYSLOG_LISTEN_ADDR")
+		protocol      = "udp"
+		syslog_format = "rfc5424"
+		labels        = {job = "syslog"}
+	}
+	relabel_rules = loki.relabel.syslog.rules
+	forward_to    = [loki.process.redact.receiver]
+}
+
+loki.relabel "syslog" {
+	forward_to = []
+
+	rule {
+		source_labels = ["__syslog_message_hostname"]
+		regex         = "([^.]+).*"
+		target_label  = "host"
+	}
+
+	rule {
+		source_labels = ["host"]
+		action        = "lowercase"
+		target_label  = "host"
+	}
+
+	rule {
+		source_labels = ["__syslog_message_app_name"]
+		target_label  = "unit"
+	}
+
+	rule {
+		source_labels = ["__syslog_message_severity"]
+		target_label  = "level"
+	}
+}
+
 // Scrub secrets BEFORE they leave the box: Loki keeps logs for 30 days and
 // Claude reads them via Grafana. Each stage replaces its capture group.
 loki.process "redact" {
@@ -145,6 +191,30 @@ prometheus.exporter.cadvisor "containers" {
 
 prometheus.scrape "host" {
 	targets         = prometheus.exporter.unix.host.targets
+	scrape_interval = "30s"
+	forward_to      = [prometheus.remote_write.cluster.receiver]
+}
+
+// pfSense's node_exporter package, scraped over the LAN by the Frigate LXC
+// only (PFSENSE_EXPORTER=<ip>:9100 there; empty elsewhere, which drops the
+// target). Series carry host="pfsense", which wins over this box's label.
+discovery.relabel "pfsense" {
+	targets = [{
+		__address__ = sys.env("PFSENSE_EXPORTER"),
+		host        = "pfsense",
+		instance    = "pfsense",
+	}]
+
+	rule {
+		source_labels = ["__address__"]
+		regex         = ""
+		action        = "drop"
+	}
+}
+
+prometheus.scrape "pfsense" {
+	targets         = discovery.relabel.pfsense.output
+	job_name        = "integrations/unix"
 	scrape_interval = "30s"
 	forward_to      = [prometheus.remote_write.cluster.receiver]
 }
