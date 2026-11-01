@@ -94,10 +94,12 @@ loki.source.journal "host" {
 // ---------------------------------------------------------------------------
 // Logs: network devices that can only send syslog (pfSense). Every box runs
 // this listener, but only the Frigate LXC sets SYSLOG_LISTEN_ADDR to its LAN
-// address; elsewhere it stays on loopback and receives nothing. Streams are
-// labelled with the SENDER's hostname (host="pfsense"), which takes
-// precedence over this box's external host label; unit = program
-// (filterlog, unbound, dhcpd, ...), level = severity.
+// address; elsewhere it stays on loopback and receives nothing. Streams get
+// a FIXED host="pfsense" (it takes precedence over this box's external host
+// label). Deliberately not taken from the message's hostname field: the
+// listener is unauthenticated, so anything on the LAN could otherwise
+// forge lines as host="truenas" etc. unit = program (filterlog, unbound,
+// dhcpd, ...), level = severity.
 // ---------------------------------------------------------------------------
 
 loki.source.syslog "network" {
@@ -105,7 +107,7 @@ loki.source.syslog "network" {
 		address       = sys.env("SYSLOG_LISTEN_ADDR")
 		protocol      = "udp"
 		syslog_format = "rfc5424"
-		labels        = {job = "syslog"}
+		labels        = {job = "syslog", host = "pfsense"}
 	}
 	relabel_rules = loki.relabel.syslog.rules
 	forward_to    = [loki.process.redact.receiver]
@@ -113,18 +115,6 @@ loki.source.syslog "network" {
 
 loki.relabel "syslog" {
 	forward_to = []
-
-	rule {
-		source_labels = ["__syslog_message_hostname"]
-		regex         = "([^.]+).*"
-		target_label  = "host"
-	}
-
-	rule {
-		source_labels = ["host"]
-		action        = "lowercase"
-		target_label  = "host"
-	}
 
 	rule {
 		source_labels = ["__syslog_message_app_name"]
