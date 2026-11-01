@@ -72,6 +72,19 @@ loki.process "redact" {
 		replace    = "REDACTED"
 	}
 
+	// Same in dict / JSON form, e.g. Python tracebacks from middlewared:
+	// {'password': '...'} or "privatekey": "...".
+	stage.replace {
+		expression = "(?i)['\"](?:api[_-]?key|token|access_token|password|passwd|pass|pwd|secret|private[_-]?key|privatekey|bindpw|auth[_-]?key|client_secret)['\"]\\s*:\\s*['\"]([^'\"]+)['\"]"
+		replace    = "REDACTED"
+	}
+
+	// PEM private keys (SSH keychain credentials, certificates).
+	stage.replace {
+		expression = "-----BEGIN [A-Z ]*PRIVATE KEY-----([\\s\\S]*?)-----END"
+		replace    = "REDACTED"
+	}
+
 	// Auth headers.
 	stage.replace {
 		expression = "(?i)(?:authorization:\\s*(?:bearer|basic)|x-api-key:)\\s*([^\\s\"',;]+)"
