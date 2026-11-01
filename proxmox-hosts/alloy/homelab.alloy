@@ -1,0 +1,107 @@
+// Grafana Alloy for the Proxmox hosts (no Docker): the host's systemd journal
+// -> Loki and node exporter metrics -> Prometheus, both in the Talos cluster,
+// over the tailnet. Installed as /etc/alloy/homelab.alloy by
+// ../setup-alloy.sh; box-specific values come from /etc/alloy/homelab.env.
+//
+// The Docker-host version is truenas/docker-compose/alloy/config.alloy.
+// Keep the two "redact" blocks identical.
+
+// ---------------------------------------------------------------------------
+// Outputs. Every series and stream gets host=<box> (HOST_LABEL). Requests go
+// through the alloy-tailscaled outbound proxy on 127.0.0.1:1055, a separate
+// userspace Tailscale instance that joins the tailnet as
+// tag:monitoring-agent (the only tag allowed to push to tag:monitoring-ingest).
+// ---------------------------------------------------------------------------
+
+loki.write "cluster" {
+	endpoint {
+		url       = sys.env("LOKI_PUSH_URL")
+		proxy_url = "http://127.0.0.1:1055"
+	}
+	external_labels = {host = sys.env("HOST_LABEL")}
+}
+
+prometheus.remote_write "cluster" {
+	endpoint {
+		url       = sys.env("PROM_WRITE_URL")
+		proxy_url = "http://127.0.0.1:1055"
+	}
+	external_labels = {host = sys.env("HOST_LABEL")}
+}
+
+// ---------------------------------------------------------------------------
+// Logs: the host's systemd journal (kernel, pveproxy, pvedaemon, qemu-server,
+// pve-cluster, sshd, ZFS, unattended-upgrades, ...). Labelled unit + level;
+// job is loki.source.journal.host, the same as on the Docker hosts.
+// ---------------------------------------------------------------------------
+
+loki.relabel "journal" {
+	forward_to = []
+
+	rule {
+		source_labels = ["__journal__systemd_unit"]
+		target_label  = "unit"
+	}
+
+	rule {
+		source_labels = ["__journal_priority_keyword"]
+		target_label  = "level"
+	}
+}
+
+loki.source.journal "host" {
+	// Only on first start (no saved cursor); afterwards it resumes.
+	max_age       = "12h"
+	relabel_rules = loki.relabel.journal.rules
+	forward_to    = [loki.process.redact.receiver]
+}
+
+// Scrub secrets BEFORE they leave the box: Loki keeps logs for 30 days and
+// Claude reads them via Grafana. Each stage replaces its capture group.
+loki.process "redact" {
+	// Credentials in URLs, e.g. rtsp://user:PASSWORD@camera (go2rtc, Frigate).
+	stage.replace {
+		expression = "[a-zA-Z][a-zA-Z0-9+.-]*://[^:/@\\s]+:([^@\\s]+)@"
+		replace    = "REDACTED"
+	}
+
+	// Keys and passwords in query strings or key=value pairs (arr apps log
+	// request URLs with ?apikey=...).
+	stage.replace {
+		expression = "(?i)(?:api[_-]?key|token|access_token|password|passwd|pwd|secret)=([^&\\s\"',;]+)"
+		replace    = "REDACTED"
+	}
+
+	// Auth headers.
+	stage.replace {
+		expression = "(?i)(?:authorization:\\s*(?:bearer|basic)|x-api-key:)\\s*([^\\s\"',;]+)"
+		replace    = "REDACTED"
+	}
+
+	// Tailscale auth keys.
+	stage.replace {
+		expression = "(tskey-[a-z]+-[A-Za-z0-9-]+)"
+		replace    = "REDACTED"
+	}
+
+	forward_to = [loki.write.cluster.receiver]
+}
+
+// ---------------------------------------------------------------------------
+// Metrics: the host (node exporter: CPU, memory, disks, ZFS, network).
+// Alloy runs natively here, so no /host/* path remapping.
+// ---------------------------------------------------------------------------
+
+prometheus.exporter.unix "host" {
+	filesystem {
+		// /etc/pve is the pmxcfs FUSE mount and /var/lib/lxcfs the LXC
+		// view of /proc; neither is a real disk.
+		mount_points_exclude = "^/(dev|proc|run|sys|etc/pve|var/lib/lxcfs)($|/)"
+	}
+}
+
+prometheus.scrape "host" {
+	targets         = prometheus.exporter.unix.host.targets
+	scrape_interval = "30s"
+	forward_to      = [prometheus.remote_write.cluster.receiver]
+}

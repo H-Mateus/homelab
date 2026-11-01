@@ -1,0 +1,43 @@
+# A second, userspace Tailscale instance used only by Alloy: the systemd
+# equivalent of the alloy-ts sidecar on the Docker hosts. It joins the tailnet
+# as its own device (alloy-<HOST_LABEL>, tag:monitoring-agent) and offers
+# Tailscale's outbound HTTP proxy on 127.0.0.1:1055.
+#
+# Separate socket, state and port from the host's own tailscaled (if any), so
+# the two don't interfere and the host's identity never gets push rights to
+# the ingest endpoints. Userspace mode: no TUN device, no routes, no DNS
+# changes on the host.
+#
+# Log in once with:
+#   tailscale --socket=/run/alloy-tailscale/tailscaled.sock up --auth-key=...
+# (setup-alloy.sh does this).
+
+[Unit]
+Description=Tailscale (userspace) for Alloy: proxy on 127.0.0.1:1055
+Documentation=https://tailscale.com/docs/concepts/userspace-networking
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+ExecStart=/usr/sbin/tailscaled \
+    --tun=userspace-networking \
+    --statedir=/var/lib/alloy-tailscale \
+    --socket=/run/alloy-tailscale/tailscaled.sock \
+    --port=0 \
+    --outbound-http-proxy-listen=127.0.0.1:1055
+RuntimeDirectory=alloy-tailscale
+StateDirectory=alloy-tailscale
+StateDirectoryMode=0700
+Restart=on-failure
+RestartSec=5
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -58,4 +58,5 @@ Alloy's debug UI listens on `127.0.0.1:12345` of each host only (e.g.
 ## Not covered here
 
 Hosts without Docker (the Proxmox hosts) run Alloy as a system package with
-their own config; pfSense can't run Alloy and sends syslog instead.
+their own config: see `proxmox-hosts/`. pfSense can't run Alloy and sends
+syslog instead.
