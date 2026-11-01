@@ -63,6 +63,9 @@ are among the things it watches.
 - `https://uptime.<tailnet>.ts.net` — the primary watcher.
 - A few signals that mean "the house is up": Home Assistant, Immich, the
   primary TrueNAS.
+- Ping `pfsense.<tailnet>.ts.net` (pfSense's Tailscale package,
+  `tag:pfsense`; 60 s, 3 retries): fails if the house's internet, the
+  router or the power is down.
 
 **Both**: a dead man's switch on healthchecks.io (free). Make one check per
 Kuma (period 1 min, grace 5 min) with its own alert channel, then add a
