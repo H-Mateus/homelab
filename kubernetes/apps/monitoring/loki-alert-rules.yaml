@@ -1,0 +1,54 @@
+---
+# Log alerts, evaluated by Loki's ruler and sent to the same Alertmanager as
+# the metric alerts (loki-helm-release.yaml rulerConfig). The chart's
+# loki-sc-rules sidecar loads ConfigMaps labelled loki_rule; the annotation
+# puts the file under the "fake" tenant (auth disabled).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: loki-alert-rules
+  namespace: monitoring
+  labels:
+    loki_rule: "1"
+  annotations:
+    k8s-sidecar-target-directory: /rules/fake
+data:
+  homelab-logs.yaml: |
+    groups:
+      - name: homelab-logs
+        interval: 1m
+        rules:
+          # Snapshot or replication task errors. The off-site copy is a PULL
+          # task on Quack01, so its failures land in Quack01's zettarepl.log;
+          # snapshot tasks log on the box that owns the data. (In Sept 2026
+          # the off-site replication failed silently for weeks.)
+          - alert: ZfsReplicationOrSnapshotError
+            expr: |
+              sum by (host) (count_over_time({job="truenas-files", unit="zettarepl.log", level=~"ERROR|CRITICAL"}[15m])) > 0
+            labels:
+              severity: warning
+            annotations:
+              summary: "{{ $labels.host }}: snapshot/replication error"
+              description: "zettarepl logged an error in the last 15 minutes. Grafana: {host=\"{{ $labels.host }}\", unit=\"zettarepl.log\"}; TrueNAS: Data Protection > Replication Tasks."
+
+          # A TrueNAS app (catalog or custom YAML) failed to start/stop/update.
+          - alert: TrueNASAppActionFailed
+            expr: |
+              sum by (host) (count_over_time({job="truenas-files", unit="app_lifecycle.log", level=~"ERROR|CRITICAL"}[15m])) > 0
+            labels:
+              severity: warning
+            annotations:
+              summary: "{{ $labels.host }}: a TrueNAS app action failed"
+              description: "app_lifecycle.log has an error in the last 15 minutes: {host=\"{{ $labels.host }}\", unit=\"app_lifecycle.log\"}."
+
+          # ZFS event daemon: checksum / IO errors, a vdev changing state
+          # (DEGRADED, FAULTED, REMOVED, ...), a pool losing redundancy.
+          # Lines look like: eid=12 class=checksum pool='tank' ...
+          - alert: ZfsFaultEvent
+            expr: |
+              sum by (host) (count_over_time({job="loki.source.journal.host", unit="zfs-zed.service"} |~ "class=(checksum|io|data|deadman|probe_failure|statechange|vdev\\.|pool_failmode|zio)" [15m])) > 0
+            labels:
+              severity: critical
+            annotations:
+              summary: "{{ $labels.host }}: ZFS reported a disk/pool fault"
+              description: "zfs-zed logged a fault event. Check Storage in the TrueNAS UI (zpool status). Logs: {host=\"{{ $labels.host }}\", unit=\"zfs-zed.service\"}."

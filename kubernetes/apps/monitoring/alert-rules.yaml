@@ -1,0 +1,93 @@
+---
+# Metric alerts for the boxes outside the cluster (TrueNAS x2, Frigate LXC,
+# Proxmox hosts, pfSense), from what Alloy pushes (every series carries
+# host=<box>). The chart's own rules cover the cluster itself. Routing and
+# delivery: alertmanager section of helm-release.yaml.
+#
+# severity: critical = push that breaks through Do Not Disturb (data at
+# risk now); warning = normal push.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: homelab-hosts
+  namespace: monitoring
+spec:
+  groups:
+    - name: homelab-hosts
+      rules:
+        # A box that reported in the last day but has gone quiet (Alloy or
+        # the box itself down, or its tailnet path broken), or whose scrape
+        # fails (pfSense's node_exporter, pushed as up=0). Kuma alerts on
+        # the services; this catches the monitoring gap itself.
+        - alert: HostStoppedReporting
+          expr: |
+            (
+              max by (host) (max_over_time(up{job="integrations/unix"}[1d]))
+              unless max by (host) (up{job="integrations/unix"})
+            )
+            or max by (host) (up{job="integrations/unix"}) == 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.host }} has stopped sending metrics"
+            description: "No node metrics from {{ $labels.host }} for 10 minutes. Check the box, its alloy / alloy-ts containers (or alloy + alloy-tailscaled services on Proxmox), or pfSense's node_exporter."
+
+        # Ordinary filesystems (root disks of the Proxmox hosts and the
+        # Frigate LXC). ZFS has its own rule below; NFS mounts are the
+        # TrueNAS pools seen from a client.
+        - alert: FilesystemSpaceLow
+          expr: |
+            node_filesystem_avail_bytes{job="integrations/unix", fstype=~"ext[234]|xfs|btrfs"}
+              / node_filesystem_size_bytes{job="integrations/unix", fstype=~"ext[234]|xfs|btrfs"} < 0.15
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.host }}: {{ $labels.mountpoint }} is {{ $value | humanizePercentage }} free"
+            description: "{{ $labels.device }} on {{ $labels.host }} has less than 15% free space."
+        - alert: FilesystemSpaceLow
+          expr: |
+            node_filesystem_avail_bytes{job="integrations/unix", fstype=~"ext[234]|xfs|btrfs"}
+              / node_filesystem_size_bytes{job="integrations/unix", fstype=~"ext[234]|xfs|btrfs"} < 0.05
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "{{ $labels.host }}: {{ $labels.mountpoint }} is almost full ({{ $value | humanizePercentage }} free)"
+            description: "{{ $labels.device }} on {{ $labels.host }} has less than 5% free space."
+
+        # ZFS pool free space. node_filesystem reports per dataset: "avail" is
+        # the pool's free space (smaller only for datasets with a quota, hence
+        # max), and size - avail is the dataset's own usage, summed for the
+        # pool. Matches `zpool list` within a percent or two on tank/HDDs;
+        # it under-counts snapshots and the excluded Docker datasets (so the
+        # apps pool reads emptier than it is), which errs towards alerting late.
+        - alert: ZfsPoolSpaceLow
+          expr: |
+            max by (host, pool) (label_replace(node_filesystem_avail_bytes{job="integrations/unix", fstype="zfs"}, "pool", "$1", "device", "([^/]+).*"))
+            /
+            (
+              sum by (host, pool) (label_replace(node_filesystem_size_bytes{job="integrations/unix", fstype="zfs"} - node_filesystem_avail_bytes{job="integrations/unix", fstype="zfs"}, "pool", "$1", "device", "([^/]+).*"))
+              + max by (host, pool) (label_replace(node_filesystem_avail_bytes{job="integrations/unix", fstype="zfs"}, "pool", "$1", "device", "([^/]+).*"))
+            ) < 0.20
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.host }}: ZFS pool {{ $labels.pool }} is {{ $value | humanizePercentage }} free"
+            description: "ZFS performance drops and fragmentation rises above ~80% full. Prune snapshots or data, or add space."
+        - alert: ZfsPoolSpaceLow
+          expr: |
+            max by (host, pool) (label_replace(node_filesystem_avail_bytes{job="integrations/unix", fstype="zfs"}, "pool", "$1", "device", "([^/]+).*"))
+            /
+            (
+              sum by (host, pool) (label_replace(node_filesystem_size_bytes{job="integrations/unix", fstype="zfs"} - node_filesystem_avail_bytes{job="integrations/unix", fstype="zfs"}, "pool", "$1", "device", "([^/]+).*"))
+              + max by (host, pool) (label_replace(node_filesystem_avail_bytes{job="integrations/unix", fstype="zfs"}, "pool", "$1", "device", "([^/]+).*"))
+            ) < 0.10
+          for: 15m
+          labels:
+            severity: critical
+          annotations:
+            summary: "{{ $labels.host }}: ZFS pool {{ $labels.pool }} is almost full ({{ $value | humanizePercentage }} free)"
+            description: "Writes (including replication and app data) will start failing soon."

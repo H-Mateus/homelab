@@ -52,6 +52,19 @@ spec:
       compactor:
         retention_enabled: true
         delete_request_store: filesystem
+      # Log-based alerts (loki-alert-rules.yaml) -> the same Alertmanager as
+      # the metric alerts. The chart's loki-sc-rules sidecar copies
+      # ConfigMaps labelled loki_rule into /rules; with auth disabled the
+      # tenant is "fake", hence /rules/fake (set per ConfigMap). rule_path is
+      # the ruler's scratch copy and must not be the same directory.
+      rulerConfig:
+        alertmanager_url: http://kube-prometheus-stack-alertmanager.monitoring.svc.cluster.local:9093
+        enable_api: true
+        rule_path: /var/loki/rules-temp
+        storage:
+          type: local
+          local:
+            directory: /rules
 
     singleBinary:
       replicas: 1

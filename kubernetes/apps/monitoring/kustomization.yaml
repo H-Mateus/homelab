@@ -7,3 +7,6 @@ resources:
   - ingest-ingress.yaml
   - helm-release.yaml
   - loki-helm-release.yaml
+  - alertmanager-webhooks.sops.yaml
+  - alert-rules.yaml
+  - loki-alert-rules.yaml

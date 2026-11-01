@@ -111,9 +111,66 @@ spec:
         # outside the cluster (exposed via ingest-ingress.yaml).
         enableRemoteWriteReceiver: true
 
+    # --- Talos: control-plane components the chart can't scrape ---
+    # Talos binds kube-scheduler, kube-controller-manager and kube-proxy
+    # metrics to 127.0.0.1, so these targets are permanently "down" and their
+    # *InstanceUnreachable / TargetDown alerts would fire forever.
+    kubeControllerManager:
+      enabled: false
+    kubeScheduler:
+      enabled: false
+    kubeProxy:
+      enabled: false
+
     # --- Alertmanager ---
+    # Notifications go to a Home Assistant webhook (automation "Homelab –
+    # Alertmanager alerts" pushes them to the phone; critical ones break
+    # through Do Not Disturb). Watchdog, the always-firing heartbeat, goes to
+    # a healthchecks.io check instead, so a dead alerting pipeline alerts too.
+    # Both URLs are secrets (anyone holding them can push or silence), so
+    # they come from the SOPS secret alertmanager-webhooks via url_file;
+    # this config holds no secrets. Alert rules: alert-rules.yaml (metrics),
+    # loki-alert-rules.yaml (logs).
     alertmanager:
+      config:
+        global:
+          resolve_timeout: 5m
+        route:
+          receiver: home-assistant
+          group_by: [alertname, host, namespace]
+          group_wait: 30s
+          group_interval: 5m
+          repeat_interval: 12h
+          routes:
+            - receiver: healthchecks
+              matchers: ['alertname = "Watchdog"']
+              group_wait: 0s
+              group_interval: 1m
+              repeat_interval: 1m
+            # Info-level chart alerts and the InfoInhibitor helper: no push.
+            - receiver: "null"
+              matchers: ['severity =~ "info|none"']
+        inhibit_rules:
+          # A critical alert hides the matching warning (same alert, same
+          # place). Labels missing on both sides compare equal.
+          - source_matchers: ['severity = "critical"']
+            target_matchers: ['severity = "warning"']
+            equal: [alertname, namespace, host, pool, mountpoint]
+        receivers:
+          - name: "null"
+          - name: home-assistant
+            webhook_configs:
+              - url_file: /etc/alertmanager/secrets/alertmanager-webhooks/home-assistant
+                send_resolved: true
+                max_alerts: 10
+          - name: healthchecks
+            webhook_configs:
+              - url_file: /etc/alertmanager/secrets/alertmanager-webhooks/healthchecks
+                send_resolved: false
       alertmanagerSpec:
+        # Mounted at /etc/alertmanager/secrets/alertmanager-webhooks/<key>.
+        secrets:
+          - alertmanager-webhooks
         storage:
           volumeClaimTemplate:
             spec:
