@@ -62,6 +62,12 @@
    "type": "link",
    "url": "/d/homelab-box/homelab-box",
    "icon": "info"
+  },
+  {
+   "title": "Containers",
+   "type": "link",
+   "url": "/d/homelab-containers/homelab-containers",
+   "icon": "apps"
   }
  ],
  "panels": [
@@ -534,7 +540,7 @@
       "type": "prometheus",
       "uid": "prometheus"
      },
-     "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{job=\"integrations/cadvisor\", host=\"$host\", name!=\"\"}[5m]))",
+     "expr": "sum by (stack, name) (label_replace(rate(container_cpu_usage_seconds_total{job=\"integrations/cadvisor\", name!=\"\", host=\"$host\"}[5m]), \"stack\", \"$1\", \"container_label_com_docker_compose_project\", \"(.*)\"))",
      "legendFormat": "",
      "instant": true,
      "range": false,
@@ -546,7 +552,7 @@
       "type": "prometheus",
       "uid": "prometheus"
      },
-     "expr": "sum by (name) (container_memory_working_set_bytes{job=\"integrations/cadvisor\", host=\"$host\", name!=\"\"})",
+     "expr": "sum by (stack, name) (label_replace(container_memory_working_set_bytes{job=\"integrations/cadvisor\", name!=\"\", host=\"$host\"}, \"stack\", \"$1\", \"container_label_com_docker_compose_project\", \"(.*)\"))",
      "legendFormat": "",
      "instant": true,
      "range": false,
@@ -557,7 +563,7 @@
     "type": "prometheus",
     "uid": "prometheus"
    },
-   "description": "Docker hosts only (TrueNAS, Quack01, Frigate LXC). CPU in cores.",
+   "description": "Docker hosts only (TrueNAS, Quack01, Frigate LXC). CPU in cores. Tap a stack for the Containers page.",
    "transformations": [
     {
      "id": "merge",
@@ -570,9 +576,16 @@
        "Time": true
       },
       "renameByName": {
+       "stack": "Stack",
        "name": "Container",
        "Value #CPU": "CPU (cores)",
        "Value #MEM": "Memory"
+      },
+      "indexByName": {
+       "stack": 0,
+       "name": 1,
+       "Value #CPU": 2,
+       "Value #MEM": 3
       }
      }
     },
@@ -623,6 +636,23 @@
        {
         "id": "unit",
         "value": "bytes"
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Stack"
+      },
+      "properties": [
+       {
+        "id": "links",
+        "value": [
+         {
+          "title": "Open ${__value.text}",
+          "url": "/d/homelab-containers/homelab-containers?var-host=$host&var-stack=${__value.text}"
+         }
+        ]
        }
       ]
      }

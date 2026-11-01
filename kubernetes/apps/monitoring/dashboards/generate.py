@@ -19,6 +19,23 @@ PROM = {"type": "prometheus", "uid": "prometheus"}
 LOKI = {"type": "loki", "uid": "loki"}
 UNIX = 'job="integrations/unix"'
 BOX_URL = "/d/homelab-box/homelab-box?var-host="
+CONTAINERS_URL = "/d/homelab-containers/homelab-containers"
+# cAdvisor carries each container's Compose project as a Docker label; copy it
+# to a short `stack` label (TrueNAS catalog apps show up as ix-<app>).
+
+def stack(expr):
+    return f'label_replace({expr}, "stack", "$1", "container_label_com_docker_compose_project", "(.*)")'
+
+
+# Docker containers only (Alloy's cAdvisor). The cluster's kubelet also
+# exports container_* series (job="kubelet", long pod/containerd names);
+# those belong to the Kubernetes dashboards, not here. SEL = extra matchers.
+C_CPU = 'rate(container_cpu_usage_seconds_total{job="integrations/cadvisor", name!="", SEL}[5m])'
+C_MEM = 'container_memory_working_set_bytes{job="integrations/cadvisor", name!="", SEL}'
+C_RX = 'rate(container_network_receive_bytes_total{job="integrations/cadvisor", name!="", SEL}[5m])'
+C_TX = 'rate(container_network_transmit_bytes_total{job="integrations/cadvisor", name!="", SEL}[5m])'
+C_START = 'container_start_time_seconds{job="integrations/cadvisor", name!="", SEL}'
+BOX_SEL = 'host="$host"'
 
 # Memory "used", excluding reclaimable cache. Linux: MemAvailable, plus the
 # ZFS ARC on TrueNAS (the kernel doesn't count ARC as available, so TrueNAS
@@ -98,6 +115,7 @@ def dashboard(uid, title, panels, templating=None, description=""):
         "links": [
             {"title": "Homelab", "type": "link", "url": "/d/homelab-overview/homelab", "icon": "dashboard"},
             {"title": "Box details", "type": "link", "url": "/d/homelab-box/homelab-box", "icon": "info"},
+            {"title": "Containers", "type": "link", "url": "/d/homelab-containers/homelab-containers", "icon": "apps"},
         ],
         "panels": panels,
     }
@@ -207,7 +225,8 @@ links_md = "\n".join([
     "- **One box in detail:** " + " · ".join(f"[{h}]({BOX_URL}{h})" for h in hosts),
     "- **Every metric for a box:** [Node Exporter Full](/d/rYdddlPWk/node-exporter-full) "
     "(its *Nodename* picker uses hostnames: `proxmox` = proxmox-k8s, `homeassistant` = proxmox-ha, `Quack01` = quack01)",
-    "- **Containers:** [cAdvisor](/d/pMEd7m0Mz/cadvisor-exporter)",
+    "- **Containers (by stack: arr-stack, music-stack, immich, ...):** [Containers](/d/homelab-containers/homelab-containers)"
+    " · cluster pods: *Kubernetes / Compute Resources* dashboards",
     "- **Search any log:** [Explore](/explore) → Loki → label `host`",
     "- **All alert rules:** [Alert rules](/alerting/list)",
     "",
@@ -272,19 +291,22 @@ y += 8
 
 box.append(panel(
     "table", "Containers", 0, y, 24, 8,
-    [q(f'sum by (name) (rate(container_cpu_usage_seconds_total{{job="integrations/cadvisor", {H}, name!=""}}[5m]))', "CPU", instant=True, fmt="table"),
-     q(f'sum by (name) (container_memory_working_set_bytes{{job="integrations/cadvisor", {H}, name!=""}})', "MEM", instant=True, fmt="table")],
-    description="Docker hosts only (TrueNAS, Quack01, Frigate LXC). CPU in cores.",
+    [q("sum by (stack, name) (" + stack(C_CPU.replace("SEL", BOX_SEL)) + ")", "CPU", instant=True, fmt="table"),
+     q("sum by (stack, name) (" + stack(C_MEM.replace("SEL", BOX_SEL)) + ")", "MEM", instant=True, fmt="table")],
+    description="Docker hosts only (TrueNAS, Quack01, Frigate LXC). CPU in cores. Tap a stack for the Containers page.",
     transformations=[
         {"id": "merge", "options": {}},
         {"id": "organize", "options": {"excludeByName": {"Time": True},
-                                       "renameByName": {"name": "Container", "Value #CPU": "CPU (cores)", "Value #MEM": "Memory"}}},
+                                       "renameByName": {"stack": "Stack", "name": "Container", "Value #CPU": "CPU (cores)", "Value #MEM": "Memory"},
+                                       "indexByName": {"stack": 0, "name": 1, "Value #CPU": 2, "Value #MEM": 3}}},
         {"id": "sortBy", "options": {"sort": [{"field": "Memory", "desc": True}]}},
     ],
     options={"showHeader": True, "cellHeight": "sm", "footer": {"show": False}},
     fieldConfig={"defaults": {"custom": {"align": "auto"}}, "overrides": [
         {"matcher": {"id": "byName", "options": "CPU (cores)"}, "properties": [{"id": "decimals", "value": 2}]},
         {"matcher": {"id": "byName", "options": "Memory"}, "properties": [{"id": "unit", "value": "bytes"}]},
+        {"matcher": {"id": "byName", "options": "Stack"}, "properties": [{"id": "links", "value": [
+            {"title": "Open ${__value.text}", "url": CONTAINERS_URL + "?var-host=$host&var-stack=${__value.text}"}]}]},
     ]}))
 y += 8
 
@@ -325,6 +347,80 @@ box_templating = [
     {"name": "search", "label": "Search", "type": "textbox", "query": "", "current": {"text": "", "value": ""}},
 ]
 
+# --------------------------------------------------------------------------
+# Containers ("Homelab – containers"): Docker containers by box and stack.
+# --------------------------------------------------------------------------
+_next_id[0] = 0
+# Stack filter on the Compose project label; "All" matches containers with
+# no project too.
+SEL = 'host=~"$host", container_label_com_docker_compose_project=~"$stack"'
+cont = []
+y = 0
+by = "sum by (host, stack, name) "
+cont.append(panel(
+    "table", "Containers", 0, y, 24, 10,
+    [q(by + "(" + stack(C_CPU.replace("SEL", SEL)) + ")", "CPU", instant=True, fmt="table"),
+     q(by + "(" + stack(C_MEM.replace("SEL", SEL)) + ")", "MEM", instant=True, fmt="table"),
+     q(by + "(" + stack(C_RX.replace("SEL", SEL)) + ")", "RX", instant=True, fmt="table"),
+     q("max by (host, stack, name) (time() - " + stack(C_START.replace("SEL", SEL)) + ")", "AGE", instant=True, fmt="table")],
+    description="Docker containers on the TrueNAS boxes and the Frigate LXC (not the Talos cluster's pods). "
+                "'Up for' resets when a container restarts or is recreated. Network is 0 for containers sharing another's network (e.g. behind gluetun or a tailscale sidecar).",
+    transformations=[
+        {"id": "merge", "options": {}},
+        {"id": "organize", "options": {
+            "excludeByName": {"Time": True},
+            "renameByName": {"host": "Box", "stack": "Stack", "name": "Container", "Value #CPU": "CPU (cores)",
+                             "Value #MEM": "Memory", "Value #RX": "Network in", "Value #AGE": "Up for"},
+            "indexByName": {"host": 0, "stack": 1, "name": 2, "Value #CPU": 3, "Value #MEM": 4, "Value #RX": 5, "Value #AGE": 6}}},
+        {"id": "sortBy", "options": {"sort": [{"field": "Memory", "desc": True}]}},
+    ],
+    options={"showHeader": True, "cellHeight": "sm", "footer": {"show": False}},
+    fieldConfig={"defaults": {"custom": {"align": "auto", "filterable": True}}, "overrides": [
+        {"matcher": {"id": "byName", "options": "CPU (cores)"}, "properties": [{"id": "decimals", "value": 2}]},
+        {"matcher": {"id": "byName", "options": "Memory"}, "properties": [{"id": "unit", "value": "bytes"}]},
+        {"matcher": {"id": "byName", "options": "Network in"}, "properties": [{"id": "unit", "value": "Bps"}]},
+        {"matcher": {"id": "byName", "options": "Up for"}, "properties": [{"id": "unit", "value": "dtdurations"}]},
+    ]}))
+y += 10
+
+
+def cts(title, expr, x, unit, legend="{{stack}}/{{name}}"):
+    return panel("timeseries", title, x, y, 12, 9, [q("topk(10, " + by + "(" + stack(expr.replace("SEL", SEL)) + "))", legend=legend)],
+                 description="Top 10 in the selection.",
+                 fieldConfig={"defaults": {"unit": unit, "min": 0,
+                                           "custom": {"fillOpacity": 0, "lineWidth": 1, "showPoints": "never"}},
+                              "overrides": []},
+                 options={"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"],
+                                     "sortBy": "Last *", "sortDesc": True},
+                          "tooltip": {"mode": "multi", "sort": "desc"}})
+
+
+cont += [cts("CPU (cores)", C_CPU, 0, "short"), cts("Memory", C_MEM, 12, "bytes")]
+y += 9
+cont += [cts("Network in", C_RX, 0, "Bps"), cts("Network out", C_TX, 12, "Bps")]
+y += 9
+
+cont.append(panel(
+    "logs", "Logs for the selection (type in Search above to filter)", 0, y, 24, 12,
+    [{"refId": "A", "datasource": LOKI, "expr": '{host=~"$host", stack=~"$stack", container!=""} |~ "(?i)$search"'}],
+    options={"showTime": True, "wrapLogMessage": True, "sortOrder": "Descending", "enableLogDetails": True,
+             "dedupStrategy": "none", "showLabels": True}))
+
+DOCKER_HOSTS = 'container_memory_working_set_bytes{job="integrations/cadvisor"}'
+cont_templating = [
+    {"name": "host", "label": "Box", "type": "query", "datasource": PROM,
+     "query": {"query": f"label_values({DOCKER_HOSTS}, host)", "refId": "host"},
+     "definition": f"label_values({DOCKER_HOSTS}, host)", "refresh": 2, "sort": 1,
+     "includeAll": True, "allValue": ".+", "multi": True,
+     "current": {"text": ["All"], "value": ["$__all"]}},
+    {"name": "stack", "label": "Stack", "type": "query", "datasource": PROM,
+     "query": {"query": 'label_values(container_memory_working_set_bytes{job="integrations/cadvisor", host=~"$host"}, container_label_com_docker_compose_project)', "refId": "stack"},
+     "definition": 'label_values(container_memory_working_set_bytes{job="integrations/cadvisor", host=~"$host"}, container_label_com_docker_compose_project)',
+     "refresh": 2, "sort": 1, "includeAll": True, "allValue": ".*", "multi": True,
+     "current": {"text": ["All"], "value": ["$__all"]}},
+    {"name": "search", "label": "Search", "type": "textbox", "query": "", "current": {"text": "", "value": ""}},
+]
+
 for name, d in {
     "homelab-overview.json": dashboard(
         "homelab-overview", "Homelab", overview,
@@ -332,6 +428,9 @@ for name, d in {
     "homelab-box.json": dashboard(
         "homelab-box", "Homelab – box", box, box_templating,
         description="One box in detail. Generated by dashboards/generate.py."),
+    "homelab-containers.json": dashboard(
+        "homelab-containers", "Homelab – containers", cont, cont_templating,
+        description="Docker containers by box and Compose stack (not the cluster's pods). Generated by dashboards/generate.py."),
 }.items():
     (HERE / name).write_text(json.dumps(d, indent=1, ensure_ascii=False) + "\n")
     print("wrote", name, "-", len(d["panels"]), "panels")

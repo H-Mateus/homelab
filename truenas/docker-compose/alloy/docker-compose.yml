@@ -69,6 +69,10 @@ services:
       # covers the disks.
       - /sys:/sys:ro
       - ${DOCKER_DATA_ROOT:-/mnt/.ix-apps/docker}:${DOCKER_DATA_ROOT:-/mnt/.ix-apps/docker}:ro
+      # Newer Docker (containerd image store, e.g. the Frigate LXC) only
+      # gives cAdvisor per-container stats via containerd's socket. Absent on
+      # TrueNAS (older Docker; Docker creates an empty dir, harmless).
+      - /run/containerd:/run/containerd:ro
     depends_on:
       - alloy-ts
     mem_limit: 512m

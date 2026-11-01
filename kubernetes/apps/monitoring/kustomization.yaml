@@ -18,6 +18,7 @@ configMapGenerator:
     files:
       - dashboards/homelab-overview.json
       - dashboards/homelab-box.json
+      - dashboards/homelab-containers.json
     options:
       disableNameSuffixHash: true
       labels:

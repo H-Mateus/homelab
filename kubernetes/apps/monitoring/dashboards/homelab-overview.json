@@ -29,6 +29,12 @@
    "type": "link",
    "url": "/d/homelab-box/homelab-box",
    "icon": "info"
+  },
+  {
+   "title": "Containers",
+   "type": "link",
+   "url": "/d/homelab-containers/homelab-containers",
+   "icon": "apps"
   }
  ],
  "panels": [
@@ -518,7 +524,7 @@
    },
    "options": {
     "mode": "markdown",
-    "content": "### Where to look\n\n- **Something's wrong?** The phone push names the box. Open it below, or tap it in *Boxes reporting*.\n- **One box in detail:** [truenas](/d/homelab-box/homelab-box?var-host=truenas) · [quack01](/d/homelab-box/homelab-box?var-host=quack01) · [frigate](/d/homelab-box/homelab-box?var-host=frigate) · [proxmox-k8s](/d/homelab-box/homelab-box?var-host=proxmox-k8s) · [proxmox-ha](/d/homelab-box/homelab-box?var-host=proxmox-ha) · [pfsense](/d/homelab-box/homelab-box?var-host=pfsense)\n- **Every metric for a box:** [Node Exporter Full](/d/rYdddlPWk/node-exporter-full) (its *Nodename* picker uses hostnames: `proxmox` = proxmox-k8s, `homeassistant` = proxmox-ha, `Quack01` = quack01)\n- **Containers:** [cAdvisor](/d/pMEd7m0Mz/cadvisor-exporter)\n- **Search any log:** [Explore](/explore) → Loki → label `host`\n- **All alert rules:** [Alert rules](/alerting/list)\n\nUp/down for each service is in Uptime Kuma; admin UIs are bookmarked on the Home Assistant *Homelab* dashboard."
+    "content": "### Where to look\n\n- **Something's wrong?** The phone push names the box. Open it below, or tap it in *Boxes reporting*.\n- **One box in detail:** [truenas](/d/homelab-box/homelab-box?var-host=truenas) · [quack01](/d/homelab-box/homelab-box?var-host=quack01) · [frigate](/d/homelab-box/homelab-box?var-host=frigate) · [proxmox-k8s](/d/homelab-box/homelab-box?var-host=proxmox-k8s) · [proxmox-ha](/d/homelab-box/homelab-box?var-host=proxmox-ha) · [pfsense](/d/homelab-box/homelab-box?var-host=pfsense)\n- **Every metric for a box:** [Node Exporter Full](/d/rYdddlPWk/node-exporter-full) (its *Nodename* picker uses hostnames: `proxmox` = proxmox-k8s, `homeassistant` = proxmox-ha, `Quack01` = quack01)\n- **Containers (by stack: arr-stack, music-stack, immich, ...):** [Containers](/d/homelab-containers/homelab-containers) · cluster pods: *Kubernetes / Compute Resources* dashboards\n- **Search any log:** [Explore](/explore) → Loki → label `host`\n- **All alert rules:** [Alert rules](/alerting/list)\n\nUp/down for each service is in Uptime Kuma; admin UIs are bookmarked on the Home Assistant *Homelab* dashboard."
    }
   }
  ]

@@ -53,7 +53,23 @@ loki.source.docker "containers" {
 	host          = "unix:///var/run/docker.sock"
 	targets       = discovery.docker.containers.targets
 	relabel_rules = discovery.relabel.containers.rules
-	forward_to    = [loki.process.redact.receiver]
+	forward_to    = [loki.process.noise.receiver]
+}
+
+// Known-junk container lines, dropped before they're shipped. Uptime Kuma 2
+// throws `Added label "<tag>" is not included in initial labelset` from its
+// Prometheus exporter on every check of a tagged monitor (~4 lines/s, a third
+// of all log volume); monitoring itself is unaffected. Remove once fixed.
+loki.process "noise" {
+	stage.match {
+		selector = "{container=\"uptime-kuma\"}"
+
+		stage.drop {
+			expression = "PROMETHEUS.*(not included in initial labelset|Caught error)"
+		}
+	}
+
+	forward_to = [loki.process.redact.receiver]
 }
 
 // ---------------------------------------------------------------------------
