@@ -101,8 +101,14 @@ else
 	echo "tag:monitoring-agent (Tailscale admin -> Settings -> Keys)."
 	read -rsp "Paste the auth key (not echoed): " ts_key
 	echo
-	tailscale --socket="$ts_sock" up --auth-key="$ts_key" --hostname="alloy-${HOST_LABEL}"
+	# Hand it over via a root-only file on tmpfs (tailscale reads
+	# --auth-key=file:<path>), so it never appears in the process list.
+	key_file="$(mktemp -p /run alloy-ts-key.XXXXXX)"
+	trap 'rm -f "$key_file"' EXIT
+	printf '%s' "$ts_key" >"$key_file"
 	unset ts_key
+	tailscale --socket="$ts_sock" up --auth-key="file:$key_file" --hostname="alloy-${HOST_LABEL}"
+	rm -f "$key_file"
 fi
 
 echo "==> Alloy"
