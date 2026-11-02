@@ -101,6 +101,24 @@
         href: https://homeassistant.fairy-featherback.ts.net
         description: Automations, energy, alarm
         siteMonitor: https://homeassistant.fairy-featherback.ts.net
+        # Plain `state` lookups only: Homepage renders `template` items via
+        # HA's /api/template, which is admin-only, and the token belongs to
+        # a non-admin user. Max four custom items.
+        widget:
+          type: homeassistant
+          url: https://homeassistant.fairy-featherback.ts.net
+          key: "{{HOMEPAGE_VAR_HA_TOKEN}}"
+          custom:
+            - state: sensor.sigen_plant_battery_state_of_charge
+              label: battery
+              value: "{state}%"
+            - state: sensor.sigen_plant_daily_pv_energy
+              label: solar today
+            - state: sensor.sigen_plant_daily_load_consumption
+              label: used today
+            - state: alarm_control_panel.alarmo
+              label: alarm
+              value: "{state}"
     - Paperless:
         icon: paperless-ngx.svg
         href: https://paperless.fairy-featherback.ts.net
