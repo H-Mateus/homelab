@@ -46,7 +46,14 @@
         href: https://navidrome.fairy-featherback.ts.net
         description: Music streaming
         siteMonitor: https://navidrome.fairy-featherback.ts.net
-        # Widget needs user + Subsonic token/salt; status dot only for now.
+        # Subsonic auth: token = md5(password + salt), for a non-admin
+        # `homepage` Navidrome user. Shows what's playing.
+        widget:
+          type: navidrome
+          url: https://navidrome.fairy-featherback.ts.net
+          user: homepage
+          token: "{{HOMEPAGE_VAR_NAVIDROME_TOKEN}}"
+          salt: "{{HOMEPAGE_VAR_NAVIDROME_SALT}}"
 
 - Arr:
     - Sonarr:
