@@ -165,15 +165,30 @@
         icon: truenas-scale.svg
         href: https://truenas-white.fairy-featherback.ts.net
         description: Off-site replication target
+    # Each host runs `tailscale serve --bg https+insecure://localhost:8006`,
+    # so the UI is on 443 at its MagicDNS name with a valid cert (the
+    # self-signed :8006 hop stays on the box). Token: homepage@pve!homepage,
+    # PVEAuditor on /, one per host.
     - Proxmox:
         icon: proxmox.svg
-        # Self-signed cert on :8006; widget would need an API token + TLS skip.
-        href: https://proxmox.fairy-featherback.ts.net:8006
+        href: https://proxmox.fairy-featherback.ts.net
         description: Talos cluster host
+        siteMonitor: https://proxmox.fairy-featherback.ts.net
+        widget:
+          type: proxmox
+          url: https://proxmox.fairy-featherback.ts.net
+          username: homepage@pve!homepage
+          password: "{{HOMEPAGE_VAR_PROXMOX_TOKEN}}"
     - Proxmox HA:
         icon: proxmox.svg
-        href: https://proxmox-homeassistant.fairy-featherback.ts.net:8006
+        href: https://proxmox-homeassistant.fairy-featherback.ts.net
         description: Home Assistant + Frigate host
+        siteMonitor: https://proxmox-homeassistant.fairy-featherback.ts.net
+        widget:
+          type: proxmox
+          url: https://proxmox-homeassistant.fairy-featherback.ts.net
+          username: homepage@pve!homepage
+          password: "{{HOMEPAGE_VAR_PROXMOX_HA_TOKEN}}"
     - pfSense:
         icon: pfsense.svg
         href: https://pfsense.fairy-featherback.ts.net
