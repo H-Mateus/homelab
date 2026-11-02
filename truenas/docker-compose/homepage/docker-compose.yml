@@ -1,0 +1,77 @@
+#
+# Homepage (gethomepage.dev): a start page for the homelab — a tile per app
+# with live widgets (arr queues, Jellyfin, Immich, Kuma status, ...).
+#
+# STATUS: draft, not deployed yet. See README.md "To finish".
+#
+# Networking
+# ----------
+# Same pattern as uptime-kuma: Homepage shares a kernel-mode sidecar's
+# network namespace, because its widgets fetch data server-side and so need
+# to *reach* the other tailnet services, not just be reachable. serve.json
+# proxies to 127.0.0.1:3000. No `ports:` — Tailnet-only.
+#
+# Config
+# ------
+# The YAML under ./config is committed, so the dashboard layout lives in git
+# like everything else. API keys never go in those files: they reference
+# {{HOMEPAGE_VAR_*}} placeholders, and the real values are set in Dockhand's
+# .env (see .env.example).
+#
+# No `env_file: .env`: Dockhand injects the env for interpolation but doesn't
+# write a .env into the checkout, so env_file fails ("env file not found"),
+# same as immich/paperless. Each HOMEPAGE_VAR_* is passed explicitly below, so
+# a new widget key needs a line here as well as in .env.
+
+name: homepage
+
+services:
+  homepage:
+    container_name: homepage
+    image: ghcr.io/gethomepage/homepage:${HOMEPAGE_VERSION:-latest}
+    network_mode: service:homepage-ts
+    volumes:
+      - ./config:/app/config
+    environment:
+      # Required: Homepage rejects requests whose Host header isn't listed.
+      HOMEPAGE_ALLOWED_HOSTS: ${HOMEPAGE_ALLOWED_HOSTS}
+      PUID: 568
+      PGID: 568
+      TZ: ${TZ:-Europe/London}
+      # Widget keys (see config/services.yaml).
+      HOMEPAGE_VAR_JELLYFIN_KEY: ${HOMEPAGE_VAR_JELLYFIN_KEY:-}
+      HOMEPAGE_VAR_SEERR_KEY: ${HOMEPAGE_VAR_SEERR_KEY:-}
+      HOMEPAGE_VAR_SONARR_KEY: ${HOMEPAGE_VAR_SONARR_KEY:-}
+      HOMEPAGE_VAR_RADARR_KEY: ${HOMEPAGE_VAR_RADARR_KEY:-}
+      HOMEPAGE_VAR_LIDARR_KEY: ${HOMEPAGE_VAR_LIDARR_KEY:-}
+      HOMEPAGE_VAR_PROWLARR_KEY: ${HOMEPAGE_VAR_PROWLARR_KEY:-}
+      HOMEPAGE_VAR_BAZARR_KEY: ${HOMEPAGE_VAR_BAZARR_KEY:-}
+      HOMEPAGE_VAR_IMMICH_KEY: ${HOMEPAGE_VAR_IMMICH_KEY:-}
+      HOMEPAGE_VAR_PAPERLESS_TOKEN: ${HOMEPAGE_VAR_PAPERLESS_TOKEN:-}
+      HOMEPAGE_VAR_TRUENAS_KEY: ${HOMEPAGE_VAR_TRUENAS_KEY:-}
+    depends_on:
+      - homepage-ts
+    mem_limit: 256m
+    restart: unless-stopped
+
+  homepage-ts:
+    container_name: homepage-ts
+    image: tailscale/tailscale:latest
+    hostname: homepage-ts
+    environment:
+      - "TS_AUTHKEY=${TS_AUTHKEY}"
+      - TS_HOSTNAME=homepage
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/serve.json
+      - TS_USERSPACE=false
+      - TS_ACCEPT_DNS=true
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - ./ts-state/homepage:/var/lib/tailscale
+      # Plain bind mount, not Compose `configs:` (Dockhand recreates drop them).
+      - ./ts-config/homepage:/config
+    mem_limit: 128m
+    restart: unless-stopped

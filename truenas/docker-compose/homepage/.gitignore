@@ -1,0 +1,8 @@
+# Real env file holds the Tailscale auth key and widget API keys.
+.env
+
+# Tailscale node state (contains the device's private key).
+ts-state/
+
+# Written by Homepage at runtime.
+config/logs/

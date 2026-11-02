@@ -1,0 +1,150 @@
+# Widget docs: https://gethomepage.dev/widgets/services/
+# Keys come from Dockhand's .env as {{HOMEPAGE_VAR_*}}; never paste a key here.
+# Every HOMEPAGE_VAR_* used below must also be listed under `environment:` in
+# docker-compose.yml (Dockhand doesn't write a .env file, so no env_file).
+#
+# Every app sidecar serves HTTPS on 443 at its MagicDNS name, so widgets use
+# the same tailnet URL as the link. Entries without a widget are link-only:
+# they'd need extra credentials, a self-signed cert or a non-443 port.
+
+- Media:
+    - Jellyfin:
+        icon: jellyfin.svg
+        href: https://jellyfin.fairy-featherback.ts.net
+        widget:
+          type: jellyfin
+          url: https://jellyfin.fairy-featherback.ts.net
+          key: "{{HOMEPAGE_VAR_JELLYFIN_KEY}}"
+          enableBlocks: true
+          enableNowPlaying: true
+    - Seerr:
+        icon: jellyseerr.svg
+        href: https://seerr.fairy-featherback.ts.net
+        widget:
+          type: seerr
+          url: https://seerr.fairy-featherback.ts.net
+          key: "{{HOMEPAGE_VAR_SEERR_KEY}}"
+    - Immich:
+        icon: immich.svg
+        href: https://immich-family.fairy-featherback.ts.net
+        widget:
+          type: immich
+          url: https://immich-family.fairy-featherback.ts.net
+          key: "{{HOMEPAGE_VAR_IMMICH_KEY}}"
+          version: 2
+    - ImmichFrame:
+        icon: immich.svg
+        href: https://immichframe-family.fairy-featherback.ts.net
+    - Navidrome:
+        icon: navidrome.svg
+        href: https://navidrome.fairy-featherback.ts.net
+        # Widget needs user + Subsonic token/salt; link-only for now.
+
+- Arr:
+    - Sonarr:
+        icon: sonarr.svg
+        href: https://sonarr.fairy-featherback.ts.net
+        widget:
+          type: sonarr
+          url: https://sonarr.fairy-featherback.ts.net
+          key: "{{HOMEPAGE_VAR_SONARR_KEY}}"
+    - Radarr:
+        icon: radarr.svg
+        href: https://radarr.fairy-featherback.ts.net
+        widget:
+          type: radarr
+          url: https://radarr.fairy-featherback.ts.net
+          key: "{{HOMEPAGE_VAR_RADARR_KEY}}"
+    - Lidarr:
+        icon: lidarr.svg
+        href: https://lidarr.fairy-featherback.ts.net
+        widget:
+          type: lidarr
+          url: https://lidarr.fairy-featherback.ts.net
+          key: "{{HOMEPAGE_VAR_LIDARR_KEY}}"
+    - Prowlarr:
+        icon: prowlarr.svg
+        href: https://prowlarr.fairy-featherback.ts.net
+        widget:
+          type: prowlarr
+          url: https://prowlarr.fairy-featherback.ts.net
+          key: "{{HOMEPAGE_VAR_PROWLARR_KEY}}"
+    - Bazarr:
+        icon: bazarr.svg
+        href: https://bazarr.fairy-featherback.ts.net
+        widget:
+          type: bazarr
+          url: https://bazarr.fairy-featherback.ts.net
+          key: "{{HOMEPAGE_VAR_BAZARR_KEY}}"
+    - Profilarr:
+        icon: profilarr.png
+        href: https://profilarr.fairy-featherback.ts.net
+    - slskd:
+        icon: slskd.svg
+        href: https://slskd.fairy-featherback.ts.net
+    - Explo:
+        icon: mdi-compass-outline
+        href: https://explo.fairy-featherback.ts.net
+
+- Home:
+    - Home Assistant:
+        icon: home-assistant.svg
+        href: https://homeassistant.fairy-featherback.ts.net
+    - Frigate:
+        icon: frigate.svg
+        # Frigate's authenticated UI on 8971 (TLS off). Widget would need a
+        # Frigate login; link-only for now.
+        href: http://frigate.fairy-featherback.ts.net:8971
+    - Paperless:
+        icon: paperless-ngx.svg
+        href: https://paperless.fairy-featherback.ts.net
+        widget:
+          type: paperlessngx
+          url: https://paperless.fairy-featherback.ts.net
+          key: "{{HOMEPAGE_VAR_PAPERLESS_TOKEN}}"
+
+- Infrastructure:
+    - TrueNAS (primary):
+        icon: truenas-scale.svg
+        href: https://truenas-local.fairy-featherback.ts.net
+        widget:
+          type: truenas
+          url: https://truenas-local.fairy-featherback.ts.net
+          version: 2
+          key: "{{HOMEPAGE_VAR_TRUENAS_KEY}}"
+          enablePools: true
+    - TrueNAS (off-site):
+        icon: truenas-scale.svg
+        href: https://truenas-white.fairy-featherback.ts.net
+    - Proxmox (cluster):
+        icon: proxmox.svg
+        # Self-signed cert on :8006; widget would need an API token + TLS skip.
+        href: https://proxmox.fairy-featherback.ts.net:8006
+    - Proxmox (HA/Frigate):
+        icon: proxmox.svg
+        href: https://proxmox-homeassistant.fairy-featherback.ts.net:8006
+    - pfSense:
+        icon: pfsense.svg
+        href: https://pfsense.fairy-featherback.ts.net
+    - Dockhand:
+        icon: mdi-docker
+        href: https://dockhand.fairy-featherback.ts.net
+    - Dockhand (off-site):
+        icon: mdi-docker
+        href: https://dockhand-offsite.fairy-featherback.ts.net
+
+- Monitoring:
+    - Grafana:
+        icon: grafana.svg
+        href: https://grafana.fairy-featherback.ts.net
+    - Uptime Kuma:
+        icon: uptime-kuma.svg
+        href: https://uptime.fairy-featherback.ts.net
+        # Reads Kuma's status page with slug `homelab` (must be published).
+        widget:
+          type: uptimekuma
+          url: https://uptime.fairy-featherback.ts.net
+          slug: homelab
+    - Uptime Kuma (off-site):
+        icon: uptime-kuma.svg
+        href: https://uptime-offsite.fairy-featherback.ts.net
