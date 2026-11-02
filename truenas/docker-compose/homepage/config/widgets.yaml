@@ -1,7 +1,23 @@
-- search:
-    provider: duckduckgo
-    target: _blank
+- greeting:
+    text_size: xl
+    text: Homelab
+
 - datetime:
+    text_size: md
     format:
       dateStyle: long
       timeStyle: short
+
+- openmeteo:
+    label: Cardiff
+    latitude: 51.48
+    longitude: -3.18
+    timezone: Europe/London
+    units: metric
+    cache: 15
+    format:
+      maximumFractionDigits: 0
+
+- search:
+    provider: duckduckgo
+    target: _blank

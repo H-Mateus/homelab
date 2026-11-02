@@ -1,1 +1,26 @@
-[]
+# Less-visited admin UIs: compact links, no widgets.
+- Tools:
+    - Profilarr:
+        - icon: profilarr.png
+          href: https://profilarr.fairy-featherback.ts.net
+          description: Quality profiles
+    - slskd:
+        - icon: slskd.svg
+          href: https://slskd.fairy-featherback.ts.net
+          description: Soulseek
+    - Explo:
+        - icon: mdi-compass-outline
+          href: https://explo.fairy-featherback.ts.net
+          description: Music discovery
+    - ImmichFrame:
+        - icon: immich.svg
+          href: https://immichframe-family.fairy-featherback.ts.net
+          description: Photo slideshow
+    - Dockhand:
+        - icon: mdi-docker
+          href: https://dockhand.fairy-featherback.ts.net
+          description: Stacks (primary)
+    - Dockhand off-site:
+        - icon: mdi-docker
+          href: https://dockhand-offsite.fairy-featherback.ts.net
+          description: Stacks (off-site)

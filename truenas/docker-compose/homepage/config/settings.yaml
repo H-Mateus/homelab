@@ -1,20 +1,38 @@
 title: Homelab
 theme: dark
 color: slate
-headerStyle: clean
+headerStyle: boxed
+hideVersion: true
+
+# Served from ./images (mounted at /app/public/images). Translucent cards
+# blur it; cardBlur can't be combined with background blur/brightness.
+background:
+  image: /images/background.svg
+  opacity: 100
+cardBlur: md
+
+# Green dot for siteMonitor instead of a response time on every tile.
+statusStyle: dot
+useEqualHeights: true
+
+# Row groups span the page; the three groups without `style` sit side by
+# side as columns.
 layout:
   Media:
+    icon: mdi-play-box-multiple
     style: row
     columns: 4
   Arr:
+    icon: mdi-download-box
     style: row
-    columns: 4
+    columns: 5
   Home:
-    style: row
-    columns: 4
+    icon: mdi-home-variant
   Infrastructure:
-    style: row
-    columns: 4
+    icon: mdi-server-network
   Monitoring:
+    icon: mdi-chart-timeline-variant
+  Tools:
+    icon: mdi-toolbox
     style: row
-    columns: 4
+    columns: 6
