@@ -137,10 +137,17 @@
           key: "{{HOMEPAGE_VAR_PAPERLESS_TOKEN}}"
     - Frigate:
         icon: frigate.svg
-        # Frigate's authenticated UI on 8971 (TLS off). Widget would need a
-        # Frigate login and tcp:8971 in the grant; link-only for now.
-        href: http://frigate.fairy-featherback.ts.net:8971
+        # Authenticated UI, also served on 443 at the tailnet name, so no
+        # extra port in the grant. Logs in as a viewer-role `homepage` user.
+        href: https://frigate.fairy-featherback.ts.net
         description: CCTV
+        siteMonitor: https://frigate.fairy-featherback.ts.net
+        widget:
+          type: frigate
+          url: https://frigate.fairy-featherback.ts.net
+          username: homepage
+          password: "{{HOMEPAGE_VAR_FRIGATE_PASSWORD}}"
+          enableRecentEvents: true
 
 - Infrastructure:
     - TrueNAS:
