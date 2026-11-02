@@ -15,6 +15,8 @@
           type: jellyfin
           url: https://jellyfin.fairy-featherback.ts.net
           key: "{{HOMEPAGE_VAR_JELLYFIN_KEY}}"
+          # Jellyfin >= 10.12 dropped the /emby routes v1 uses (404s).
+          version: 2
           enableBlocks: true
           enableNowPlaying: true
     - Seerr:
@@ -148,3 +150,7 @@
     - Uptime Kuma (off-site):
         icon: uptime-kuma.svg
         href: https://uptime-offsite.fairy-featherback.ts.net
+        widget:
+          type: uptimekuma
+          url: https://uptime-offsite.fairy-featherback.ts.net
+          slug: offsite-box
