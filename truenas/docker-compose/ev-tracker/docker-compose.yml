@@ -1,0 +1,45 @@
+#
+# EV tracker: checks AutoTrader once a day for used EVs near Cardiff, scores
+# them and sends Telegram/email alerts. Source + image:
+# https://github.com/H-Mateus/ev-price-tracker
+#
+# Networking
+# ----------
+# No UI, no `ports:`, no Tailscale sidecar: it only makes outbound requests.
+# It joins uptime-kuma's default network purely to hit Kuma's push monitor at
+# http://uptime-kuma-ts:3001 (Kuma shares that sidecar's network namespace),
+# because Kuma itself is Tailnet-only. Drop `networks:` if you don't want the
+# heartbeat; the tracker works the same without it.
+#
+# Storage
+# -------
+# SQLite under ${EVTRACKER_ROOT}, a local dataset (SQLite over NFS corrupts).
+# Non-secret settings are ./config/config.toml (committed); secrets come from
+# .env as environment variables.
+
+name: ev-tracker
+
+services:
+  ev-tracker:
+    container_name: ev-tracker
+    image: ghcr.io/h-mateus/ev-price-tracker:${EVTRACKER_VERSION:-latest}
+    command: ["evtracker", "daemon", "--at", "${EVTRACKER_RUN_AT:-08:30}"]
+    user: "568:568"
+    volumes:
+      - ${EVTRACKER_ROOT}:/data
+      - ./config:/config:ro
+    environment:
+      TZ: ${TZ:-Europe/London}
+      EVTRACKER_TELEGRAM_TOKEN: ${EVTRACKER_TELEGRAM_TOKEN:-}
+      EVTRACKER_TELEGRAM_CHAT_ID: ${EVTRACKER_TELEGRAM_CHAT_ID:-}
+      EVTRACKER_EMAIL_PASSWORD: ${EVTRACKER_EMAIL_PASSWORD:-}
+      EVTRACKER_PUSH_URL: ${EVTRACKER_PUSH_URL:-}
+    networks:
+      - uptime-kuma
+    mem_limit: 256m
+    restart: unless-stopped
+
+networks:
+  uptime-kuma:
+    name: uptime-kuma_default
+    external: true

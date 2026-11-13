@@ -34,6 +34,7 @@ is the source of truth for all configuration, managed with GitOps.
 | *arr stack | TrueNAS | Media automation | Tailscale only |
 | Immich | TrueNAS | Self-hosted photo library | Tailscale (own device, shared to family) |
 | Immich Frame | TrueNAS | Slideshow client for Immich | Tailscale (own device, shared to family) |
+| EV tracker | TrueNAS | Daily used-EV deal alerts from AutoTrader (Telegram) | None (outbound only) |
 | Tailscale Operator | Kubernetes | Cluster ingress via Tailscale | Tailscale |
 | democratic-csi | Kubernetes | NFS PV provisioner backed by TrueNAS | Internal |
 | kube-prometheus-stack | Kubernetes | Prometheus + Grafana + Alertmanager | Tailscale (Grafana via operator) |

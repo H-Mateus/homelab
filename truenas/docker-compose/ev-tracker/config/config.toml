@@ -1,0 +1,54 @@
+# Non-secret settings for the ev-tracker container. Secrets (Telegram token,
+# email password, push URL) come from .env as environment variables.
+# Edits apply at the next daily run, no restart needed.
+
+[search]
+postcode = "CF10 1AA"
+radius_miles = 100
+max_price = 20000
+min_year = 2021
+max_mileage = 80000
+# Hard floor on the official (WLTP) range AutoTrader lists. Cardiff -> London is ~150 miles.
+min_range_miles = 240
+exclude_makes = ["Tesla", "MAXUS"]
+# Substrings of model names to skip: vans, people carriers and pickups.
+exclude_models = ["Traveller", "Dispatch", "Vivaro", "Combo", "Berlingo", "Partner", "SpaceTourer",
+                  "Proace", "Transit", "Sprinter", "Vito", "Citan", "Kangoo", "Townstar", "Doblo", "Rifter"]
+max_pages = 20
+# Advert pages are only fetched for new cars or price changes; this caps a single run.
+max_detail_fetches_per_run = 300
+request_delay_seconds = [3, 7]
+
+[preferences]
+# Range at which a car gets full range points (~265+ means London without stopping even in winter).
+target_range_miles = 290
+# Prices at or below this get full affordability points; max_price gets none.
+comfortable_price = 15000
+# Makes whose cars can feed Home Assistant locally via an OBD dongle (WiCAN/OVMS), no cloud.
+local_data_makes = ["Hyundai", "Kia", "Genesis", "MG"]
+local_data_bonus = 3
+
+[alerts]
+# Instant alert when a car scores at least this (0-100) and is priced at or below market.
+instant_min_score = 72
+# Re-alert on an already-alerted car if its price drops by at least this much.
+realert_price_drop = 300
+digest_weekdays = ["Wed", "Sat"]
+digest_top_n = 10
+
+[telegram]
+enabled = true
+bot_token = ""   # from env EVTRACKER_TELEGRAM_TOKEN
+chat_id = ""     # from env EVTRACKER_TELEGRAM_CHAT_ID
+
+[email]
+enabled = false
+smtp_host = "smtp.gmail.com"
+smtp_port = 587
+username = ""
+password = ""    # an app password; or env EVTRACKER_EMAIL_PASSWORD
+from_addr = ""
+to_addr = ""
+
+[health]
+push_url = ""    # from env EVTRACKER_PUSH_URL
