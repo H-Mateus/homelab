@@ -52,3 +52,13 @@ to_addr = ""
 
 [health]
 push_url = ""    # from env EVTRACKER_PUSH_URL
+
+[site]
+# Static page + exports (index.html, latest.json, latest.md), rewritten after every run.
+out_dir = ""       # from env EVTRACKER_SITE_DIR
+url = ""           # from env EVTRACKER_SITE_URL
+export_top_n = 15
+buyer_notes = """Lives in Cardiff with home charging. Drives to London (~150 mi) about 4 times a \
+year. Selling a 2023 MG HS Trophy petrol auto (~£13-13.8K) to fund it; small finance OK for clearly \
+better value. Wants a 360 camera, front sensors, CarPlay/Android Auto (ideally wireless); size up to \
+an MG HS. Prefers privacy and local Home Assistant integration."""

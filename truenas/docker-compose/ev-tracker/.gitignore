@@ -1,2 +1,5 @@
-# Real env file holds the Telegram token and push URL — never commit.
+# Real env file holds the Telegram token, push URL and Tailscale auth key — never commit.
 .env
+
+# Tailscale sidecar state, a relative bind mount next to this compose file.
+ts-state/
