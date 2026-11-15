@@ -1,0 +1,9 @@
+# Real env file holds DB passwords, the RomM secret key, metadata API keys,
+# the qBittorrent/Prowlarr credentials and Tailscale auth keys — never commit.
+.env
+
+# Tailscale node state (contains the devices' private keys).
+ts-state/
+
+# igir audit reports, if one is ever written next to this file.
+*.csv
