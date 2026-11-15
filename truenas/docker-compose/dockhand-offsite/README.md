@@ -25,12 +25,7 @@ the header of `dockhand-offsite.yml`.
    with its `.env` pasted in Dockhand:
    - `truenas/docker-compose/uptime-kuma` (off-site values in its
      `.env.example`)
-   - `truenas/docker-compose/alloy` (`HOST_LABEL=quack01`, plus
-     `DOCKHAND_METRICS=127.0.0.1:30328` and `DOCKHAND_TOKEN`: an API token
-     from this Dockhand's Profile → API tokens)
-6. The YAML already sets `EXPORT_METRICS=true` and publishes Dockhand on
-   `127.0.0.1:30328` only, for Alloy (host network) to scrape `/metrics`
-   with that token. Details: `../alloy/README.md` (Dockhand section).
+   - `truenas/docker-compose/alloy` (`HOST_LABEL=quack01`)
 
 Leave auto-update off, as on the primary: Pull → review → Redeploy.
 

@@ -101,10 +101,18 @@ health and restarts, scheduled task and backup status. They land as
 `kubernetes/apps/monitoring/alert-rules.yaml`. Two optional `.env` values, set
 **only** on the TrueNAS boxes:
 
-| Variable | Primary TrueNAS | Quack01 | Elsewhere |
-|---|---|---|---|
-| `DOCKHAND_METRICS` | `127.0.0.1:30328` (the Dockhand app's node-port) | `127.0.0.1:30328` (loopback port in `dockhand-offsite.yml`) | unset → no target |
-| `DOCKHAND_TOKEN` | API token from the primary's Dockhand | API token from Quack01's Dockhand | unset |
+| Variable | Primary TrueNAS | Elsewhere (Quack01 included) |
+|---|---|---|
+| `DOCKHAND_METRICS` | `127.0.0.1:30328` (the Dockhand app's node-port) | unset → no target |
+| `DOCKHAND_TOKEN` | API token from the primary's Dockhand | unset |
+
+Quack01 is deliberately **not** scraped: `dockhand-offsite.yml` publishes no
+port at all (it's on the family LAN and Dockhand is root-equivalent), and
+Alloy on the host network can't reach it any other way. A loopback-only
+publish was considered and rejected: Docker before 28 lets other hosts on the
+same L2 segment reach `127.0.0.1`-published ports. Revisit if the off-site
+box's scan data starts to matter (e.g. Alloy joining the Dockhand app's
+network).
 
 `/metrics` stays behind Dockhand's login. Dockhand accepts an API token as
 `Authorization: Bearer dh_...` on `/metrics` (as on `/api/*`), so Alloy sends
@@ -115,8 +123,7 @@ Per box:
 
 1. **Turn the endpoint on.** Primary: TrueNAS → Apps → Dockhand → Edit →
    add the environment variable `EXPORT_METRICS` = `true`, save (the app
-   restarts). Quack01: already set in `dockhand-offsite.yml` along with the
-   loopback port; paste the updated YAML into the app's Edit screen.
+   restarts).
 2. **Create a token.** In that box's Dockhand: Profile → API tokens → new,
    name it `alloy-metrics`. It acts as the user who created it (any
    authenticated user can read `/metrics`), so if you have a non-admin user,

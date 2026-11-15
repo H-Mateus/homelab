@@ -8,10 +8,9 @@
 # Not itself deployed by Dockhand: paste into TrueNAS → Apps → Discover → ⋮ →
 # Install via YAML. The TrueNAS catalog app can only publish its port on
 # 0.0.0.0 or a LAN IP, which would put a root-equivalent UI on the family
-# LAN. Instead users go through a userspace tailscale sidecar that serves it
+# LAN. Instead nothing is published: a userspace tailscale sidecar serves it
 # at https://dockhand-offsite.<tailnet>.ts.net (tag:dockhand-offsite), so it doesn't
-# depend on the host's Tailscale interface being up first either. The only
-# published port is on 127.0.0.1, for Alloy's /metrics scrape.
+# depend on the host's Tailscale interface being up first either.
 #
 # REPLACE_ME values are filled in in the TrueNAS UI and stay there. `$$`
 # escapes Compose interpolation so the sidecar sees a literal
@@ -35,17 +34,10 @@ services:
     environment:
       DATA_DIR: /mnt/HDDs/dockhand/data
       TZ: Europe/London
-      # Prometheus /metrics for Alloy (still behind Dockhand's login; Alloy
-      # sends an API token). Not EXPORT_METRICS_PUBLIC.
-      EXPORT_METRICS: "true"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /mnt/HDDs/dockhand/data:/mnt/HDDs/dockhand/data
-    # Users reach it only through dockhand-ts below. The one published port
-    # is on the host's loopback, for Alloy (host network) to scrape /metrics;
-    # nothing on the LAN or tailnet can reach it.
-    ports:
-      - "127.0.0.1:30328:3000"
+    # No `ports:` — reached only through dockhand-ts below.
     mem_limit: 1g
     restart: unless-stopped
 
