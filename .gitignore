@@ -58,3 +58,6 @@ docs/private/
 /.quarto/
 
 **/*.quarto_ipynb
+
+# --- Claude Code agent worktrees -------------------------------------------
+.claude/worktrees/
