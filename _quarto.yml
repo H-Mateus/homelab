@@ -1,0 +1,101 @@
+# Quarto website built from the repo's own Markdown: docs/*.md plus the
+# per-stack READMEs, rendered in place (no copies). The repo root is the
+# project so relative links between files resolve the same here as on GitHub.
+#
+#   quarto preview          # live preview on localhost
+#   quarto render           # builds into _site/ (gitignored)
+#
+# CI (.github/workflows/docs-site.yml) renders this on push to main and
+# publishes _site/ to the `docs-html` branch, which the docs-site stack on
+# TrueNAS serves tailnet-only. GitHub Pages is deliberately NOT used.
+#
+# The render list is explicit, so nothing outside it is published. In
+# particular docs/private/ (gitignored household docs) is excluded twice:
+# `docs/*.md` doesn't recurse, and the `!` entry below rules it out even if
+# the glob ever changes. CI checks the output for it too.
+
+project:
+  type: website
+  output-dir: _site
+  render:
+    - index.qmd
+    - "docs/*.md"
+    # READMEs must be listed by name: Quarto drops README.md from glob
+    # matches. CI (scripts/check-docs-render-list.sh) fails if one is missing.
+    - truenas/docker-compose/adguardhome/README.md
+    - truenas/docker-compose/alloy/README.md
+    - truenas/docker-compose/arr-stack/README.md
+    - truenas/docker-compose/dockhand-offsite/README.md
+    - truenas/docker-compose/dockhand-ts/README.md
+    - truenas/docker-compose/docs-site/README.md
+    - truenas/docker-compose/ev-tracker/README.md
+    - truenas/docker-compose/garage/README.md
+    - truenas/docker-compose/homepage/README.md
+    - truenas/docker-compose/music/README.md
+    - truenas/docker-compose/paperless/README.md
+    - truenas/docker-compose/swag/README.md
+    - truenas/docker-compose/uptime-kuma/README.md
+    - homeassistant-box/docker-compose/frigate/README.md
+    - opentofu/README.md
+    - proxmox-hosts/README.md
+    - "!docs/private/"
+
+website:
+  title: "Homelab docs"
+  repo-url: https://github.com/H-Mateus/homelab
+  repo-actions: [source]
+  page-navigation: true
+  back-to-top-navigation: true
+  search:
+    location: sidebar
+    type: textbox
+  sidebar:
+    style: docked
+    collapse-level: 1
+    contents:
+      - section: "Overview"
+        contents:
+          - text: "Home"
+            href: index.qmd
+          - docs/architecture.md
+      - section: "TrueNAS stacks"
+        contents:
+          - auto: "truenas/docker-compose/*/README.md"
+      - section: "Home Assistant box"
+        contents:
+          - auto: "homeassistant-box/docker-compose/*/README.md"
+      - section: "Kubernetes & infra"
+        contents:
+          - opentofu/README.md
+          - proxmox-hosts/README.md
+          - docs/talos-extensions-rollout.md
+      - section: "Projects"
+        contents:
+          - docs/frigate-camera-project.md
+  page-footer:
+    left: >-
+      Rendered from [H-Mateus/homelab](https://github.com/H-Mateus/homelab)
+      &#8729; Made with [Quarto](https://quarto.org)
+
+format:
+  html:
+    theme:
+      light: flatly
+      dark: darkly
+    respect-user-color-scheme: true
+    css: docs/_quarto/styles.css
+    toc: true
+    code-copy: true
+    code-block-border-left: true
+    smooth-scroll: true
+    link-external-newwindow: true
+
+filters:
+  # GitHub-style ```mermaid fences -> diagrams (Quarto only does {mermaid}
+  # cells, which .md files can't hold and GitHub doesn't render).
+  - docs/_quarto/mermaid.lua
+  # Relative links to non-page files (main.tf, directories) -> GitHub.
+  - docs/_quarto/repo-links.lua
+  # Page title (and browser-tab title) from the leading `# Heading`, since
+  # the files have no front matter. Without it every README tab says "readme".
+  - docs/_quarto/title.lua

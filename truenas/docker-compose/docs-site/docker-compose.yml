@@ -1,0 +1,130 @@
+#
+# Docs site: this repo's documentation (docs/*.md + every stack README) as a
+# browsable Quarto website, reachable only over the tailnet at
+# https://docs.<tailnet>.ts.net.
+#
+# Build
+# -----
+# Nothing is rendered here. GitHub Actions (.github/workflows/docs-site.yml)
+# runs `quarto render` on every push to main and force-pushes the HTML as a
+# single orphan commit to the `docs-html` branch. docs-site-sync fetches that
+# branch every few minutes into the `html` volume; nginx serves it. The repo
+# is public, so the branch is too (it's the same content as the Markdown),
+# but the site itself is only *hosted* here: GitHub Pages stays off.
+# docs/private/ is gitignored, so it never reaches GitHub, CI or this box.
+#
+# Networking
+# ----------
+# Same pattern as radicale/uptime-kuma: nginx shares the sidecar's network
+# namespace and listens on 127.0.0.1:8080, which serve.json proxies to. No
+# `ports:`, so nothing on the LAN can reach it. Userspace mode is enough:
+# nginx makes no outbound connections. docs-site-sync sits on the default
+# bridge network because it only talks to github.com.
+#
+# Storage
+# -------
+# None worth keeping: the `html` named volume is a disposable copy of the
+# docs-html branch and is rebuilt by the next sync if deleted. No dataset.
+#
+# Hardening
+# ---------
+# Both containers are read-only with all capabilities dropped and
+# no-new-privileges. nginx is the unprivileged image (UID 101) and mounts the
+# HTML read-only; the sync job keeps its git metadata on a tmpfs, outside the
+# served directory.
+
+name: docs-site
+
+services:
+  docs-site:
+    container_name: docs-site
+    image: nginxinc/nginx-unprivileged:1.30.6-alpine
+    network_mode: service:docs-site-ts
+    environment:
+      NGINX_ENTRYPOINT_QUIET_LOGS: 1
+    volumes:
+      - type: volume
+        source: html
+        target: /usr/share/nginx/html
+        read_only: true
+        volume:
+          # Don't seed the volume with the image's placeholder pages.
+          nocopy: true
+      - ./config/default.conf:/etc/nginx/conf.d/default.conf:ro
+    tmpfs:
+      - /tmp
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 50
+    depends_on:
+      - docs-site-ts
+    mem_limit: 64m
+    restart: unless-stopped
+
+  docs-site-sync:
+    container_name: docs-site-sync
+    image: alpine/git:v2.54.0
+    entrypoint: ["/bin/sh", "-c"]
+    # Shallow-fetch the branch and check it out into /site. Git metadata
+    # lives in /git (tmpfs) so nginx never sees a .git directory; it's
+    # re-created on restart, which costs one small fetch.
+    command:
+      - |
+        set -u
+        git init -q --bare /git
+        git --git-dir=/git config core.bare false
+        git --git-dir=/git remote add origin "$$DOCS_REPO"
+        last=""
+        while true; do
+          if git --git-dir=/git fetch -q --depth 1 origin "$$DOCS_BRANCH" &&
+             git --git-dir=/git --work-tree=/site reset -q --hard FETCH_HEAD &&
+             git --git-dir=/git --work-tree=/site clean -q -fdx; then
+            rev=$$(git --git-dir=/git rev-parse --short HEAD)
+            [ "$$rev" != "$$last" ] && echo "docs-site: now serving $$rev" && last=$$rev
+          else
+            echo "docs-site: sync failed, retrying in $${DOCS_SYNC_INTERVAL}s"
+          fi
+          sleep "$$DOCS_SYNC_INTERVAL"
+        done
+    environment:
+      DOCS_REPO: ${DOCS_REPO:-https://github.com/H-Mateus/homelab.git}
+      DOCS_BRANCH: ${DOCS_BRANCH:-docs-html}
+      DOCS_SYNC_INTERVAL: ${DOCS_SYNC_INTERVAL:-300}
+      HOME: /tmp
+    volumes:
+      - html:/site
+    tmpfs:
+      - /git
+      - /tmp
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 50
+    mem_limit: 128m
+    restart: unless-stopped
+
+  docs-site-ts:
+    container_name: docs-site-ts
+    image: tailscale/tailscale:latest
+    hostname: docs-site-ts
+    environment:
+      - "TS_AUTHKEY=${TS_AUTHKEY}"
+      - TS_HOSTNAME=${TS_HOSTNAME:-docs}
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/serve.json
+      - TS_USERSPACE=true
+    volumes:
+      - ./ts-state/docs-site:/var/lib/tailscale
+      # Plain bind mount, not Compose `configs:` (Dockhand recreates drop them).
+      # Proxies https://docs.<tailnet>.ts.net to 127.0.0.1:8080.
+      - ./ts-config/docs-site:/config
+    mem_limit: 128m
+    restart: unless-stopped
+
+volumes:
+  html:
