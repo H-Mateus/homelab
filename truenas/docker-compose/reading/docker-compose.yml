@@ -67,6 +67,8 @@ services:
     depends_on:
       - bookshelf-ts
     mem_limit: 1g
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   kavita:
@@ -87,6 +89,8 @@ services:
     depends_on:
       - kavita-ts
     mem_limit: 1g
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   suwayomi:
@@ -145,6 +149,8 @@ services:
     # arr: Prowlarr + qBittorrent (see the header).
     networks: [default, arr]
     mem_limit: 128m
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   kavita-ts:
@@ -161,6 +167,8 @@ services:
       - ${CONFIG_PATH}/ts-state/kavita:/var/lib/tailscale
       - ./ts-config/kavita:/config
     mem_limit: 128m
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   suwayomi-ts:
@@ -179,6 +187,8 @@ services:
     # arr: FlareSolverr for Cloudflare-protected sources.
     networks: [default, arr]
     mem_limit: 128m
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
 networks:

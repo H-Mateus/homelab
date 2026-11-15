@@ -435,6 +435,44 @@ This is documented inline in
 
 ---
 
+## Container hardening and supply chain
+
+Nothing is exposed to the internet, so the realistic ways in are a
+malicious or hijacked image, or a parser bug in an app that handles files
+from strangers (qBittorrent, the \*arrs, Jellyfin's ffmpeg, Kavita, RomM,
+Paperless OCR). The layers, from "stop it arriving" to "limit the damage":
+
+1. **Pinned images, reviewed updates.** Every image is pinned to an exact
+   release in its `docker-compose.yml` (no `latest`, no `*_VERSION` in
+   `.env`). [Renovate](../renovate.json) opens a weekly PR per update with a
+   5-day `minimumReleaseAge`, so a hijacked release usually gets caught
+   upstream before it's even proposed. Merging is the deploy trigger
+   (Dockhand's git sync); Dockhand's own image auto-update is off. Databases
+   stay on their current major; Immich's Postgres follows Immich's notes.
+2. **Vulnerability scanning.** Dockhand scans images (Grype/Trivy) during
+   its update checks; counts by severity feed the *Homelab – security*
+   Grafana dashboard and the `dockhand` alert group. Scanners find known
+   CVEs, mostly in base-image packages; they don't detect malware.
+3. **Least privilege per container.** `no-new-privileges` on every service
+   except Alloy (privileged by design, for node/cAdvisor metrics) and
+   Frigate. Newer stacks (radicale, games, reading, docs-site) also drop all
+   capabilities and run as 568 directly; extending `cap_drop: ALL` to the
+   older linuxserver-based services is a per-service job, since their init
+   needs CHOWN/SETUID/SETGID.
+4. **Network containment.** Databases and caches (Immich, Paperless, RomM)
+   sit on `internal: true` networks with no gateway: no internet, no LAN.
+   On the tailnet, sidecars are tagged and the policy is default-deny (see
+   above). The remaining gap is LAN egress from app containers, which Docker
+   NATs as the TrueNAS host; closing it would need host firewall rules that
+   TrueNAS updates overwrite, so it's accepted.
+5. **Recovery.** ZFS snapshots can't be touched from inside a container, and
+   replication carries them off-site: the backstop for anything that gets
+   through.
+
+Trust is uneven: small single-maintainer images (Suggestarr, ROMarr,
+Bookshelf) get read before their updates are merged, and none of them
+mount Immich or Paperless data.
+
 ## Secrets management
 
 ### Strategy overview

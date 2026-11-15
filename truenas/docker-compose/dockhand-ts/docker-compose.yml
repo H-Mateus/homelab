@@ -33,6 +33,8 @@ services:
     volumes:
       - ./ts-state/dockhand:/var/lib/tailscale
       - ./ts-config/dockhand:/config
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
 networks: {}

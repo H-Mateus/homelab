@@ -75,4 +75,6 @@ services:
       # Proxies https://radicale.<tailnet>.ts.net to 127.0.0.1:5232.
       - ./ts-config/radicale:/config
     mem_limit: 128m
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped

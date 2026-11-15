@@ -136,6 +136,7 @@ services:
       retries: 5
     security_opt:
       - no-new-privileges:true
+    networks: [backend]
     mem_limit: 512m
     restart: unless-stopped
 
@@ -154,7 +155,11 @@ services:
       # Plain bind mount, not Compose `configs:` (Dockhand recreates drop them).
       # Proxies https://romm.<tailnet>.ts.net to 127.0.0.1:8080.
       - ./ts-config/romm:/config
+    # RomM runs in this namespace: default for romarr-ts, backend for romm-db.
+    networks: [default, backend]
     mem_limit: 128m
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   romarr:
@@ -224,9 +229,15 @@ services:
     # default: reaches romm-ts. arr: reaches prowlarr + qbittorrent.
     networks: [default, arr]
     mem_limit: 128m
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
 networks:
   arr:
     external: true
     name: arr-stack_default
+  # Databases and caches only talk to their app: no internet, no LAN, no
+  # other stacks. `internal` gives them no gateway at all.
+  backend:
+    internal: true

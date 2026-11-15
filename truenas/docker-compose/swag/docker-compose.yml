@@ -29,10 +29,14 @@ services:
     ports:
       - 443:443
       - 80:80 #optional
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
   crowdsec:
     image: crowdsecurity/crowdsec:v1.8.2-debian
     container_name: crowdsec
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
     environment:
       COLLECTIONS: >

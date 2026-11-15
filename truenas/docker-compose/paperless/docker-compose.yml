@@ -85,6 +85,11 @@ services:
       - db
       - broker
     mem_limit: 2g
+    security_opt:
+      - no-new-privileges:true
+    # default: the sidecar and outbound mail/OCR fetches. backend: db/broker
+    # (and Gotenberg/Tika if enabled below: put them on backend too).
+    networks: [default, backend]
     restart: unless-stopped
 
   db:
@@ -103,6 +108,9 @@ services:
       # an 18/ subdirectory), not the old /var/lib/postgresql/data.
       - ${PAPERLESS_ROOT}/pgdata:/var/lib/postgresql
     mem_limit: 512m
+    security_opt:
+      - no-new-privileges:true
+    networks: [backend]
     restart: unless-stopped
 
   broker:
@@ -113,6 +121,9 @@ services:
     volumes:
       - redisdata:/data
     mem_limit: 128m
+    security_opt:
+      - no-new-privileges:true
+    networks: [backend]
     restart: unless-stopped
 
   paperless-ts:
@@ -139,6 +150,8 @@ services:
     depends_on:
       - paperless
     mem_limit: 128m
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   # Office documents / emails. Uncomment together with the PAPERLESS_TIKA_*
@@ -159,6 +172,12 @@ services:
   #   image: docker.io/apache/tika:3.3.1.0
   #   mem_limit: 768m
   #   restart: unless-stopped
+
+networks:
+  # Databases and caches only talk to their app: no internet, no LAN, no
+  # other stacks. `internal` gives them no gateway at all.
+  backend:
+    internal: true
 
 volumes:
   redisdata:

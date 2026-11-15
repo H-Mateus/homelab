@@ -34,6 +34,8 @@ services:
     depends_on:
       - uptime-kuma-ts
     mem_limit: 512m
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   uptime-kuma-ts:
@@ -61,4 +63,6 @@ services:
       # immich/docker-compose.yml (Dockhand recreates drop Compose configs).
       - ./ts-config/uptime-kuma:/config
     mem_limit: 128m
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped

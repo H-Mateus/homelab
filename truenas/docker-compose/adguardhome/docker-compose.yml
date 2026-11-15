@@ -2,6 +2,8 @@ services:
   adguardhome:
     image: adguard/adguardhome:v0.107.80
     container_name: adguardhome
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
     volumes:
       - ./work:/opt/adguardhome/work

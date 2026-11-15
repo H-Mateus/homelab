@@ -57,6 +57,8 @@ services:
       - ${CONFIG_PATH}/navidrome:/data
       - ${MEDIA_PATH}/music:/music:ro
     mem_limit: 512m
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   gluetun:
@@ -89,6 +91,8 @@ services:
     volumes:
       - ${CONFIG_PATH}/gluetun:/gluetun
     mem_limit: 256m
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   slskd:
@@ -122,6 +126,8 @@ services:
     depends_on:
       - gluetun
     mem_limit: 512m
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   explo:
@@ -148,6 +154,8 @@ services:
       - navidrome
       - slskd
     mem_limit: 256m
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   beets:
@@ -164,6 +172,8 @@ services:
       - ./beets/config.yaml:/config/config.yaml
       - ${MEDIA_PATH}:/media
     mem_limit: 512m
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   navidrome-ts:
@@ -184,6 +194,8 @@ services:
     depends_on:
       - navidrome
     mem_limit: 128m
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   slskd-ts:
@@ -202,6 +214,8 @@ services:
     depends_on:
       - slskd
     mem_limit: 128m
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   explo-ts:
@@ -220,4 +234,6 @@ services:
     depends_on:
       - explo
     mem_limit: 128m
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
