@@ -117,7 +117,7 @@ services:
     container_name: romm-db
     # Pinned to the LTS series. A major bump changes the on-disk format, so
     # read the MariaDB upgrade notes first.
-    image: mariadb:11.8
+    image: mariadb:11.8.9
     environment:
       MARIADB_ROOT_PASSWORD: ${ROMM_DB_ROOT_PASSWORD:?set ROMM_DB_ROOT_PASSWORD}
       MARIADB_DATABASE: romm
