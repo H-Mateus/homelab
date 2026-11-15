@@ -1,0 +1,232 @@
+#
+# games: RomM (ROM library + in-browser play) and ROMarr (the *arr for ROMs).
+# Both are reachable only over the tailnet:
+#   https://romm.<tailnet>.ts.net    -> RomM   (127.0.0.1:8080 in romm-ts)
+#   https://romarr.<tailnet>.ts.net  -> ROMarr (127.0.0.1:6868 in romarr-ts)
+#
+# Images
+# ------
+# RomM:   rommapp/romm (official). It runs as any non-root uid (RomM's own
+#         TrueNAS guide uses 568) and ships an internal Valkey, so no separate
+#         Redis service is needed. MariaDB is RomM's default database.
+# ROMarr: ghcr.io/blizzhacker/romarr (official, published by the upstream
+#         BlizzHacker/romarr repo, not a fork).
+#
+# Networking
+# ----------
+# Same pattern as radicale/ev-tracker: each app shares its sidecar's network
+# namespace (`network_mode: service:<x>-ts`), and serve.json proxies to
+# 127.0.0.1. No `ports:`, so nothing on the LAN can reach them. The sidecars sit
+# on this project's default network, so:
+#   - RomM reaches MariaDB as `romm-db`.
+#   - ROMarr reaches RomM as `http://romm-ts:8080` (RomM listens inside
+#     romm-ts's namespace, so the sidecar's name is RomM's address).
+# Sidecar hostnames are `<svc>-ts` so they never shadow a proxy target (see
+# the arr-stack header).
+#
+# Prowlarr and qBittorrent live in the separate arr-stack project. romarr-ts
+# also joins arr-stack's network (external `arr-stack_default`), so ROMarr
+# reaches them by service name, exactly like Sonarr/Radarr do. That matters
+# for qBittorrent: its VPN killswitch answers its own Compose network but
+# drops cross-bridge requests to the host's published port. The cost: this
+# stack won't start unless arr-stack is up.
+#
+# Storage and hardlinks
+# ---------------------
+# Everything lives in the arr-stack media dataset (${MEDIA_PATH}), under a
+# games/ DIRECTORY (not a child dataset), next to qBittorrent's downloads/:
+#   ${MEDIA_PATH}/downloads/games/       qBit category `romarr` save path
+#   ${MEDIA_PATH}/games/library/roms/    RomM library, Structure A
+#   ${MEDIA_PATH}/games/library/bios/    RomM firmware
+#   ${MEDIA_PATH}/games/{resources,assets,config}/  RomM state (covers, saves)
+#   ${MEDIA_PATH}/games/dats/            No-Intro/Redump DATs (ROMarr + igir)
+# ROMarr mounts the whole of ${MEDIA_PATH} at /media, exactly like qBittorrent
+# does. So the path qBit reports (/media/downloads/games/...) is valid in
+# ROMarr with no remote path mapping, and the download and the library sit on
+# ONE mount of ONE filesystem: os.link() works. With "Prefer hardlinks" on,
+# imports are hardlinks. They cost no extra space and the torrent keeps
+# seeding from the original. ROMarr never moves a download: it copies by
+# default, and "Keep completed downloads for seeding" is on by default.
+#
+# RomM gets ${MEDIA_PATH}/games as one mount at /romm. Its library, resources
+# and assets then share a filesystem and a mount, which RomM's TrueNAS guide
+# asks for (it hardlinks between them, else it copies).
+#
+# MariaDB and the internal Valkey's snapshot live on the SSD pool under
+# ${CONFIG_PATH}, like the other stacks' databases.
+#
+# Hardening
+# ---------
+# RomM and ROMarr run directly as 568:568 (`user:`), so neither image's
+# root-then-drop entrypoint runs. All capabilities are dropped and
+# no-new-privileges is set. MariaDB keeps its stock entrypoint (it chowns its
+# datadir to the mysql user on first start).
+
+name: games
+
+services:
+  romm:
+    container_name: romm
+    image: rommapp/romm:5.4.1
+    network_mode: service:romm-ts
+    user: "568:568"
+    environment:
+      TZ: ${TZ:-Europe/London}
+      DB_HOST: romm-db
+      DB_NAME: romm
+      DB_USER: romm-user
+      DB_PASSWD: ${ROMM_DB_PASSWORD:?set ROMM_DB_PASSWORD}
+      # openssl rand -hex 32. Signs sessions; changing it logs everyone out.
+      ROMM_AUTH_SECRET_KEY: ${ROMM_AUTH_SECRET_KEY:?set ROMM_AUTH_SECRET_KEY}
+      ROMM_BASE_URL: ${ROMM_BASE_URL:-}
+      # Metadata providers. All optional: an empty value turns that provider
+      # off. Set at least one before the first scan (see README).
+      IGDB_CLIENT_ID: ${IGDB_CLIENT_ID:-}
+      IGDB_CLIENT_SECRET: ${IGDB_CLIENT_SECRET:-}
+      SCREENSCRAPER_USER: ${SCREENSCRAPER_USER:-}
+      SCREENSCRAPER_PASSWORD: ${SCREENSCRAPER_PASSWORD:-}
+      RETROACHIEVEMENTS_API_KEY: ${RETROACHIEVEMENTS_API_KEY:-}
+      STEAMGRIDDB_API_KEY: ${STEAMGRIDDB_API_KEY:-}
+      # Keyless hash-based matching. Works well with DAT-named files.
+      HASHEOUS_API_ENABLED: "true"
+      # ROMarr already asks RomM for a quick scan of the platform it just
+      # filed into. The nightly scan is a backstop for igir runs and hand
+      # edits.
+      ENABLE_SCHEDULED_RESCAN: "true"
+      SCHEDULED_RESCAN_CRON: "0 4 * * *"
+    volumes:
+      # library/ (roms/ + bios/), resources/, assets/ (saves, states), config/
+      # (config.yml) all under one mount. See the header.
+      - ${MEDIA_PATH}/games:/romm
+      - ${CONFIG_PATH}/romm/redis-data:/redis-data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    depends_on:
+      romm-ts:
+        condition: service_started
+      romm-db:
+        condition: service_healthy
+        restart: true
+    # RomM's TrueNAS guide caps it at 4 GB. Scans hash every file.
+    mem_limit: 4g
+    restart: unless-stopped
+
+  romm-db:
+    container_name: romm-db
+    # Pinned to the LTS series. A major bump changes the on-disk format, so
+    # read the MariaDB upgrade notes first.
+    image: mariadb:11.8
+    environment:
+      MARIADB_ROOT_PASSWORD: ${ROMM_DB_ROOT_PASSWORD:?set ROMM_DB_ROOT_PASSWORD}
+      MARIADB_DATABASE: romm
+      MARIADB_USER: romm-user
+      MARIADB_PASSWORD: ${ROMM_DB_PASSWORD:?set ROMM_DB_PASSWORD}
+      MARIADB_AUTO_UPGRADE: "1"
+      TZ: ${TZ:-Europe/London}
+    volumes:
+      - ${CONFIG_PATH}/mariadb:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      start_period: 30s
+      start_interval: 10s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    restart: unless-stopped
+
+  romm-ts:
+    container_name: romm-ts
+    image: tailscale/tailscale:latest
+    hostname: romm-ts
+    environment:
+      - "TS_AUTHKEY=${TS_AUTHKEY_ROMM}"
+      - TS_HOSTNAME=${TS_HOSTNAME_ROMM:-romm}
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/serve.json
+      - TS_USERSPACE=true
+    volumes:
+      - ./ts-state/romm:/var/lib/tailscale
+      # Plain bind mount, not Compose `configs:` (Dockhand recreates drop them).
+      # Proxies https://romm.<tailnet>.ts.net to 127.0.0.1:8080.
+      - ./ts-config/romm:/config
+    mem_limit: 128m
+    restart: unless-stopped
+
+  romarr:
+    container_name: romarr
+    image: ghcr.io/blizzhacker/romarr:1.10.0
+    network_mode: service:romarr-ts
+    user: "568:568"
+    environment:
+      TZ: ${TZ:-Europe/London}
+      UMASK: "002"
+      LOG_LEVEL: INFO
+      # Undocumented but read by ROMarr (app.py): listen on loopback only, so
+      # only the sidecar's `tailscale serve` can reach it.
+      ROMARR_HOST: 127.0.0.1
+      # Read on every start. Optional; if empty the first visit asks you to
+      # set a password. The API key is for Homepage/scripts.
+      ROMARR_PASSWORD: ${ROMARR_PASSWORD:-}
+      ROMARR_API_KEY: ${ROMARR_API_KEY:-}
+      # Read on every start: the DAT directory (holds ONLY .dat/.xml/.zip DATs).
+      DAT_PATH: /media/games/dats
+      # --- Seeded on FIRST START ONLY; after that the Settings pages win. ---
+      # arr-stack services by name, over the shared network (see the header).
+      PROWLARR_URL: http://prowlarr:9696
+      PROWLARR_API_KEY: ${PROWLARR_API_KEY:-}
+      QBITTORRENT_URL: http://qbittorrent:8080
+      QBITTORRENT_USER: ${QBITTORRENT_USER:-}
+      QBITTORRENT_PASS: ${QBITTORRENT_PASS:-}
+      QBITTORRENT_CATEGORY: romarr
+      LIBRARY_KIND: romm
+      LIBRARY_URL: http://romm-ts:8080
+      # Prefer a scoped RomM API token (rmm_...) over a username/password.
+      LIBRARY_API_KEY: ${ROMM_API_TOKEN:-}
+      LIBRARY_USERNAME: ${ROMM_ROMARR_USER:-}
+      LIBRARY_PASSWORD: ${ROMM_ROMARR_PASSWORD:-}
+      # RomM's roms/ dir as ROMarr sees it. Same mount as the downloads, which
+      # is what makes hardlinks possible.
+      LIBRARY_PATH: /media/games/library/roms
+    volumes:
+      # romarr.json (settings, API key, password hash, history) + plugins.
+      - ${CONFIG_PATH}/romarr:/config
+      # Same mount as qBittorrent's in arr-stack. See the header.
+      - ${MEDIA_PATH}:/media
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    depends_on:
+      - romarr-ts
+      - romm
+    mem_limit: 1g
+    restart: unless-stopped
+
+  romarr-ts:
+    container_name: romarr-ts
+    image: tailscale/tailscale:latest
+    hostname: romarr-ts
+    environment:
+      - "TS_AUTHKEY=${TS_AUTHKEY_ROMARR}"
+      - TS_HOSTNAME=${TS_HOSTNAME_ROMARR:-romarr}
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/serve.json
+      - TS_USERSPACE=true
+    volumes:
+      - ./ts-state/romarr:/var/lib/tailscale
+      # Proxies https://romarr.<tailnet>.ts.net to 127.0.0.1:6868.
+      - ./ts-config/romarr:/config
+    # default: reaches romm-ts. arr: reaches prowlarr + qbittorrent.
+    networks: [default, arr]
+    mem_limit: 128m
+    restart: unless-stopped
+
+networks:
+  arr:
+    external: true
+    name: arr-stack_default
