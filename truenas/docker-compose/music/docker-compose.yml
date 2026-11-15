@@ -23,8 +23,8 @@
 # Storage
 # -------
 # Library: tank/media/music, a child dataset of the arr-stack's media dataset
-# (${MEDIA_PATH}), so Lidarr sees it at /media/music while it snapshots and
-# replicates on its own. Staging dirs sit in ${MEDIA_PATH}/downloads/ next to
+# (${MEDIA_PATH}), so it is visible at /media/music there while it snapshots
+# and replicates on its own. Staging dirs sit in ${MEDIA_PATH}/downloads/ next to
 # the arr-stack's. Moves into the library cross a dataset boundary, so they
 # copy rather than rename; fine at music sizes. Docker bind mounts are
 # recursive, so mounting ${MEDIA_PATH} includes the child dataset.
