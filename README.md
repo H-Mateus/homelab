@@ -35,6 +35,7 @@ is the source of truth for all configuration, managed with GitOps.
 | Immich | TrueNAS | Self-hosted photo library | Tailscale (own device, shared to family) |
 | Immich Frame | TrueNAS | Slideshow client for Immich | Tailscale (own device, shared to family) |
 | EV tracker | TrueNAS | Daily used-EV deal alerts (Telegram) + ranking page | Tailscale only |
+| Docs site | TrueNAS | This repo's docs as a searchable website | Tailscale only |
 | Tailscale Operator | Kubernetes | Cluster ingress via Tailscale | Tailscale |
 | democratic-csi | Kubernetes | NFS PV provisioner backed by TrueNAS | Internal |
 | kube-prometheus-stack | Kubernetes | Prometheus + Grafana + Alertmanager | Tailscale (Grafana via operator) |
@@ -93,6 +94,8 @@ Full ADRs in [docs/decisions/](docs/decisions/).
 ├── docs/
 │   ├── architecture.md          # Network and service architecture
 │   ├── talos-extensions-rollout.md  # Runbook: rolling out Talos extensions
+│   └── _quarto/                 # Docs-site filters + CSS (see Docs site)
+├── _quarto.yml, index.qmd       # Docs-site config + home page
 └── scripts/
     └── check-sops-encrypted.sh  # Pre-commit helper (SOPS safety net)
 ```
@@ -139,6 +142,23 @@ known secret patterns but is not SOPS-aware.
 
 See [docs/architecture.md](docs/architecture.md) for the full secret
 lifecycle and trust model.
+
+## Docs site
+
+The Markdown in this repo (`docs/*.md` and every stack README) is also
+built into a [Quarto](https://quarto.org) website with a sidebar and
+search, served tailnet-only at `https://docs.<tailnet>.ts.net` (see
+[truenas/docker-compose/docs-site](truenas/docker-compose/docs-site/README.md)).
+The files are rendered in place, so edit them as usual. `_quarto.yml`
+at the repo root controls what's included and the sidebar.
+
+```bash
+quarto preview   # live preview from the repo root
+quarto render    # one-off build into _site/ (gitignored)
+```
+
+New stack READMEs need adding to `project.render` in `_quarto.yml` by
+name; CI fails until they are. `docs/private/` is never included.
 
 ## Pre-commit hooks
 

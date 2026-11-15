@@ -49,3 +49,12 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# --- Private household docs (repo is public) --------------------------------
+docs/private/
+
+# --- Quarto docs site (_quarto.yml) -----------------------------------------
+/_site/
+/.quarto/
+
+**/*.quarto_ipynb
