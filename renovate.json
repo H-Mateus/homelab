@@ -5,11 +5,13 @@
     "trigger: Dockhand's git sync redeploys the changed stack. Dockhand's own",
     "image auto-update stays OFF so nothing bypasses review.",
     "minimumReleaseAge: hijacked or broken releases are usually caught and",
-    "yanked within days, so nothing younger than 5 days is proposed."
+    "yanked within days, so nothing younger than 5 days is proposed.",
+    "Actions are pinned to commit SHAs (a moved tag can't inject code); Renovate bumps SHA and version comment together."
   ],
   "extends": [
     "config:recommended",
-    ":dependencyDashboard"
+    ":dependencyDashboard",
+    "helpers:pinGitHubActionDigests"
   ],
   "timezone": "Europe/London",
   "schedule": [
