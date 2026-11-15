@@ -105,8 +105,12 @@ interface on the HA host. That box is also the subnet router for
 `192.168.1.0/24`, so at the same time turn *Accept routes* off (it doesn't
 need routes from other nodes, and accepting its own subnet can hijack LAN
 traffic). Then restart the app and check the LAN and the cameras still
-work. The grant above also needs HA's device as a source: tag it or add
-its user.
+work. HA's device is tagged `tag:homeassistant` (applied in the admin
+console, so the app's *Advertise tags* option stays empty). Grant it only
+what it needs:
+```jsonc
+{ "src": ["tag:homeassistant"], "dst": ["tag:radicale"], "ip": ["tcp:443"] }
+```
 
 Then: Settings → Devices & services → Add integration → **CalDAV**. URL
 `https://radicale.<tailnet>.ts.net/`, user `homeassistant`. You get
