@@ -29,10 +29,13 @@ project:
     - truenas/docker-compose/dockhand-ts/README.md
     - truenas/docker-compose/docs-site/README.md
     - truenas/docker-compose/ev-tracker/README.md
+    - truenas/docker-compose/games/README.md
     - truenas/docker-compose/garage/README.md
     - truenas/docker-compose/homepage/README.md
     - truenas/docker-compose/music/README.md
     - truenas/docker-compose/paperless/README.md
+    - truenas/docker-compose/radicale/README.md
+    - truenas/docker-compose/reading/README.md
     - truenas/docker-compose/swag/README.md
     - truenas/docker-compose/uptime-kuma/README.md
     - homeassistant-box/docker-compose/frigate/README.md

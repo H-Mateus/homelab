@@ -54,6 +54,17 @@
           user: homepage
           token: "{{HOMEPAGE_VAR_NAVIDROME_TOKEN}}"
           salt: "{{HOMEPAGE_VAR_NAVIDROME_SALT}}"
+    - Kavita:
+        icon: kavita.svg
+        href: https://kavita.fairy-featherback.ts.net
+        description: Books, manga & comics
+        # tag:family-reading must be in the tag:homepage grant for this dot.
+        siteMonitor: https://kavita.fairy-featherback.ts.net
+    - RomM:
+        icon: romm.svg
+        href: https://romm.fairy-featherback.ts.net
+        description: Retro games, play in browser
+        siteMonitor: https://romm.fairy-featherback.ts.net
 
 - Arr:
     - Sonarr:
@@ -74,15 +85,16 @@
           type: radarr
           url: https://radarr.fairy-featherback.ts.net
           key: "{{HOMEPAGE_VAR_RADARR_KEY}}"
-    - Lidarr:
-        icon: lidarr.svg
-        href: https://lidarr.fairy-featherback.ts.net
-        description: Music
-        siteMonitor: https://lidarr.fairy-featherback.ts.net
+    - Bookshelf:
+        icon: readarr.svg
+        href: https://bookshelf.fairy-featherback.ts.net
+        description: Books
+        siteMonitor: https://bookshelf.fairy-featherback.ts.net
+        # Bookshelf keeps Readarr's API, so the readarr widget works.
         widget:
-          type: lidarr
-          url: https://lidarr.fairy-featherback.ts.net
-          key: "{{HOMEPAGE_VAR_LIDARR_KEY}}"
+          type: readarr
+          url: https://bookshelf.fairy-featherback.ts.net
+          key: "{{HOMEPAGE_VAR_BOOKSHELF_KEY}}"
     - Prowlarr:
         icon: prowlarr.svg
         href: https://prowlarr.fairy-featherback.ts.net
@@ -101,6 +113,21 @@
           type: bazarr
           url: https://bazarr.fairy-featherback.ts.net
           key: "{{HOMEPAGE_VAR_BAZARR_KEY}}"
+    - Suggestarr:
+        icon: mdi-lightbulb-on-outline
+        href: https://suggestarr.fairy-featherback.ts.net
+        description: Recommendations → Seerr
+        siteMonitor: https://suggestarr.fairy-featherback.ts.net
+    - ROMarr:
+        icon: mdi-gamepad-variant-outline
+        href: https://romarr.fairy-featherback.ts.net
+        description: ROMs (No-Intro/Redump verified)
+        siteMonitor: https://romarr.fairy-featherback.ts.net
+    - Suwayomi:
+        icon: suwayomi.svg
+        href: https://suwayomi.fairy-featherback.ts.net
+        description: Manga chapters
+        siteMonitor: https://suwayomi.fairy-featherback.ts.net
 
 - Home:
     - Home Assistant:
@@ -195,6 +222,11 @@
         description: Router & firewall
 
 - Monitoring:
+    - Docs:
+        icon: mdi-book-open-page-variant-outline
+        href: https://docs.fairy-featherback.ts.net
+        description: This homelab's docs site
+        siteMonitor: https://docs.fairy-featherback.ts.net
     - Grafana:
         icon: grafana.svg
         href: https://grafana.fairy-featherback.ts.net
