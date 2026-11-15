@@ -1,5 +1,10 @@
 name: gitleaks
 on: [push, pull_request]
+# The token lists a PR's commits (required for pull_request scans since
+# gitleaks-action v2.3) and comments on any leak it finds.
+permissions:
+  contents: read
+  pull-requests: write
 jobs:
   scan:
     runs-on: ubuntu-latest
@@ -8,3 +13,5 @@ jobs:
         with:
           fetch-depth: 0
       - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
