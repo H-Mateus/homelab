@@ -1,0 +1,38 @@
+# Radicale server config. Reference: https://radicale.org/v3.html
+#
+# Mounted read-only at /config. Logins live in a separate htpasswd file on
+# the dataset (never in this public repo); see README.md.
+
+[server]
+# Only the Tailscale sidecar talks to it (shared network namespace), so
+# listen on loopback: nothing on the LAN can reach the port.
+hosts = 127.0.0.1:5232
+
+[auth]
+type = htpasswd
+htpasswd_filename = /data/users
+htpasswd_encryption = autodetect
+# Slow down password guessing.
+delay = 2
+
+[rights]
+# Each login reads and writes only its own /<user>/ collections. The shared
+# House calendar reaches the other login through a sharing map below, not
+# through looser rights.
+type = owner_only
+
+[storage]
+filesystem_folder = /data/collections
+
+[sharing]
+# Map-based sharing (Radicale >= 3.7): the owner maps one of their
+# calendars into another user's home, so that user's calendar app discovers
+# it like one of their own. Shares are created with the API calls in the
+# README and stored in collection-db/sharing.csv under filesystem_folder.
+type = csv
+collection_by_map = True
+permit_create_map = True
+
+[logging]
+level = warning
+mask_passwords = True

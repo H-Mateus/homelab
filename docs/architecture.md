@@ -377,6 +377,7 @@ the device's `--advertise-tags` / OAuth client config (for machines).
 | `tag:k8s` | Tailscale `Ingress` / `Service` devices created by the Tailscale Kubernetes Operator | Identifies operator-managed devices (one per `Ingress`, e.g. `grafana`) so ACLs can grant access to them. |
 | `tag:k8s-node` | Talos nodes joining the tailnet via the `siderolabs/tailscale` extension | Distinguishes Talos *nodes* from operator-managed Ingresses. Used to grant kubelet NFS access to `tag:truenas`. |
 | `tag:immich` | The Tailscale sidecar in the Immich Docker Compose stack | The single device shared (via [Tailscale node sharing](https://tailscale.com/kb/1084/sharing)) with family members through `autogroup:shared`. Restricts what they can reach to just Immich. |
+| `tag:radicale` | The Tailscale sidecar in the Radicale Docker Compose stack | The shared house calendar (CalDAV). Reachable by household members' phones, and by Home Assistant if its calendar integration is enabled. |
 | `tag:dockhand` | The Tailscale sidecar for the Dockhand TrueNAS app (`dockhand-ts` stack) | Gives the container-management UI its own Tailnet device. Kept as its own tag rather than a shared generic app tag because Dockhand is effectively root on the box (start/stop/delete any container, read every stack's secrets). |
 
 Planned as the arr-stack migration completes: a generic `tag:ts-apps` for the
