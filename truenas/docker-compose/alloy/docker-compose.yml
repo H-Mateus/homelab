@@ -44,6 +44,9 @@ services:
       # Frigate LXC only (pfSense syslog + node_exporter); see .env.example.
       SYSLOG_LISTEN_ADDR: ${SYSLOG_LISTEN_ADDR:-127.0.0.1:1514}
       PFSENSE_EXPORTER: ${PFSENSE_EXPORTER:-}
+      # TrueNAS boxes only (Dockhand's /metrics + its API token); see .env.example.
+      DOCKHAND_METRICS: ${DOCKHAND_METRICS:-}
+      DOCKHAND_TOKEN: ${DOCKHAND_TOKEN:-}
     volumes:
       - ./config.alloy:/etc/alloy/config.alloy:ro
       # WAL + log read positions; losing it only means some re-sent lines.

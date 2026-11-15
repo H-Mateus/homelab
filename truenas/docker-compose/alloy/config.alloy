@@ -287,6 +287,36 @@ prometheus.scrape "pfsense" {
 	forward_to      = [prometheus.remote_write.cluster.receiver]
 }
 
+// Dockhand's /metrics (vulnerability counts, scan freshness, updates
+// available, container health, scheduler/backup status), on the TrueNAS
+// boxes only (DOCKHAND_METRICS=127.0.0.1:<port> there; empty elsewhere,
+// which drops the target, so the Frigate LXC is unaffected). Dockhand keeps
+// /metrics behind its own login; Alloy sends an API token (dh_...) as a
+// Bearer header, which Dockhand accepts on /metrics as on /api/*. Its
+// gather is capped at 10s server-side, and the data only changes when a
+// scan or update check runs, so a slow interval is plenty.
+discovery.relabel "dockhand" {
+	targets = [{
+		__address__ = sys.env("DOCKHAND_METRICS"),
+		instance    = "dockhand",
+	}]
+
+	rule {
+		source_labels = ["__address__"]
+		regex         = ""
+		action        = "drop"
+	}
+}
+
+prometheus.scrape "dockhand" {
+	targets         = discovery.relabel.dockhand.output
+	job_name        = "dockhand"
+	scrape_interval = "60s"
+	scrape_timeout  = "15s"
+	bearer_token    = sys.env("DOCKHAND_TOKEN")
+	forward_to      = [prometheus.remote_write.cluster.receiver]
+}
+
 prometheus.scrape "containers" {
 	targets         = prometheus.exporter.cadvisor.containers.targets
 	scrape_interval = "30s"
