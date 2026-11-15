@@ -68,6 +68,12 @@
    "type": "link",
    "url": "/d/homelab-containers/homelab-containers",
    "icon": "apps"
+  },
+  {
+   "title": "Security",
+   "type": "link",
+   "url": "/d/homelab-security/homelab-security",
+   "icon": "bolt"
   }
  ],
  "panels": [

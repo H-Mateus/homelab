@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Generate the two homelab Grafana dashboards as JSON.
+"""Generate the homelab Grafana dashboards as JSON.
 
     python3 kubernetes/apps/monitoring/dashboards/generate.py
 
-Writes homelab-overview.json and homelab-box.json next to this file;
+Writes homelab-{overview,box,containers,security}.json next to this file;
 kustomization.yaml turns them into ConfigMaps that Grafana's sidecar loads.
 Edit here, not in the JSON (the dashboards are read-only in the Grafana UI).
 
@@ -116,6 +116,7 @@ def dashboard(uid, title, panels, templating=None, description=""):
             {"title": "Homelab", "type": "link", "url": "/d/homelab-overview/homelab", "icon": "dashboard"},
             {"title": "Box details", "type": "link", "url": "/d/homelab-box/homelab-box", "icon": "info"},
             {"title": "Containers", "type": "link", "url": "/d/homelab-containers/homelab-containers", "icon": "apps"},
+            {"title": "Security", "type": "link", "url": "/d/homelab-security/homelab-security", "icon": "bolt"},
         ],
         "panels": panels,
     }
@@ -227,6 +228,7 @@ links_md = "\n".join([
     "(its *Nodename* picker uses hostnames: `proxmox` = proxmox-k8s, `homeassistant` = proxmox-ha, `Quack01` = quack01)",
     "- **Containers (by stack: arr-stack, music-stack, immich, ...):** [Containers](/d/homelab-containers/homelab-containers)"
     " · cluster pods: *Kubernetes / Compute Resources* dashboards",
+    "- **Vulnerability scans, pending updates, unhealthy containers (Dockhand):** [Security](/d/homelab-security/homelab-security)",
     "- **Search any log:** [Explore](/explore) → Loki → label `host`",
     "- **All alert rules:** [Alert rules](/alerting/list)",
     "",
@@ -421,6 +423,197 @@ cont_templating = [
     {"name": "search", "label": "Search", "type": "textbox", "query": "", "current": {"text": "", "value": ""}},
 ]
 
+# --------------------------------------------------------------------------
+# Security ("Homelab – security"): Dockhand's vulnerability scans, updates
+# and container health, per box (host) and Dockhand environment (env).
+# Alloy scrapes each TrueNAS box's Dockhand as job="dockhand".
+# --------------------------------------------------------------------------
+_next_id[0] = 0
+DH = 'host=~"$host", env=~"$env"'
+sec = []
+y = 0
+
+
+def dh_stat(title, expr, x, w, thresholds, description, unit="none"):
+    return panel("stat", title, x, y, w, 4, [q(expr, instant=True)],
+                 description=description,
+                 options={"reduceOptions": {"calcs": ["lastNotNull"], "values": False},
+                          "colorMode": "background", "graphMode": "none", "textMode": "value",
+                          "justifyMode": "center"},
+                 fieldConfig={"defaults": {"unit": unit, "decimals": 0, "color": {"mode": "thresholds"},
+                                           "thresholds": {"mode": "absolute", "steps": thresholds},
+                                           "noValue": "–"},
+                              "overrides": []})
+
+
+def zero_good(warn_color="orange", at=1):
+    return [{"color": "green", "value": None}, {"color": warn_color, "value": at}]
+
+
+sec += [
+    dh_stat("Critical", f'sum(dockhand_vulnerabilities{{{DH}, severity="critical"}})', 0, 4, zero_good("red"),
+            "Critical CVEs across the latest scan of every image in the selection."),
+    dh_stat("High", f'sum(dockhand_vulnerabilities{{{DH}, severity="high"}})', 4, 4, zero_good(),
+            "High-severity CVEs across the latest scan of every image in the selection."),
+    dh_stat("Images scanned", f"sum(dockhand_images_scanned{{{DH}}}) / sum(dockhand_images_count{{{DH}}})", 8, 4,
+            [{"color": "orange", "value": None}, {"color": "green", "value": 0.9}],
+            "Images with at least one scan, out of all images (dangling ones included).", unit="percentunit"),
+    dh_stat("Updates available", f"sum(dockhand_updates_available{{{DH}}})", 12, 4,
+            [{"color": "green", "value": None}, {"color": "blue", "value": 1}],
+            "Containers whose image has a newer version (from Dockhand's update checks)."),
+    dh_stat("Unhealthy containers", f'sum(dockhand_containers_health{{{DH}, health="unhealthy"}}) or vector(0)', 16, 4,
+            zero_good("red"), "Containers whose Docker healthcheck is failing. Alerts after 15 minutes."),
+    dh_stat("Environments up", f"sum(dockhand_env_up{{{DH}}}) / count(dockhand_env_up{{{DH}}})", 20, 4,
+            [{"color": "red", "value": None}, {"color": "orange", "value": 0.01}, {"color": "green", "value": 1}],
+            "Docker environments Dockhand could read at its last scrape.", unit="percentunit"),
+]
+y += 4
+
+env_targets = [
+    q(f"max by (host, env) (dockhand_env_up{{{DH}}})", "UP", instant=True, fmt="table"),
+    q(f'max by (host, env) (dockhand_vulnerabilities{{{DH}, severity="critical"}})', "CRIT", instant=True, fmt="table"),
+    q(f'max by (host, env) (dockhand_vulnerabilities{{{DH}, severity="high"}})', "HIGH", instant=True, fmt="table"),
+    q(f'max by (host, env) (dockhand_vulnerabilities{{{DH}, severity="medium"}})', "MED", instant=True, fmt="table"),
+    q(f"max by (host, env) (dockhand_images_scanned{{{DH}}})", "SCANNED", instant=True, fmt="table"),
+    q(f"max by (host, env) (dockhand_images_count{{{DH}}})", "IMAGES", instant=True, fmt="table"),
+    q(f"max by (host, env) (dockhand_updates_available{{{DH}}})", "UPD", instant=True, fmt="table"),
+    q(f'max by (host, env) (dockhand_containers{{{DH}, state="running"}})', "RUN", instant=True, fmt="table"),
+    q(f"max by (host, env) (dockhand_scan_oldest_age_seconds{{{DH}}})", "AGE", instant=True, fmt="table"),
+]
+sec.append(panel(
+    "table", "Environments", 0, y, 24, 6, env_targets,
+    description="One row per Dockhand environment. 'Oldest kept scan' is the oldest scan Dockhand still stores "
+                "(it keeps up to ten per image), not how stale the current results are.",
+    transformations=[
+        {"id": "merge", "options": {}},
+        {"id": "organize", "options": {
+            "excludeByName": {"Time": True},
+            "renameByName": {"host": "Box", "env": "Environment", "Value #UP": "Up", "Value #CRIT": "Critical",
+                             "Value #HIGH": "High", "Value #MED": "Medium", "Value #SCANNED": "Images scanned",
+                             "Value #IMAGES": "Images", "Value #UPD": "Updates", "Value #RUN": "Running",
+                             "Value #AGE": "Oldest kept scan"},
+            "indexByName": {"host": 0, "env": 1, "Value #UP": 2, "Value #CRIT": 3, "Value #HIGH": 4, "Value #MED": 5,
+                            "Value #SCANNED": 6, "Value #IMAGES": 7, "Value #UPD": 8, "Value #RUN": 9, "Value #AGE": 10}}},
+    ],
+    options={"showHeader": True, "cellHeight": "sm", "footer": {"show": False}},
+    fieldConfig={"defaults": {"custom": {"align": "auto"}}, "overrides": [
+        {"matcher": {"id": "byName", "options": "Up"}, "properties": [
+            {"id": "mappings", "value": [{"type": "value", "options": {
+                "1": {"text": "Up", "color": "green"}, "0": {"text": "Down", "color": "red"}}}]},
+            {"id": "custom.cellOptions", "value": {"type": "color-text"}}]},
+        {"matcher": {"id": "byName", "options": "Critical"}, "properties": [
+            {"id": "thresholds", "value": {"mode": "absolute", "steps": zero_good("red")}},
+            {"id": "custom.cellOptions", "value": {"type": "color-text"}}]},
+        {"matcher": {"id": "byName", "options": "High"}, "properties": [
+            {"id": "thresholds", "value": {"mode": "absolute", "steps": zero_good()}},
+            {"id": "custom.cellOptions", "value": {"type": "color-text"}}]},
+        {"matcher": {"id": "byName", "options": "Oldest kept scan"}, "properties": [{"id": "unit", "value": "dtdurations"}]},
+    ]}))
+y += 6
+
+
+def dh_ts(title, targets, x, w, description, unit="none", stack=False, h=8):
+    custom = {"fillOpacity": 30 if stack else 0, "lineWidth": 1, "showPoints": "never",
+              "stacking": {"mode": "normal" if stack else "none"}}
+    return panel("timeseries", title, x, y, w, h, targets, description=description,
+                 fieldConfig={"defaults": {"unit": unit, "min": 0, "decimals": 0, "custom": custom}, "overrides": []},
+                 options={"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"]},
+                          "tooltip": {"mode": "multi", "sort": "desc"}})
+
+
+SEV_COLORS = {"critical": "dark-red", "high": "orange", "medium": "yellow", "low": "blue"}
+sec += [
+    dh_ts("Critical and high, per environment",
+          [q(f'max by (host, env, severity) (dockhand_vulnerabilities{{{DH}, severity=~"critical|high"}})',
+             legend="{{host}}/{{env}} {{severity}}")], 0, 12,
+          "Steps up when a new image or a rescan finds CVEs; down when an image is updated or removed. "
+          "Alert: critical count higher than 24h ago (for 1h)."),
+    dh_ts("All findings by severity",
+          [q(f"sum by (severity) (dockhand_vulnerabilities{{{DH}}})", legend="{{severity}}")], 12, 12,
+          "Stacked total across the selection.", stack=True),
+]
+sec[-1]["fieldConfig"]["overrides"] = [
+    {"matcher": {"id": "byName", "options": s}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": c}}]}
+    for s, c in SEV_COLORS.items()]
+y += 8
+
+sec += [
+    dh_ts("Images scanned vs total",
+          [q(f"max by (host, env) (dockhand_images_scanned{{{DH}}})", "A", "{{host}}/{{env}} scanned"),
+           q(f"max by (host, env) (dockhand_images_count{{{DH}}})", "B", "{{host}}/{{env}} images")], 0, 8,
+          "Unscanned images have no CVE data at all. Dockhand scans on update (when a scanner is set) or via "
+          "Images → Scan all."),
+    dh_ts("Updates available",
+          [q(f"max by (host, env) (dockhand_updates_available{{{DH}}})", legend="{{host}}/{{env}}")], 8, 8,
+          "Containers with a pending image update, from Dockhand's update checks."),
+    dh_ts("Oldest kept scan",
+          [q(f"max by (host, env) (dockhand_scan_oldest_age_seconds{{{DH}}})", legend="{{host}}/{{env}}")], 16, 8,
+          "Age of the oldest scan Dockhand still stores (up to ten per image are kept), so weeks is normal. "
+          "A rising line with no drops means images aren't being rescanned; the staleness alert uses the "
+          "update-check schedule instead.", unit="dtdurations"),
+]
+y += 8
+
+sec += [
+    dh_ts("Container health",
+          [q(f"max by (host, env, health) (dockhand_containers_health{{{DH}}})", legend="{{host}}/{{env}} {{health}}")],
+          0, 12, "Containers with a Docker healthcheck, by status. Containers without one aren't counted."),
+    dh_ts("Restarts",
+          [q(f"max by (host, env) (dockhand_container_restarts_total{{{DH}}})", legend="{{host}}/{{env}}")], 12, 12,
+          "Sum of Docker's restart counts over all containers. A climbing line is a restart loop; it drops "
+          "when containers are recreated (updates, redeploys). Which container: Dockhand → Containers."),
+]
+y += 8
+
+sec.append(panel(
+    "table", "Scheduled tasks", 0, y, 24, 7,
+    [q("max by (host, type) (dockhand_schedule_last_run_seconds{host=~\"$host\"})", "RUN", instant=True, fmt="table"),
+     q("max by (host, type) (dockhand_schedule_last_success_seconds{host=~\"$host\"})", "OK", instant=True, fmt="table"),
+     q("sum by (host, type) (dockhand_schedule_executions{host=~\"$host\", status=~\"failed|error\"})", "FAIL", instant=True, fmt="table")],
+    description="Per task type (all schedules of that type together). Last run newer than last success = the latest run "
+                "didn't succeed (or is still running). Failed runs = kept execution history. Logs: Dockhand → Schedules.",
+    transformations=[
+        {"id": "merge", "options": {}},
+        {"id": "organize", "options": {
+            "excludeByName": {"Time": True},
+            "renameByName": {"host": "Box", "type": "Task", "Value #RUN": "Last run", "Value #OK": "Last success",
+                             "Value #FAIL": "Failed runs"},
+            "indexByName": {"host": 0, "type": 1, "Value #RUN": 2, "Value #OK": 3, "Value #FAIL": 4}}},
+    ],
+    options={"showHeader": True, "cellHeight": "sm", "footer": {"show": False}},
+    fieldConfig={"defaults": {"custom": {"align": "auto"}}, "overrides": [
+        {"matcher": {"id": "byName", "options": "Last run"}, "properties": [{"id": "unit", "value": "dtdurations"}]},
+        {"matcher": {"id": "byName", "options": "Last success"}, "properties": [{"id": "unit", "value": "dtdurations"}]},
+    ]}))
+y += 7
+
+sec.append(panel("text", "Per-image detail", 0, y, 24, 3, options={"mode": "markdown", "content": (
+    "Which images and CVEs, fix versions, and scan history live in **Dockhand** "
+    "(primary: `https://dockhand.<tailnet>.ts.net`, off-site: `https://dockhand-offsite.<tailnet>.ts.net`) → "
+    "*Images* → *Vulnerabilities*. This page only has the counts Dockhand exports.")}))
+
+DH_ENVS = "dockhand_env_up"
+sec_templating = [
+    {"name": "host", "label": "Box", "type": "query", "datasource": PROM,
+     "query": {"query": f"label_values({DH_ENVS}, host)", "refId": "host"},
+     "definition": f"label_values({DH_ENVS}, host)", "refresh": 2, "sort": 1,
+     "includeAll": True, "allValue": ".+", "multi": True,
+     "current": {"text": ["All"], "value": ["$__all"]}},
+    {"name": "env", "label": "Environment", "type": "query", "datasource": PROM,
+     "query": {"query": f'label_values({DH_ENVS}{{host=~"$host"}}, env)', "refId": "env"},
+     "definition": f'label_values({DH_ENVS}{{host=~"$host"}}, env)', "refresh": 2, "sort": 1,
+     "includeAll": True, "allValue": ".+", "multi": True,
+     "current": {"text": ["All"], "value": ["$__all"]}},
+]
+
+security = dashboard(
+    "homelab-security", "Homelab – security", sec, sec_templating,
+    description="Dockhand's vulnerability scans, pending updates and container health, per box and Dockhand "
+                "environment. Counts only: per-image and per-CVE detail lives in Dockhand's UI (Images → "
+                "Vulnerabilities). Generated by dashboards/generate.py.")
+security["time"] = {"from": "now-7d", "to": "now"}
+security["refresh"] = "5m"
+
 for name, d in {
     "homelab-overview.json": dashboard(
         "homelab-overview", "Homelab", overview,
@@ -431,6 +624,7 @@ for name, d in {
     "homelab-containers.json": dashboard(
         "homelab-containers", "Homelab – containers", cont, cont_templating,
         description="Docker containers by box and Compose stack (not the cluster's pods). Generated by dashboards/generate.py."),
+    "homelab-security.json": security,
 }.items():
     (HERE / name).write_text(json.dumps(d, indent=1, ensure_ascii=False) + "\n")
     print("wrote", name, "-", len(d["panels"]), "panels")
