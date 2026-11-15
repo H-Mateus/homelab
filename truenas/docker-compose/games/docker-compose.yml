@@ -141,7 +141,7 @@ services:
 
   romm-ts:
     container_name: romm-ts
-    image: tailscale/tailscale:latest
+    image: tailscale/tailscale:v1.104.7
     hostname: romm-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY_ROMM}"
@@ -209,7 +209,7 @@ services:
 
   romarr-ts:
     container_name: romarr-ts
-    image: tailscale/tailscale:latest
+    image: tailscale/tailscale:v1.104.7
     hostname: romarr-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY_ROMARR}"

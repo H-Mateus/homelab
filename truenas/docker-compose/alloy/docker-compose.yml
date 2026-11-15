@@ -28,7 +28,7 @@ name: alloy
 services:
   alloy:
     container_name: alloy
-    image: grafana/alloy:${ALLOY_VERSION:-latest}
+    image: grafana/alloy:v1.22.0
     network_mode: host
     pid: host
     privileged: true
@@ -83,7 +83,7 @@ services:
 
   alloy-ts:
     container_name: alloy-ts
-    image: tailscale/tailscale:latest
+    image: tailscale/tailscale:v1.104.7
     hostname: alloy-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY}"

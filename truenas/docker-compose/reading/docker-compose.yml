@@ -130,7 +130,7 @@ services:
 
   bookshelf-ts:
     container_name: bookshelf-ts
-    image: tailscale/tailscale:latest
+    image: tailscale/tailscale:v1.104.7
     hostname: bookshelf-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY_BOOKSHELF}"
@@ -149,7 +149,7 @@ services:
 
   kavita-ts:
     container_name: kavita-ts
-    image: tailscale/tailscale:latest
+    image: tailscale/tailscale:v1.104.7
     hostname: kavita-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY_KAVITA}"
@@ -165,7 +165,7 @@ services:
 
   suwayomi-ts:
     container_name: suwayomi-ts
-    image: tailscale/tailscale:latest
+    image: tailscale/tailscale:v1.104.7
     hostname: suwayomi-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY_SUWAYOMI}"

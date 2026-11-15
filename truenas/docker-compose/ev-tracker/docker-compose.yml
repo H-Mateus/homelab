@@ -44,7 +44,7 @@ services:
 
   ev-tracker-ts:
     container_name: ev-tracker-ts
-    image: tailscale/tailscale:latest
+    image: tailscale/tailscale:v1.104.7
     hostname: ev-tracker-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY}"

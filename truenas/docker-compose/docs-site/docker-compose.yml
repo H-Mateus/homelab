@@ -110,7 +110,7 @@ services:
 
   docs-site-ts:
     container_name: docs-site-ts
-    image: tailscale/tailscale:latest
+    image: tailscale/tailscale:v1.104.7
     hostname: docs-site-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY}"

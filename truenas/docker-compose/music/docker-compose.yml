@@ -36,7 +36,7 @@ name: music
 services:
   navidrome:
     container_name: navidrome
-    image: deluan/navidrome:${NAVIDROME_VERSION:-latest}
+    image: deluan/navidrome:0.64.2
     user: "568:568"
     environment:
       ND_MUSICFOLDER: /music
@@ -61,7 +61,7 @@ services:
 
   gluetun:
     container_name: gluetun
-    image: qmcgaw/gluetun:${GLUETUN_VERSION:-latest}
+    image: qmcgaw/gluetun:v3.41.3
     cap_add:
       - NET_ADMIN
     devices:
@@ -93,7 +93,7 @@ services:
 
   slskd:
     container_name: slskd
-    image: slskd/slskd:${SLSKD_VERSION:-latest}
+    image: slskd/slskd:0.26.1
     user: "568:568"
     network_mode: service:gluetun
     environment:
@@ -126,7 +126,7 @@ services:
 
   explo:
     container_name: explo
-    image: ghcr.io/lumepart/explo:${EXPLO_VERSION:-latest}
+    image: ghcr.io/lumepart/explo:v1.2.0
     environment:
       PUID: 568
       PGID: 568
@@ -152,7 +152,7 @@ services:
 
   beets:
     container_name: beets
-    image: lscr.io/linuxserver/beets:${BEETS_VERSION:-latest}
+    image: lscr.io/linuxserver/beets:2.14.1-ls360
     # Used via `docker exec beets beet ...`; not exposed on the Tailnet.
     environment:
       PUID: 568
@@ -168,7 +168,7 @@ services:
 
   navidrome-ts:
     container_name: navidrome-ts
-    image: tailscale/tailscale:latest
+    image: tailscale/tailscale:v1.104.7
     hostname: navidrome-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY_NAVIDROME}"
@@ -188,7 +188,7 @@ services:
 
   slskd-ts:
     container_name: slskd-ts
-    image: tailscale/tailscale:latest
+    image: tailscale/tailscale:v1.104.7
     hostname: slskd-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY_SLSKD}"
@@ -206,7 +206,7 @@ services:
 
   explo-ts:
     container_name: explo-ts
-    image: tailscale/tailscale:latest
+    image: tailscale/tailscale:v1.104.7
     hostname: explo-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY_EXPLO}"

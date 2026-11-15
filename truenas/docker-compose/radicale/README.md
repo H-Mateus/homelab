@@ -126,6 +126,6 @@ Then: Settings → Devices & services → Add integration → **CalDAV**. URL
   `curl -u <you> $R/<you>/house/ > house.ics`.
 - **List or remove shares**: `curl -u <you> -d '' $R/.sharing/v1/map/list`;
   remove one with `curl -u <you> -d PathOrToken=/<partner>/house/ $R/.sharing/v1/map/delete`.
-- **Upgrades**: bump `RADICALE_VERSION`. Read the
+- **Upgrades**: Renovate opens a PR bumping the tag in `docker-compose.yml`. Read the
   [changelog](https://github.com/Kozea/Radicale/blob/master/CHANGELOG.md)
   first, because sharing is a new feature and its API may still move.

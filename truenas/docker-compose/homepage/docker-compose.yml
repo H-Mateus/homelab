@@ -28,7 +28,7 @@ name: homepage
 services:
   homepage:
     container_name: homepage
-    image: ghcr.io/gethomepage/homepage:${HOMEPAGE_VERSION:-latest}
+    image: ghcr.io/gethomepage/homepage:v2.8.0
     network_mode: service:homepage-ts
     volumes:
       - ./config:/app/config
@@ -64,7 +64,7 @@ services:
 
   homepage-ts:
     container_name: homepage-ts
-    image: tailscale/tailscale:latest
+    image: tailscale/tailscale:v1.104.7
     hostname: homepage-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY}"
