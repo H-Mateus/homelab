@@ -33,6 +33,25 @@ spec:
             summary: "{{ $labels.host }} has stopped sending metrics"
             description: "No node metrics from {{ $labels.host }} for 10 minutes. Check the box, its alloy / alloy-ts containers (or alloy + alloy-tailscaled services on Proxmox), or pfSense's node_exporter."
 
+        # Node metrics still arrive but per-container ones have stopped: Alloy
+        # itself is crash-looping (it gets the node scrape out between
+        # restarts but not cAdvisor's, nor Dockhand's, so
+        # DockhandContainersRestartLooping can't see it), or cAdvisor can't
+        # read Docker.
+        - alert: ContainerMetricsMissing
+          expr: |
+            (
+              max by (host) (max_over_time(up{job="integrations/cadvisor"}[1d]))
+              unless max by (host) (up{job="integrations/cadvisor"} == 1)
+            )
+            and on (host) max by (host) (up{job="integrations/unix"} == 1)
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.host }}: no per-container metrics"
+            description: "{{ $labels.host }} still sends node metrics but cAdvisor's have stopped for 15 minutes. Check docker logs alloy for repeated \"Alloy is running\" lines (an OOM loop: raise mem_limit) or cAdvisor errors."
+
         # Ordinary filesystems (root disks of the Proxmox hosts and the
         # Frigate LXC). ZFS has its own rule below; NFS mounts are the
         # TrueNAS pools seen from a client.
@@ -161,6 +180,21 @@ spec:
           annotations:
             summary: "{{ $labels.host }}: no Dockhand metrics"
             description: "Alloy on {{ $labels.host }} can't scrape Dockhand's /metrics. Check the Dockhand app is up with EXPORT_METRICS=true, and DOCKHAND_METRICS / DOCKHAND_TOKEN in Alloy's .env (docker logs alloy; HTTP 401 = bad or expired token)."
+
+        # Containers in a restart loop (crash, or OOM-killed at mem_limit).
+        # Docker's RestartCount, summed per environment (cAdvisor exports no
+        # restart count), so which container is in Dockhand's UI. The sum
+        # drops when a redeploy replaces a container; increase() treats that
+        # as a counter reset, so redeploys don't fire it.
+        - alert: DockhandContainersRestartLooping
+          expr: |
+            max by (host, env) (increase(dockhand_container_restarts_total[30m])) >= 3
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.host }}/{{ $labels.env }}: containers restarting repeatedly"
+            description: "Containers in {{ $labels.env }} restarted {{ $value | humanize }} times in the last 30 minutes. Dockhand → Containers (sort by restarts) shows which; docker logs <name>. No error before each restart usually means it hit its mem_limit."
 
         # Containers whose Docker healthcheck keeps failing. cAdvisor has no
         # health status; Dockhand does. Which ones: Dockhand → Containers.
