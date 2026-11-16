@@ -29,9 +29,11 @@
 # Hardening
 # ---------
 # Both containers are read-only with all capabilities dropped and
-# no-new-privileges. nginx is the unprivileged image (UID 101) and mounts the
-# HTML read-only; the sync job keeps its git metadata on a tmpfs, outside the
-# served directory.
+# no-new-privileges. nginx is the unprivileged image, run as the TrueNAS
+# `apps` user (568) like every other stack: Dockhand's git checkout is only
+# readable by that user, so the image's own UID 101 can't open default.conf.
+# The HTML is mounted read-only; the sync job keeps its git metadata on a
+# tmpfs, outside the served directory.
 
 name: docs-site
 
@@ -39,6 +41,7 @@ services:
   docs-site:
     container_name: docs-site
     image: nginxinc/nginx-unprivileged:1.30.6-alpine
+    user: "568:568"
     network_mode: service:docs-site-ts
     environment:
       NGINX_ENTRYPOINT_QUIET_LOGS: 1
