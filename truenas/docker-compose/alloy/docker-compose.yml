@@ -78,7 +78,10 @@ services:
       - /run/containerd:/run/containerd:ro
     depends_on:
       - alloy-ts
-    mem_limit: 512m
+    # 512m was OOM-killed on the primary TrueNAS (~60 containers of cAdvisor
+    # series plus WAL replay on every start: a restart loop that got worse as
+    # the WAL grew). 1.5g leaves headroom; the smaller boxes use far less.
+    mem_limit: 1536m
     restart: unless-stopped
 
   alloy-ts:
