@@ -45,6 +45,8 @@ services:
       - ${GARAGE_META_DIR}:/var/lib/garage/meta
       - ${GARAGE_DATA_DIR}:/var/lib/garage/data
     # No `ports:` — Tailnet-only via the sidecar.
+    security_opt:
+      - no-new-privileges:true
     restart: always
     healthcheck:
       # `garage status` exits non-zero until the node is healthy and
@@ -58,7 +60,7 @@ services:
 
   garage-ts:
     container_name: garage-ts
-    image: tailscale/tailscale:latest
+    image: tailscale/tailscale:v1.104.7
     hostname: garage
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY}"
@@ -89,4 +91,6 @@ services:
       - ./ts-config/garage:/config
     depends_on:
       - garage
+    security_opt:
+      - no-new-privileges:true
     restart: always

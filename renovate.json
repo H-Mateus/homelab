@@ -1,0 +1,176 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": [
+    "Image and action updates as reviewable PRs. Merging to main is the deploy",
+    "trigger: Dockhand's git sync redeploys the changed stack. Dockhand's own",
+    "image auto-update stays OFF so nothing bypasses review.",
+    "minimumReleaseAge: hijacked or broken releases are usually caught and",
+    "yanked within days, so nothing younger than 5 days is proposed.",
+    "Actions are pinned to commit SHAs (a moved tag can't inject code); Renovate bumps SHA and version comment together."
+  ],
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "timezone": "Europe/London",
+  "schedule": [
+    "before 9am on saturday"
+  ],
+  "minimumReleaseAge": "5 days",
+  "internalChecksFilter": "strict",
+  "prConcurrentLimit": 15,
+  "semanticCommits": "enabled",
+  "semanticCommitType": "chore",
+  "packageRules": [
+    {
+      "description": "linuxserver tags: <version>[.<build>]-ls<rebuild>, optionally v-prefixed. Their weekly -ls rebuilds are grouped into one PR.",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "/^lscr\\.io/linuxserver//"
+      ],
+      "versioning": "regex:^v?(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(\\.(?<build>\\d+))?-ls(?<revision>\\d+)$"
+    },
+    {
+      "description": "linuxserver Jellyfin: <major>.<minor>ubu<ubuntu>-ls<rebuild>. The Ubuntu base is a compatibility suffix, so a base-image jump needs a manual bump.",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "lscr.io/linuxserver/jellyfin"
+      ],
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)(?<compatibility>ubu\\d+)-ls(?<patch>\\d+)$"
+    },
+    {
+      "description": "linuxserver restarted Sonarr's -ls counter (ls5 is newer than ls329), so ignore the rebuild number and only follow real Sonarr releases.",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "lscr.io/linuxserver/sonarr"
+      ],
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-ls\\d+$"
+    },
+    {
+      "description": "Group linuxserver patch/rebuild updates into one weekly PR.",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "/^lscr\\.io/linuxserver//"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "groupName": "linuxserver rebuilds"
+    },
+    {
+      "description": "hotio qBittorrent: release-<semver>.",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "ghcr.io/hotio/qbittorrent"
+      ],
+      "versioning": "regex:^release-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$"
+    },
+    {
+      "description": "Bookshelf: hardcover-v<readarr version>.<build>. Keep the hardcover- (Hardcover metadata) build.",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "ghcr.io/pennydreadful/bookshelf"
+      ],
+      "versioning": "regex:^hardcover-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)$"
+    },
+    {
+      "description": "Immich server and ML must move together.",
+      "matchPackageNames": [
+        "ghcr.io/immich-app/immich-server",
+        "ghcr.io/immich-app/immich-machine-learning"
+      ],
+      "groupName": "immich"
+    },
+    {
+      "description": "Immich's Postgres tag is dictated by Immich's release notes, not by its own versioning.",
+      "matchPackageNames": [
+        "ghcr.io/immich-app/postgres"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Database majors change the on-disk format (dump/restore or pg_upgrade): stay on the current major and do those by hand.",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "docker.io/library/postgres"
+      ],
+      "allowedVersions": "/^18\\./"
+    },
+    {
+      "description": "MariaDB: stay on the 11.8 LTS line.",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "mariadb"
+      ],
+      "allowedVersions": "/^11\\.8\\./"
+    },
+    {
+      "description": "Valkey: stay on 9.x.",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "docker.io/valkey/valkey"
+      ],
+      "allowedVersions": "/^9\\./"
+    },
+    {
+      "description": "One PR for the Tailscale sidecar image across every stack.",
+      "matchPackageNames": [
+        "tailscale/tailscale"
+      ],
+      "groupName": "tailscale sidecars"
+    },
+    {
+      "description": "Our own image, built by its repo's CI; not tracked here.",
+      "matchPackageNames": [
+        "ghcr.io/h-mateus/ev-price-tracker"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "nginx odd minors are mainline; stay on the stable (even) line.",
+      "matchPackageNames": [
+        "nginxinc/nginx-unprivileged"
+      ],
+      "allowedVersions": "/^1\\.\\d*[02468]\\./"
+    }
+  ],
+  "customManagers": [
+    {
+      "description": "Quarto version in the docs-site workflow.",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/docs-site\\.yml$/"
+      ],
+      "matchStrings": [
+        "version: (?<currentValue>\\d+\\.\\d+\\.\\d+)"
+      ],
+      "depNameTemplate": "quarto-dev/quarto-cli",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    }
+  ],
+  "enabledManagers": [
+    "docker-compose",
+    "github-actions",
+    "custom.regex"
+  ]
+}

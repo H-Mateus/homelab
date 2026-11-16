@@ -14,7 +14,7 @@
 set -euo pipefail
 
 TAILNET=fairy-featherback.ts.net
-APPS="sonarr radarr lidarr prowlarr bazarr profilarr seerr jellyfin"
+APPS="sonarr radarr prowlarr bazarr profilarr seerr jellyfin"
 
 if [[ "${1:-}" == "--inner" ]]; then
   var="$(tr '[:lower:]' '[:upper:]' <<<"$ARR_APP")_API_KEY"

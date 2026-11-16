@@ -133,7 +133,10 @@ never needs to be publicly reachable for cert renewal.
 ### Primary TrueNAS (`truenas`, local)
 
 - **Pool `tank`** — bulk HDD mirror
-  - `tank/media` — Plex/arr media library
+  - `tank/media` — arr media library: `movies/`, `tv/`, `downloads/`,
+    plus `books/`, `manga/`, `comics/` (reading stack) and `games/`
+    (RomM/ROMarr) as plain directories so imports hardlink; `music/` is a
+    child dataset owned by the music stack
   - `tank/immich` — Immich photo/video originals
 - **Pool `apps`** — NVMe mirror for latency-sensitive app data
   - `apps/arr-stack`, `apps/immich` (Postgres), `apps/dockhand`, …
@@ -158,7 +161,7 @@ never needs to be publicly reachable for cert renewal.
 | Zone | Examples | Access control |
 |------|----------|----------------|
 | Public internet | n/a currently | Would be SWAG + CrowdSec |
-| Tailnet | All services via `*.mateusharrington.com` | Tailscale ACLs |
+| Tailnet | All services at `<svc>.<tailnet>.ts.net` via per-service sidecars | Tailscale ACLs (default-deny, tag-based) |
 | Remote LAN | TrueNAS UI, services | Physical/network access at remote site |
 | Out-of-band | TrueNAS BIOS, boot | JetKVM over Tailscale |
 
@@ -366,86 +369,47 @@ git push
 
 ## Tailscale and the tag model
 
-Tailscale ACLs are tag-driven rather than user-driven. The tags below
-exist in the tailnet today; each is granted to specific devices via
-either the Tailscale admin console (for human-owned devices) or via
-the device's `--advertise-tags` / OAuth client config (for machines).
+Every service and host on the tailnet carries a tag; only personal devices
+(laptops, phones) are untagged and act as their owner. The policy is
+**default-deny**: a tagged device can only open connections a grant
+explicitly allows, and most service tags are granted nothing outbound. So a
+compromised container's sidecar can't wander the tailnet. The live policy
+file in the admin console is the source of truth; this is its shape.
 
 | Tag | Applied to | Purpose |
 |-----|-----------|---------|
-| `tag:truenas` | The TrueNAS host's `tailscaled` | Lets ACLs grant NFS / API access to the TrueNAS host without naming a specific user. Replaces the previous model where TrueNAS was owned by my user account. |
-| `tag:k8s` | Tailscale `Ingress` / `Service` devices created by the Tailscale Kubernetes Operator | Identifies operator-managed devices (one per `Ingress`, e.g. `grafana`) so ACLs can grant access to them. |
-| `tag:k8s-node` | Talos nodes joining the tailnet via the `siderolabs/tailscale` extension | Distinguishes Talos *nodes* from operator-managed Ingresses. Used to grant kubelet NFS access to `tag:truenas`. |
-| `tag:immich` | The Tailscale sidecar in the Immich Docker Compose stack | The single device shared (via [Tailscale node sharing](https://tailscale.com/kb/1084/sharing)) with family members through `autogroup:shared`. Restricts what they can reach to just Immich. |
-| `tag:dockhand` | The Tailscale sidecar for the Dockhand TrueNAS app (`dockhand-ts` stack) | Gives the container-management UI its own Tailnet device. Kept as its own tag rather than a shared generic app tag because Dockhand is effectively root on the box (start/stop/delete any container, read every stack's secrets). |
+| `tag:truenas` + `tag:truenas-primary` / `tag:truenas-backup` | The two TrueNAS hosts' `tailscaled` | Host access without tying it to a user. Primary vs backup split lets k8s reach only the primary, and the backup box pull replication over SSH one-way. |
+| `tag:proxmox` | Both Proxmox hosts | Web UI via `tailscale serve`, Tailscale SSH for admin. |
+| `tag:k8s-operator`, `tag:k8s`, `tag:k8s-readers` | Tailscale Kubernetes operator and its `Ingress` devices (Grafana, Loki/Prometheus ingest, democratic-csi) | Operator-provisioned devices, granted separately from the nodes. |
+| `tag:k8s-node` | Talos nodes (`siderolabs/tailscale` extension) | Kubelet NFS + democratic-csi API access to `tag:truenas-primary` only. |
+| `tag:monitoring-agent` / `tag:monitoring-ingest` | Alloy on each box / the cluster's push endpoints | Agents may push to ingest on 443, nothing else. |
+| `tag:ts-apps` | Admin-only app sidecars: Sonarr, Radarr, Prowlarr, Bazarr, Profilarr, Suggestarr, slskd, explo, Navidrome, Frigate, RomM, ROMarr, Bookshelf, Suwayomi, docs site | Low-sensitivity UIs only `group:admin` uses. No outbound grants. |
+| `tag:family-jellyfin` | Jellyfin and Seerr sidecars | Household members and the SHIELD (`tag:media-client`) reach them on 443. |
+| `tag:family-reading` | Kavita's sidecar | Household members reach it on 443. |
+| `tag:immich`, `tag:immichframe` | Immich and ImmichFrame sidecars | Household on 443; Immich is also node-shared to family outside the tailnet (`autogroup:shared`). |
+| `tag:radicale` | Radicale sidecar | Household calendars (CalDAV) on 443. |
+| `tag:paperless`, `tag:garage`, `tag:ev-tracker`, `tag:homepage`, `tag:uptime-kuma` | Their sidecars | Homepage and Uptime Kuma get read access to the services they watch; nothing else reaches out. |
+| `tag:homeassistant` | Home Assistant | Household on 443/8123. |
+| `tag:dockhand`, `tag:dockhand-offsite` | Dockhand's sidecar on each TrueNAS | Kept on their own tags: Dockhand is effectively root on the box. ACL tests assert nothing else can reach them. |
+| `tag:jetkvm`, `tag:pfsense`, `tag:media-client` | Out-of-band KVM, the router, the SHIELD | Admin-only (KVM, pfSense) / Jellyfin client. |
 
-Planned as the arr-stack migration completes: a generic `tag:ts-apps` for the
-low-sensitivity, self-only \*arr/Seerr admin UIs, and `tag:family-jellyfin` for
-Jellyfin once it's shared to family (mirroring `tag:immich`). The live ACL in
-the admin console also carries operational tags not tabled here (e.g.
-`tag:garage`, `tag:k8s-operator`, `tag:k8s-readers`, `tag:truenas-backup` /
-`tag:truenas-primary`) — the console remains the source of truth.
+Principals: `group:admin` (me) gets `*:*`, which is why admin-only UIs need
+no per-service grant. `group:household` gets 443 on the family tags and Home
+Assistant. The policy's `tests` block pins the important denials (k8s nodes
+can't reach the backup box or Dockhand, household can't reach Dockhand or
+the TrueNAS UI, and so on); add a test whenever a new tag is introduced.
 
-Two notable subtleties live in this model:
+Two subtleties:
 
-- **Why `tag:k8s` and `tag:k8s-node` are separate.** The Tailscale
-  operator's `defaultTags` setting controls the tag that the OAuth
-  client uses when it provisions an `Ingress` device. Talos nodes,
-  meanwhile, advertise their own tags via `TS_EXTRA_ARGS` in the
-  extension config. They need different ACL grants — nodes need to
-  talk to `tag:truenas` on port 2049 for NFS; operator-exposed
-  services need to be reachable *from* personal devices. Lumping
-  them under one tag would over-grant in both directions.
-- **Why TrueNAS moved from a user to a tag.** With TrueNAS owned by
-  my user account, the only way to share Immich with family without
-  giving them access to the whole host was to share specific
-  Tailnet-exposed apps. That didn't scale, and it pinned the
-  authorisation model to my personal account. Moving TrueNAS to
-  `tag:truenas` and migrating Immich into its own Compose stack
-  with a Tailscale sidecar (its own device, `tag:family-immich`)
-  decouples the two: family members only see the Immich device.
-
-### Tag ownership snapshot
-
-The full ACL lives in the Tailscale admin console. The shape of the
-`tagOwners` block is:
-
-```jsonc
-"tagOwners": {
-  "tag:truenas":   ["autogroup:admin"],
-  "tag:k8s":       ["autogroup:admin"],
-  "tag:k8s-node":  ["autogroup:admin"],
-  "tag:immich":    ["autogroup:admin"],
-  "tag:dockhand":  ["autogroup:admin"]
-}
-```
-
-(Representative — the live `tagOwners` in the admin console also owns the
-operational tags noted above.)
-
-And the load-bearing grants are:
-
-```jsonc
-// Talos nodes mount NFS from, and democratic-csi reaches the API of, the
-// primary TrueNAS only — the off-site backup box is unreachable from k8s
-{ "src": ["tag:k8s-operator", "tag:k8s", "tag:k8s-node"],
-  "dst": ["tag:truenas-primary"],
-  "ip":  ["tcp:443", "tcp:2049"] },
-
-// Personal devices reach Kubernetes-hosted services
-{ "src": ["autogroup:member"], "dst": ["tag:k8s"],
-  "ip":  ["*"] }
-```
-
-A leading catch-all grant (`autogroup:member → *:*`) currently gives all
-personal (member) devices full access to every tag, so app sidecars like
-`tag:immich` / `tag:dockhand` need **no** per-device grant for owner access —
-the catch-all covers it. Because Tailscale grants are allow-only (additive, no
-deny), a service can't be restricted *below* that catch-all by adding a grant;
-tightening one service means narrowing the catch-all itself. The explicit
-per-service grants (e.g. `autogroup:shared → tag:immich:443`, `group:admin →
-tag:garage:443`) exist for non-member principals (shared family users) rather
-than for owner access.
+- **Why `tag:k8s` and `tag:k8s-node` are separate.** The operator's
+  `defaultTags` sets the tag on `Ingress` devices; Talos nodes advertise
+  their own via `TS_EXTRA_ARGS`. Nodes need NFS to `tag:truenas-primary`;
+  operator devices need to be reachable *from* personal devices. One tag
+  would over-grant both ways.
+- **What tags don't cover.** Tailscale only governs tailnet traffic. A
+  container can still reach the LAN (TrueNAS UI, pfSense, Home Assistant)
+  through Docker's bridge NAT. That gap is handled by container hardening
+  (see "Container hardening and supply chain" below), not by the ACL.
 
 ### democratic-csi controller traffic to TrueNAS
 
@@ -470,6 +434,44 @@ This is documented inline in
 `kubernetes/infrastructure/democratic-csi/truenas-egress.yaml`.
 
 ---
+
+## Container hardening and supply chain
+
+Nothing is exposed to the internet, so the realistic ways in are a
+malicious or hijacked image, or a parser bug in an app that handles files
+from strangers (qBittorrent, the \*arrs, Jellyfin's ffmpeg, Kavita, RomM,
+Paperless OCR). The layers, from "stop it arriving" to "limit the damage":
+
+1. **Pinned images, reviewed updates.** Every image is pinned to an exact
+   release in its `docker-compose.yml` (no `latest`, no `*_VERSION` in
+   `.env`). [Renovate](../renovate.json) opens a weekly PR per update with a
+   5-day `minimumReleaseAge`, so a hijacked release usually gets caught
+   upstream before it's even proposed. Merging is the deploy trigger
+   (Dockhand's git sync); Dockhand's own image auto-update is off. Databases
+   stay on their current major; Immich's Postgres follows Immich's notes.
+2. **Vulnerability scanning.** Dockhand scans images (Grype/Trivy) during
+   its update checks; counts by severity feed the *Homelab – security*
+   Grafana dashboard and the `dockhand` alert group. Scanners find known
+   CVEs, mostly in base-image packages; they don't detect malware.
+3. **Least privilege per container.** `no-new-privileges` on every service
+   except Alloy (privileged by design, for node/cAdvisor metrics) and
+   Frigate. Newer stacks (radicale, games, reading, docs-site) also drop all
+   capabilities and run as 568 directly; extending `cap_drop: ALL` to the
+   older linuxserver-based services is a per-service job, since their init
+   needs CHOWN/SETUID/SETGID.
+4. **Network containment.** Databases and caches (Immich, Paperless, RomM)
+   sit on `internal: true` networks with no gateway: no internet, no LAN.
+   On the tailnet, sidecars are tagged and the policy is default-deny (see
+   above). The remaining gap is LAN egress from app containers, which Docker
+   NATs as the TrueNAS host; closing it would need host firewall rules that
+   TrueNAS updates overwrite, so it's accepted.
+5. **Recovery.** ZFS snapshots can't be touched from inside a container, and
+   replication carries them off-site: the backstop for anything that gets
+   through.
+
+Trust is uneven: small single-maintainer images (Suggestarr, ROMarr,
+Bookshelf) get read before their updates are merged, and none of them
+mount Immich or Paperless data.
 
 ## Secrets management
 

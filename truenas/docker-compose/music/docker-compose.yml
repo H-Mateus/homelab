@@ -23,8 +23,8 @@
 # Storage
 # -------
 # Library: tank/media/music, a child dataset of the arr-stack's media dataset
-# (${MEDIA_PATH}), so Lidarr sees it at /media/music while it snapshots and
-# replicates on its own. Staging dirs sit in ${MEDIA_PATH}/downloads/ next to
+# (${MEDIA_PATH}), so it is visible at /media/music there while it snapshots
+# and replicates on its own. Staging dirs sit in ${MEDIA_PATH}/downloads/ next to
 # the arr-stack's. Moves into the library cross a dataset boundary, so they
 # copy rather than rename; fine at music sizes. Docker bind mounts are
 # recursive, so mounting ${MEDIA_PATH} includes the child dataset.
@@ -36,7 +36,7 @@ name: music
 services:
   navidrome:
     container_name: navidrome
-    image: deluan/navidrome:${NAVIDROME_VERSION:-latest}
+    image: deluan/navidrome:0.64.2
     user: "568:568"
     environment:
       ND_MUSICFOLDER: /music
@@ -57,11 +57,13 @@ services:
       - ${CONFIG_PATH}/navidrome:/data
       - ${MEDIA_PATH}/music:/music:ro
     mem_limit: 512m
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   gluetun:
     container_name: gluetun
-    image: qmcgaw/gluetun:${GLUETUN_VERSION:-latest}
+    image: qmcgaw/gluetun:v3.41.3
     cap_add:
       - NET_ADMIN
     devices:
@@ -89,11 +91,13 @@ services:
     volumes:
       - ${CONFIG_PATH}/gluetun:/gluetun
     mem_limit: 256m
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   slskd:
     container_name: slskd
-    image: slskd/slskd:${SLSKD_VERSION:-latest}
+    image: slskd/slskd:0.26.1
     user: "568:568"
     network_mode: service:gluetun
     environment:
@@ -122,11 +126,13 @@ services:
     depends_on:
       - gluetun
     mem_limit: 512m
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   explo:
     container_name: explo
-    image: ghcr.io/lumepart/explo:${EXPLO_VERSION:-latest}
+    image: ghcr.io/lumepart/explo:v1.2.0
     environment:
       PUID: 568
       PGID: 568
@@ -148,11 +154,13 @@ services:
       - navidrome
       - slskd
     mem_limit: 256m
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   beets:
     container_name: beets
-    image: lscr.io/linuxserver/beets:${BEETS_VERSION:-latest}
+    image: lscr.io/linuxserver/beets:2.14.1-ls360
     # Used via `docker exec beets beet ...`; not exposed on the Tailnet.
     environment:
       PUID: 568
@@ -164,11 +172,13 @@ services:
       - ./beets/config.yaml:/config/config.yaml
       - ${MEDIA_PATH}:/media
     mem_limit: 512m
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   navidrome-ts:
     container_name: navidrome-ts
-    image: tailscale/tailscale:latest
+    image: tailscale/tailscale:v1.104.7
     hostname: navidrome-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY_NAVIDROME}"
@@ -184,11 +194,13 @@ services:
     depends_on:
       - navidrome
     mem_limit: 128m
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   slskd-ts:
     container_name: slskd-ts
-    image: tailscale/tailscale:latest
+    image: tailscale/tailscale:v1.104.7
     hostname: slskd-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY_SLSKD}"
@@ -202,11 +214,13 @@ services:
     depends_on:
       - slskd
     mem_limit: 128m
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   explo-ts:
     container_name: explo-ts
-    image: tailscale/tailscale:latest
+    image: tailscale/tailscale:v1.104.7
     hostname: explo-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY_EXPLO}"
@@ -220,4 +234,6 @@ services:
     depends_on:
       - explo
     mem_limit: 128m
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped

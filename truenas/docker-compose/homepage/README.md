@@ -27,4 +27,4 @@ for getting to things.
 - [x] Kuma status pages: `homelab` (primary), `offsite-box` (off-site).
 - [ ] Optional widgets left as links: Navidrome, Frigate, Proxmox,
       pfSense, Home Assistant (each needs extra creds or TLS handling).
-- [ ] Pin `HOMEPAGE_VERSION` to a release.
+- [x] Pin the image to a release (now in `docker-compose.yml`, bumped by Renovate).

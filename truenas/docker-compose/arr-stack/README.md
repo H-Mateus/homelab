@@ -1,9 +1,13 @@
 # *arr stack
 
-Media automation stack: Prowlarr-driven indexer management, Sonarr/Radarr/Lidarr
-for TV/movies/music, Bazarr for subtitles, Jellyfin for playback, Seerr for
-requests, and qBittorrent (routed through Proton VPN with WireGuard) for
-downloads.
+Media automation stack: Prowlarr-driven indexer management, Sonarr/Radarr
+for TV/movies, Bazarr for subtitles, Jellyfin for playback, Seerr for
+requests, Suggestarr for watch-history-based suggestions, and qBittorrent
+(routed through Proton VPN with WireGuard) for downloads.
+
+Music is not part of this stack: it lives in the separate
+[`music`](../music/) stack (slskd / beets / explo / navidrome), which replaced
+Lidarr.
 
 ## Services
 
@@ -12,11 +16,11 @@ downloads.
 | Prowlarr       | 9696  | Indexer aggregator; pushes indexers to other *arrs   |
 | Sonarr         | 8989  | TV series automation                                 |
 | Radarr         | 7878  | Film automation                                      |
-| Lidarr         | 8686  | Music automation                                     |
 | Bazarr         | 6767  | Subtitle automation for Sonarr/Radarr                |
 | Jellyfin       | 8096  | Media server / playback                              |
 | Seerr          | 5055  | User-facing request frontend for Jellyfin            |
 | Profilarr      | 6868  | Syncs custom formats + quality profiles into *arrs   |
+| Suggestarr     | —     | Requests titles similar to Jellyfin watch history (tailnet only) |
 | FlareSolverr   | 8191  | Cloudflare challenge solver for protected indexers   |
 | qBittorrent    | 8080  | Torrent client (VPN-bound)                           |
 | Privoxy        | 8118  | HTTP proxy exposing the VPN tunnel to LAN clients    |
@@ -62,6 +66,11 @@ This is used to selectively route specific Prowlarr indexers through the VPN
 — for indexers that block residential or datacentre IPs but allow known VPN
 ranges. TorrentLeech is the indexer that prompted this setup.
 
+TorrentLeech is a private tracker, so ratio matters: it is configured in
+Prowlarr (synced to Sonarr/Radarr like any other indexer), and anything that
+feeds requests in automatically — Suggestarr especially — should go through
+an approval step rather than straight to download (see "Suggestarr" below).
+
 **Configuration in Prowlarr:**
 
 1. **Settings → Indexers → Proxies → Add → HTTP**
@@ -75,6 +84,47 @@ Indexers without the tag use the normal connection. This keeps latency low
 where it doesn't matter and tunnels only what's necessary.
 
 Toggle via `PRIVOXY_ENABLED=true` on the qbittorrent service.
+
+### Suggestarr
+
+[Suggestarr](https://github.com/giuseppe99barchetta/SuggestArr) reads
+Jellyfin watch history, finds similar titles via TMDb, and submits them to
+Seerr as requests. Both are reached by Compose service name
+(`http://jellyfin:8096`, `http://seerr:5055`) — not `localhost`, which would be
+the Suggestarr container itself.
+
+Image `ciuse99/suggestarr` (web UI + setup wizard on port `5000`), with its
+SQLite DB and config in `${CONFIG_PATH}/suggestarr` (mounted at
+`/app/config/config_files`). The image has no PUID/PGID support, so the
+compose file pins it to `user: "568:568"` like Seerr. It has no LAN port:
+reach it at `https://suggestarr.<tailnet>.ts.net` (auth key tagged
+`tag:ts-apps`, like the other admin UIs).
+
+#### Make Seerr require approval for Suggestarr's requests
+
+Without this, every suggestion is an auto-download — and on a ratio tracker
+like TorrentLeech that's a lot of unwanted grabs. By default Suggestarr
+submits with the Seerr API key, which acts as the Seerr admin, and admin
+requests are auto-approved. Instead, give it a dedicated Seerr user whose
+requests land in Seerr's pending queue:
+
+1. In Seerr, **Users → Create Local User** (e.g. `suggestarr`) with a password.
+2. Edit that user → **Permissions**: grant **Request** (Movies + Series), and
+   make sure **Auto-Approve** (and **Manage Requests** / **Admin**) are
+   **unticked**. Check **Settings → Users → Default Permissions** doesn't hand
+   out auto-approve to new users.
+3. In Suggestarr's Seer settings, enable **user selection**, pick the
+   `suggestarr` user and enter its password, so requests are made as that
+   user rather than as the admin. (Password login only works for local Seerr
+   users, hence step 1.) Avoid the "mapped Seer user" mode for this: it
+   requests as each watcher's own Seerr account, which may auto-approve.
+
+Suggestions then show up under **Requests → Pending** in Seerr as a review
+queue: approve what you want, decline the rest. Optional extras in
+Suggestarr: **Pause while Seer requests are pending** on each job (stops it
+piling up suggestions while the queue is unreviewed), and auto-decline after
+N days under **Approvals** (needs an API key with `MANAGE_REQUESTS`; it's
+dry-run by default).
 
 ### FlareSolverr
 
@@ -110,11 +160,12 @@ inside one single dataset**, not separate datasets:
 
 ```
 tank/media                 ← MEDIA_PATH; mounted /media in all *arr + Jellyfin + qBit
-├── downloads/             qBittorrent save path (categories: downloads/{movies,tv,music})
+├── downloads/             qBittorrent save path (categories: downloads/{movies,tv})
 ├── movies/                Radarr root folder  → /media/movies
-├── tv/                    Sonarr root folder  → /media/tv
-└── music/                 Lidarr root folder  → /media/music
+└── tv/                    Sonarr root folder  → /media/tv
 ```
+
+(`tank/media/music` is a child dataset owned by the separate `music` stack.)
 
 **`apps` (SSD, fast) — application config/databases:**
 
@@ -153,7 +204,7 @@ zfs set recordsize=1M atime=off tank/media
 ### Importing an existing library
 
 When copying old media in (e.g. the loose Jellyfin directories from the remote
-box), land it directly under `tank/media/{movies,tv,music}`, then use
+box), land it directly under `tank/media/{movies,tv}`, then use
 **"Import Existing"** in Radarr/Sonarr so they adopt it. For loose (non-dataset)
 directories, rsync over Tailscale:
 
@@ -209,7 +260,7 @@ WireGuard config.
 
 1. **Prowlarr** first: add indexers, then **Settings → Apps → Add** for each
    *arr. Use the API key from each *arr's `Settings → General`.
-2. **Sonarr/Radarr/Lidarr**: configure
+2. **Sonarr/Radarr**: configure
    - Root folders pointing into `/media/...`
    - qBittorrent as the download client (host: `qbittorrent`, port `8080`)
    - Quality profiles, custom formats, naming schemes
@@ -217,12 +268,23 @@ WireGuard config.
 4. **Jellyfin**: add `/media` libraries. Hardware transcoding is currently
    disabled (Nvidia runtime commented out in compose); enable when needed.
 5. **Seerr**: link to Jellyfin and to Sonarr/Radarr.
+6. **Suggestarr** (after Seerr): before first start,
+   `mkdir -p "$CONFIG_PATH/suggestarr" && chown 568:568 "$CONFIG_PATH/suggestarr"`.
+   Open `https://suggestarr.<tailnet>.ts.net`, create the admin account, then
+   run the wizard:
+   - TMDb API key (required — free from themoviedb.org account settings)
+   - Jellyfin: URL `http://jellyfin:8096` + an API key from **Jellyfin
+     Dashboard → API Keys**; pick the users/libraries whose history counts
+   - Seer: URL `http://seerr:5055` + the Seerr API key (**Settings →
+     General**), and the dedicated non-auto-approve user — see
+     "Make Seerr require approval for Suggestarr's requests" above
+   - Set the job schedule (cron) and filters in the UI.
 
 ## Backup & recovery
 
 ### What's backed up
 
-- **Application-level backups**: Sonarr, Radarr, Prowlarr, Lidarr each run
+- **Application-level backups**: Sonarr, Radarr, Prowlarr each run
   weekly internal backups (zipped DB + config.xml) into their own
   `Backups/` folder under `<service>/` in the `CONFIG_PATH` dataset. Configured
   per-app in **Settings → General → Backup**.
@@ -283,6 +345,7 @@ arr-stack/
 ├── .env.example
 ├── .gitignore
 ├── README.md
+├── ts-config/<svc>/serve.json     # tailscale serve config per sidecar
 └── configs/
     └── qbit/
         └── wireguard/

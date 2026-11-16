@@ -13,7 +13,9 @@ homelab. The same files run on each box; only `.env` differs. Ships:
   tracebacks kept as one entry, `level` parsed). Secrets are scrubbed on the
   box first (`loki.process "redact"` in `config.alloy`).
 - **Metrics**: host (node exporter: CPU, memory, disks, ZFS ARC, network)
-  and per-container (cAdvisor) → Prometheus remote-write, labelled `host`.
+  and per-container (cAdvisor) → Prometheus remote-write, labelled `host`;
+  on the TrueNAS boxes also Dockhand's own metrics (vulnerability scans,
+  updates, container health; see [Dockhand](#dockhand-truenas-boxes)).
 
 Both go to the cluster's push-only endpoints
 (`kubernetes/apps/monitoring/ingest-ingress.yaml`) over the tailnet. Read
@@ -88,6 +90,52 @@ The syslog listener has no authentication, so the Frigate LXC drops UDP 1514
 from anything but pfSense with an nftables rule in its own table
 (`syslog-allow-pfsense.nft`; install steps in its header). Every stream gets
 a fixed `host="pfsense"` label, never the sender-supplied hostname.
+
+## Dockhand (TrueNAS boxes)
+
+Each TrueNAS box's Alloy also scrapes that box's Dockhand `/metrics`:
+vulnerability counts by severity, images scanned, pending updates, container
+health and restarts, scheduled task and backup status. They land as
+`{job="dockhand", host="<box>"}` with Dockhand's own `env` label, feeding the
+**Homelab – security** dashboard and the `dockhand` group in
+`kubernetes/apps/monitoring/alert-rules.yaml`. Two optional `.env` values, set
+**only** on the TrueNAS boxes:
+
+| Variable | Primary TrueNAS | Elsewhere (Quack01 included) |
+|---|---|---|
+| `DOCKHAND_METRICS` | `127.0.0.1:30328` (the Dockhand app's node-port) | unset → no target |
+| `DOCKHAND_TOKEN` | API token from the primary's Dockhand | unset |
+
+Quack01 is deliberately **not** scraped: `dockhand-offsite.yml` publishes no
+port at all (it's on the family LAN and Dockhand is root-equivalent), and
+Alloy on the host network can't reach it any other way. A loopback-only
+publish was considered and rejected: Docker before 28 lets other hosts on the
+same L2 segment reach `127.0.0.1`-published ports. Revisit if the off-site
+box's scan data starts to matter (e.g. Alloy joining the Dockhand app's
+network).
+
+`/metrics` stays behind Dockhand's login. Dockhand accepts an API token as
+`Authorization: Bearer dh_...` on `/metrics` (as on `/api/*`), so Alloy sends
+that; `EXPORT_METRICS_PUBLIC` is deliberately **not** used (on the primary it
+would open the endpoint to the whole LAN through the `0.0.0.0` node-port).
+
+Per box:
+
+1. **Turn the endpoint on.** Primary: TrueNAS → Apps → Dockhand → Edit →
+   add the environment variable `EXPORT_METRICS` = `true`, save (the app
+   restarts).
+2. **Create a token.** In that box's Dockhand: Profile → API tokens → new,
+   name it `alloy-metrics`. It acts as the user who created it (any
+   authenticated user can read `/metrics`), so if you have a non-admin user,
+   create it there. An expiry is fine, but when it lapses the scrape gets 401
+   and `DockhandMetricsDown` fires; rotate before then.
+3. **Give it to Alloy.** Add `DOCKHAND_METRICS` and `DOCKHAND_TOKEN` to the
+   stack's `.env` in Dockhand, redeploy.
+4. **Check.** In Grafana, `up{job="dockhand", host="<box>"}` is 1 and
+   `dockhand_vulnerabilities` has series. Otherwise, on the box,
+   `curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:30328/metrics`:
+   404 = `EXPORT_METRICS` isn't on, 401 = on (so a 401 in `docker logs alloy`
+   is the token), connection refused = wrong port.
 
 ## Not covered here
 

@@ -1,0 +1,80 @@
+#
+# Radicale: CalDAV/CardDAV server for the shared house calendar, reachable
+# only over the tailnet at https://radicale.<tailnet>.ts.net.
+#
+# Image: tomsquest/docker-radicale (Radicale has no official image). Tags are
+# <radicale version>.<image revision>; pinned here because map-based
+# calendar sharing needs Radicale >= 3.7.
+#
+# Networking
+# ----------
+# Same pattern as uptime-kuma/ev-tracker: Radicale shares the sidecar's
+# network namespace and listens on 127.0.0.1:5232 (config/config), which
+# serve.json proxies to. No `ports:`, so nothing on the LAN can reach it.
+# Userspace mode is enough: Radicale makes no outbound connections.
+#
+# Storage
+# -------
+# ${RADICALE_ROOT} (a local dataset, owned 568:568) holds the calendars as
+# plain .ics files under collections/, the sharing map under
+# collections/collection-db/, and the htpasswd `users` file. None of it is
+# in this public repo. Plain files make restores trivial: a dataset snapshot
+# is a full backup.
+#
+# Hardening
+# ---------
+# Follows the image's production example: all capabilities dropped except
+# those its entrypoint needs to switch to UID/GID 568, no-new-privileges,
+# a pids cap. read_only isn't used: the runtime UID/GID remap rewrites
+# /etc/passwd at start.
+
+name: radicale
+
+services:
+  radicale:
+    container_name: radicale
+    image: tomsquest/docker-radicale:3.9.0.0
+    network_mode: service:radicale-ts
+    init: true
+    environment:
+      # Run as the TrueNAS `apps` user, matching every other stack.
+      UID: 568
+      GID: 568
+      TZ: ${TZ:-Europe/London}
+    volumes:
+      - ${RADICALE_ROOT}:/data
+      - ./config:/config:ro
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - KILL
+    pids_limit: 50
+    depends_on:
+      - radicale-ts
+    mem_limit: 256m
+    restart: unless-stopped
+
+  radicale-ts:
+    container_name: radicale-ts
+    image: tailscale/tailscale:v1.104.7
+    hostname: radicale-ts
+    environment:
+      - "TS_AUTHKEY=${TS_AUTHKEY}"
+      - TS_HOSTNAME=${TS_HOSTNAME:-radicale}
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/serve.json
+      - TS_USERSPACE=true
+    volumes:
+      - ./ts-state/radicale:/var/lib/tailscale
+      # Plain bind mount, not Compose `configs:` (Dockhand recreates drop them).
+      # Proxies https://radicale.<tailnet>.ts.net to 127.0.0.1:5232.
+      - ./ts-config/radicale:/config
+    mem_limit: 128m
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped

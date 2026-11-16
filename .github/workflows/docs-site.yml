@@ -1,0 +1,89 @@
+# Render the Quarto docs site (_quarto.yml) and publish the HTML to the
+# `docs-html` branch, which truenas/docker-compose/docs-site serves on the
+# tailnet. Pull requests only render (a "do the docs still build" check).
+#
+# GitHub Pages is deliberately not used: the branch is public like the rest
+# of the repo, but the site is only hosted on the tailnet. The branch is NOT
+# called gh-pages so Pages never gets switched on by convention.
+name: docs-site
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**.md"
+      - "index.qmd"
+      - "_quarto.yml"
+      - "docs/_quarto/**"
+      - "scripts/check-docs-render-list.sh"
+      - ".github/workflows/docs-site.yml"
+  pull_request:
+    paths:
+      - "**.md"
+      - "index.qmd"
+      - "_quarto.yml"
+      - "docs/_quarto/**"
+      - "scripts/check-docs-render-list.sh"
+      - ".github/workflows/docs-site.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: docs-site-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Every README is in the render list
+        run: scripts/check-docs-render-list.sh
+
+      - uses: quarto-dev/quarto-actions/setup@8a96df13519ee81fd526f2dfca5962811136661b # v2.2.0
+        with:
+          version: 1.11.9
+
+      - name: Render
+        run: quarto render
+
+      - name: Check output
+        run: |
+          set -eu
+          test -f _site/index.html
+          test -f _site/docs/architecture.html
+          # Mermaid fences became diagrams, not code blocks.
+          grep -q 'class="mermaid mermaid-js"' _site/docs/architecture.html
+          # docs/private/ is gitignored so can't be here, but be certain.
+          if find _site -path '*private*' | grep -q .; then
+            echo "private content in _site" >&2; exit 1
+          fi
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: docs-site
+          path: _site
+          retention-days: 7
+
+  publish:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: docs-site
+          path: _site
+
+      # One orphan commit each time, so the branch never accumulates history.
+      - uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4.1.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: docs-html
+          publish_dir: _site
+          force_orphan: true
+          commit_message: "docs-site: ${{ github.sha }}"
