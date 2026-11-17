@@ -53,6 +53,7 @@ in_media() {
   [[ $1 == "$MEDIA"/* ]] || die "$1 is not under $MEDIA"
   echo "/media${1#"$MEDIA"}"
 }
+in_media "$src" >/dev/null
 # igir treats --input as a glob; set names are full of ( ) [ ].
 glob_escape() { sed 's/[][*?{}()!]/\\&/g' <<<"$1"; }
 
@@ -74,22 +75,35 @@ $(ls -1 "$src" | sed 's/^/  /')"
 done
 
 ls "$MEDIA"/games/dats/*.dat >/dev/null 2>&1 || die "No DATs in $MEDIA/games/dats"
-mkdir -p "$MEDIA"/games/{igir-reports,igir-tmp}
-chown "$APPS_UID:$APPS_UID" "$MEDIA"/games/{igir-reports,igir-tmp}
+# games/ belongs to the apps user, so anything running as it could swap a
+# path for a symlink. Root never writes there: every create, unpack and
+# delete runs in a container as $APPS_UID, so a planted link only reaches
+# what that user could reach anyway.
+as_apps() {
+  docker run --rm --user "$APPS_UID:$APPS_UID" -v "$MEDIA":/media alpine "$@"
+}
+as_apps mkdir -p /media/games/igir-reports /media/games/igir-tmp /media/games/staging
 
-stg=
-cleanup() { [[ -n $stg ]] && rm -rf "$stg"; rm -rf "$MEDIA"/games/igir-tmp/*; }
+stg=   # container path
+cleanup() {
+  as_apps sh -c '[ -n "$1" ] && rm -rf "$1"; find /media/games/igir-tmp -mindepth 1 -delete' \
+    sh "$stg" || true
+}
 trap cleanup EXIT
 
 if [[ ${#archives[@]} -gt 0 ]]; then
-  stg=$MEDIA/games/staging/import-$$
-  mkdir -p "$stg"
-  echo "==> Unpacking ${#archives[@]} archive(s) to $stg"
-  # The set is mounted read-only: the seeding files can't be touched.
-  docker run --rm -v "$src":/src:ro -v "$stg":/stg debian:trixie-slim sh -c '
+  stg=$(as_apps mktemp -d /media/games/staging/import-XXXXXX)
+  echo "==> Unpacking ${#archives[@]} archive(s) to $MEDIA${stg#/media}"
+  # The set is mounted read-only: the seeding files can't be touched. Root
+  # only installs unar; the unpack itself runs as the apps user.
+  docker run --rm -v "$src":/src:ro -v "$MEDIA":/media -e STG="$stg" \
+    -e APPS_UID="$APPS_UID" -e DEBIAN_FRONTEND=noninteractive debian:trixie-slim sh -c '
     apt-get update -qq && apt-get install -y -qq --no-install-recommends unar >/dev/null || exit 1
-    for a; do echo "  $a"; unar -q -f -o /stg "/src/$a" || exit 1; done' sh "${archives[@]}"
-  chown -R "$APPS_UID:$APPS_UID" "$stg"
+    for a; do
+      echo "  $a"
+      setpriv --reuid="$APPS_UID" --regid="$APPS_UID" --clear-groups \
+        unar -q -f -o "$STG" "/src/$a" || exit 1
+    done' sh "${archives[@]}"
 fi
 
 tty=(-i); [[ -t 1 ]] && tty=(-it)
@@ -107,13 +121,17 @@ if [[ -z $all ]]; then
          --prefer-region UK,EUR,WORLD,USA,JPN
          --prefer-verified --prefer-good --prefer-revision newer)
 fi
-[[ -n $list ]] && opts+=(--filter-regex "$(in_media "$list")")
+if [[ -n $list ]]; then
+  in_media "$list" >/dev/null
+  opts+=(--filter-regex "$(in_media "$list")")
+fi
 
-# $1: link (seeding folders) or move (staging). --dry-run: report only.
+# $1: link (seeding folders) or move (staging); then container paths.
+# --dry-run: report only.
 run_igir() {
   local cmd=$1; shift
   local inputs=() p
-  for p in "$@"; do inputs+=(--input "$(glob_escape "$(in_media "$p")")"); done
+  for p in "$@"; do inputs+=(--input "$(glob_escape "$p")"); done
   local stamp; stamp=$(date +%Y%m%d-%H%M%S)
   if [[ -n $dry ]]; then
     igir report "${opts[@]}" "${inputs[@]}" \
@@ -124,7 +142,12 @@ run_igir() {
   fi
 }
 
-[[ ${#link_inputs[@]} -gt 0 ]] && { echo "==> Linking from the set"; run_igir link "${link_inputs[@]}"; }
+if [[ ${#link_inputs[@]} -gt 0 ]]; then
+  echo "==> Linking from the set"
+  mapped=()
+  for p in "${link_inputs[@]}"; do mapped+=("$(in_media "$p")"); done
+  run_igir link "${mapped[@]}"
+fi
 [[ -n $stg ]] && { echo "==> Moving from staging"; run_igir move "$stg"; }
 
 echo
