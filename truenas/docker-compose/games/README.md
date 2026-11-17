@@ -244,6 +244,40 @@ How this setup protects it:
   category's share limits). Set them to at least TorrentLeech's minimum.
   Don't use *Remove torrent and its files* as the limit action.
 
+## Importing a set torrent
+
+A set torrent (e.g. a No-Intro pack) holds a whole system's catalogue.
+`import-romset.sh` (next to this README) verifies it against `games/dats`
+with igir and files one release per game into `library/roms/<platform>/`.
+Copy it to the NAS once, somewhere only root can write (it runs as root):
+
+```sh
+mkdir -p /root/bin && curl -fsSL -o /root/bin/import-romset.sh \
+  https://raw.githubusercontent.com/H-Mateus/homelab/main/truenas/docker-compose/games/import-romset.sh
+chmod 700 /root/bin/import-romset.sh
+```
+
+Then, as root (in `tmux`: big systems take a while):
+
+```sh
+/root/bin/import-romset.sh --help
+/root/bin/import-romset.sh '/mnt/tank/media/downloads/games/No-Intro 20190501' \
+  'Nintendo - Game Boy' 'Sega - Mega Drive - Genesis'
+```
+
+- **Name the systems** as they appear in the download folder, without
+  extension. A folder of per-game zips is hardlinked (no extra space, keeps
+  seeding). A whole-system `.rar`/`.7z` of per-game zips is unpacked to
+  `games/staging` first, because igir can't read archives inside archives;
+  staging is removed afterwards. The download is mounted read-only.
+- **Curate** with `--list FILE`: one regex per line, matched against the
+  DAT name (`^Golden Sun`, `/mother 3/i`). Keep lists in `games/lists/`.
+- `--dry-run` writes only a report to `games/igir-reports/`; `--all` keeps
+  every region, revision, beta and demo.
+- Needs a DAT for each system: the No-Intro Daily pack (P/C XML) unzipped
+  flat into `games/dats`, plus Redump DATs for disc systems.
+- Then RomM → Scan → Quick scan, or wait for the 04:00 rescan.
+
 ## Auditing your existing collection with igir
 
 [igir](https://github.com/emmercm/igir) checks ROMs against the same
