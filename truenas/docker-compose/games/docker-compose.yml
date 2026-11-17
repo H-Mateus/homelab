@@ -87,8 +87,13 @@ services:
       SCREENSCRAPER_PASSWORD: ${SCREENSCRAPER_PASSWORD:-}
       RETROACHIEVEMENTS_API_KEY: ${RETROACHIEVEMENTS_API_KEY:-}
       STEAMGRIDDB_API_KEY: ${STEAMGRIDDB_API_KEY:-}
-      # Keyless hash-based matching. Works well with DAT-named files.
+      # Keyless sources. Hasheous and PlayMatch match by hash, which suits
+      # DAT-named files; LaunchBox adds descriptions and artwork; HLTB adds
+      # completion times. The settings page only shows their status.
       HASHEOUS_API_ENABLED: "true"
+      PLAYMATCH_API_ENABLED: "true"
+      LAUNCHBOX_API_ENABLED: "true"
+      HLTB_API_ENABLED: "true"
       # ROMarr already asks RomM for a quick scan of the platform it just
       # filed into. The nightly scan is a backstop for igir runs and hand
       # edits.

@@ -117,8 +117,10 @@ Trade-off: deploy arr-stack first; this stack won't start without its network.
    - **Metadata**: set at least one provider before the first scan.
      ScreenScraper (artwork, best for retro) and RetroAchievements (hash
      matching, achievements) are the most useful. IGDB needs a Twitch
-     developer app (client ID + secret). SteamGridDB is covers only. Hasheous
-     is on and needs no key. Redeploy after adding keys.
+     developer app (client ID + secret). SteamGridDB is covers only. Keys are
+     Dockhand variables (see `.env.example`); RomM's Metadata sources page
+     only shows their status. Hasheous, PlayMatch, LaunchBox and
+     HowLongToBeat need no key and are on. Redeploy after adding keys.
    - Put any BIOS files in `games/library/bios/<platform>/`.
 
 6. **A dedicated RomM account for ROMarr.** ROMarr only reads the catalogue
