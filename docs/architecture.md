@@ -378,6 +378,10 @@ the device's `--advertise-tags` / OAuth client config (for machines).
 | `tag:k8s-node` | Talos nodes joining the tailnet via the `siderolabs/tailscale` extension | Distinguishes Talos *nodes* from operator-managed Ingresses. Used to grant kubelet NFS access to `tag:truenas`. |
 | `tag:immich` | The Tailscale sidecar in the Immich Docker Compose stack | The single device shared (via [Tailscale node sharing](https://tailscale.com/kb/1084/sharing)) with family members through `autogroup:shared`. Restricts what they can reach to just Immich. |
 | `tag:radicale` | The Tailscale sidecar in the Radicale Docker Compose stack | The shared house calendar (CalDAV). Reachable by household members' phones, and by Home Assistant if its calendar integration is enabled. |
+| `tag:homeassistant` | The Home Assistant box's Tailscale app (applied in the admin console, so the app's *Advertise tags* option stays empty) | Gives HA a non-user identity, so it only reaches what grants list from `tag:homeassistant` (e.g. `tag:radicale` on 443). Also the target of Homepage's HA status widget. |
+| `tag:homepage` | The Tailscale sidecar in the Homepage Docker Compose stack | Lets the start page's live widgets reach their targets on 443 only. Links are opened by the browser, so they need no grant. |
+| `tag:uptime-kuma` | The Tailscale sidecars of both Uptime Kuma copies (primary TrueNAS and off-site Quack01) | Broad read-only reach (443, 80, 8006, ICMP) for monitoring, and the destination for push heartbeats from other stacks such as `tag:ev-tracker`. |
+| `tag:ev-tracker` | The Tailscale sidecar in the EV tracker Docker Compose stack | Serves the ranking page, and may only reach `tag:uptime-kuma` on 443 to send its heartbeat. |
 | `tag:dockhand` | The Tailscale sidecar for the Dockhand TrueNAS app (`dockhand-ts` stack) | Gives the container-management UI its own Tailnet device. Kept as its own tag rather than a shared generic app tag because Dockhand is effectively root on the box (start/stop/delete any container, read every stack's secrets). |
 
 Planned as the arr-stack migration completes: a generic `tag:ts-apps` for the
