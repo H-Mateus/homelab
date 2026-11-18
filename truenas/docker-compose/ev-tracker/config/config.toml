@@ -29,6 +29,10 @@ local_data_makes = ["Hyundai", "Kia", "Genesis", "MG"]
 local_data_bonus = 3
 # Bonus for a powered/hands-free tailgate.
 powered_tailgate_bonus = 3
+# Points for insurance group: full at group 20 or lower, none at 45+.
+insurance_weight = 12
+# Bonus for a facelifted/newer version of the model, where the advert shows it.
+update_bonus = 2
 
 [alerts]
 # Instant alert when a car scores at least this (0-100) and is priced at or below market.
