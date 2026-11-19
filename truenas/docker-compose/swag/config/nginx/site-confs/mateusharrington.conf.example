@@ -141,20 +141,6 @@ server {
     }
 }
 
-# --- Lidarr (Music) ---
-server {
-    listen 443 ssl;
-    listen [::]:443 ssl;
-    server_name lidarr.{{ DOMAIN }} lidarr.tail.{{ DOMAIN }};
-
-    include /config/nginx/ssl.conf;
-    include /config/nginx/proxy.conf;
-
-    location / {
-        proxy_pass http://docker_host:8686;
-    }
-}
-
 # --- Prowlarr (indexer manager) ---
 server {
     listen 443 ssl;

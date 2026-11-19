@@ -33,6 +33,25 @@ spec:
             summary: "{{ $labels.host }} has stopped sending metrics"
             description: "No node metrics from {{ $labels.host }} for 10 minutes. Check the box, its alloy / alloy-ts containers (or alloy + alloy-tailscaled services on Proxmox), or pfSense's node_exporter."
 
+        # Node metrics still arrive but per-container ones have stopped: Alloy
+        # itself is crash-looping (it gets the node scrape out between
+        # restarts but not cAdvisor's, nor Dockhand's, so
+        # DockhandContainersRestartLooping can't see it), or cAdvisor can't
+        # read Docker.
+        - alert: ContainerMetricsMissing
+          expr: |
+            (
+              max by (host) (max_over_time(up{job="integrations/cadvisor"}[1d]))
+              unless max by (host) (up{job="integrations/cadvisor"} == 1)
+            )
+            and on (host) max by (host) (up{job="integrations/unix"} == 1)
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.host }}: no per-container metrics"
+            description: "{{ $labels.host }} still sends node metrics but cAdvisor's have stopped for 15 minutes. Check docker logs alloy for repeated \"Alloy is running\" lines (an OOM loop: raise mem_limit) or cAdvisor errors."
+
         # Ordinary filesystems (root disks of the Proxmox hosts and the
         # Frigate LXC). ZFS has its own rule below; NFS mounts are the
         # TrueNAS pools seen from a client.
@@ -91,3 +110,133 @@ spec:
           annotations:
             summary: "{{ $labels.host }}: ZFS pool {{ $labels.pool }} is almost full ({{ $value | humanizePercentage }} free)"
             description: "Writes (including replication and app data) will start failing soon."
+
+    # Dockhand on the TrueNAS boxes (truenas, quack01), scraped by each box's
+    # Alloy (job="dockhand"; host = the box whose Dockhand reported it, env =
+    # the Dockhand environment). Per-image detail stays in Dockhand's UI.
+    - name: dockhand
+      rules:
+        # More critical CVEs than this time yesterday: a new image, or a
+        # rescan that turned some up. The hour rides out the overlap while a
+        # replaced image's old scan is still counted. Clears by itself once
+        # the day-ago value catches up; the push is the nudge to look.
+        - alert: DockhandCriticalVulnsIncreased
+          expr: |
+            max by (host, env) (dockhand_vulnerabilities{severity="critical"})
+              > max by (host, env) (dockhand_vulnerabilities{severity="critical"} offset 1d)
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.host }}/{{ $labels.env }}: critical vulnerabilities up to {{ $value }}"
+            description: "Dockhand's critical CVE count for {{ $labels.env }} is higher than 24h ago. Which images: Dockhand → Images → Vulnerabilities."
+
+        # Scans are only as fresh as what triggers them: Dockhand scans an
+        # image when its scheduled update check pulls a new version, or on a
+        # manual scan. dockhand_scan_oldest_age_seconds can't be used: it is
+        # the oldest RETAINED scan (Dockhand keeps ten per image, plus images
+        # that never change), so it sits past a week on a healthy box.
+        # Instead: the update-check schedule hasn't succeeded in 8 days. No
+        # series if no update check is scheduled, so nothing fires then.
+        - alert: DockhandScansStale
+          expr: |
+            max by (host) (dockhand_schedule_last_success_seconds{type="env_update_check"}) > 8 * 86400
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.host }}: no successful Dockhand update check (and scan) for {{ $value | humanizeDuration }}"
+            description: "No scheduled update check has succeeded on {{ $labels.host }}'s Dockhand in over 8 days, so new images aren't being scanned. Dockhand → Schedules; the execution log says why."
+
+        # A Docker environment Dockhand manages isn't answering (or listing
+        # its containers/images/volumes/networks keeps failing or timing out).
+        - alert: DockhandEnvironmentDown
+          expr: |
+            max by (host, env) (dockhand_env_up) == 0
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.host }}: Dockhand environment {{ $labels.env }} is down"
+            description: "Dockhand on {{ $labels.host }} hasn't been able to read {{ $labels.env }}'s Docker state for 15 minutes. Check the Docker daemon (or agent) behind it."
+
+        # The scrape itself: Dockhand down, EXPORT_METRICS off, or its API
+        # token expired / revoked (up=0); or the target vanished from a box
+        # whose Alloy is otherwise fine (DOCKHAND_METRICS lost from .env). A
+        # box that has gone quiet altogether is HostStoppedReporting's job.
+        - alert: DockhandMetricsDown
+          expr: |
+            (
+              (
+                max by (host) (max_over_time(up{job="dockhand"}[1d]))
+                unless max by (host) (up{job="dockhand"})
+              )
+              and on (host) max by (host) (up{job="integrations/unix"} == 1)
+            )
+            or max by (host) (up{job="dockhand"}) == 0
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.host }}: no Dockhand metrics"
+            description: "Alloy on {{ $labels.host }} can't scrape Dockhand's /metrics. Check the Dockhand app is up with EXPORT_METRICS=true, and DOCKHAND_METRICS / DOCKHAND_TOKEN in Alloy's .env (docker logs alloy; HTTP 401 = bad or expired token)."
+
+        # Containers in a restart loop (crash, or OOM-killed at mem_limit).
+        # Docker's RestartCount, summed per environment (cAdvisor exports no
+        # restart count), so which container is in Dockhand's UI. The sum
+        # drops when a redeploy replaces a container; increase() treats that
+        # as a counter reset, so redeploys don't fire it.
+        - alert: DockhandContainersRestartLooping
+          expr: |
+            max by (host, env) (increase(dockhand_container_restarts_total[30m])) >= 3
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.host }}/{{ $labels.env }}: containers restarting repeatedly"
+            description: "Containers in {{ $labels.env }} restarted {{ $value | humanize }} times in the last 30 minutes. Dockhand → Containers (sort by restarts) shows which; docker logs <name>. No error before each restart usually means it hit its mem_limit."
+
+        # Containers whose Docker healthcheck keeps failing. cAdvisor has no
+        # health status; Dockhand does. Which ones: Dockhand → Containers.
+        - alert: DockhandContainersUnhealthy
+          expr: |
+            max by (host, env) (dockhand_containers_health{health="unhealthy"}) > 0
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.host }}/{{ $labels.env }}: {{ $value }} unhealthy container(s)"
+            description: "Docker has reported {{ $value }} container(s) in {{ $labels.env }} as unhealthy for 15 minutes. Dockhand → Containers shows which."
+
+        # A scheduled task (auto-update, git stack sync, update check, prune,
+        # ...) failed in the last hour: Dockhand's count of failed runs went
+        # up. Backups have their own per-config rule below. The second branch
+        # is a type's first-ever failure, counted only if Dockhand was being
+        # scraped an hour ago (so enabling the scrape doesn't replay history).
+        - alert: DockhandScheduledTaskFailed
+          expr: |
+            sum by (host, type) (dockhand_schedule_executions{status=~"failed|error", type!~"backup|restore"})
+              > sum by (host, type) (dockhand_schedule_executions{status=~"failed|error", type!~"backup|restore"} offset 1h)
+            or
+            (
+              sum by (host, type) (dockhand_schedule_executions{status=~"failed|error", type!~"backup|restore"})
+              unless sum by (host, type) (dockhand_schedule_executions{status=~"failed|error", type!~"backup|restore"} offset 1h)
+            )
+            and on (host) max by (host) (up{job="dockhand"} offset 1h) == 1
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.host }}: Dockhand {{ $labels.type }} task failed"
+            description: "A scheduled {{ $labels.type }} run on {{ $labels.host }}'s Dockhand failed in the last hour. Dockhand → Schedules → execution log."
+
+        # A Dockhand backup config whose last run didn't succeed. A config
+        # that has never run also reads 0; the 2h is grace for a new one.
+        - alert: DockhandBackupFailed
+          expr: |
+            max by (host, config_id, target) (dockhand_backup_last_status) == 0
+          for: 2h
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.host }}: Dockhand backup to {{ $labels.target }} failed"
+            description: "The last run of Dockhand backup config {{ $labels.config_id }} ({{ $labels.target }}) on {{ $labels.host }} didn't succeed. Dockhand → Backups."

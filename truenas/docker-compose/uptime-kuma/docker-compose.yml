@@ -25,7 +25,7 @@ name: uptime-kuma
 services:
   uptime-kuma:
     container_name: uptime-kuma
-    image: louislam/uptime-kuma:${KUMA_VERSION:-2}
+    image: louislam/uptime-kuma:2.5.11
     network_mode: service:uptime-kuma-ts
     volumes:
       - ${KUMA_ROOT}:/app/data
@@ -34,11 +34,13 @@ services:
     depends_on:
       - uptime-kuma-ts
     mem_limit: 512m
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   uptime-kuma-ts:
     container_name: uptime-kuma-ts
-    image: tailscale/tailscale:latest
+    image: tailscale/tailscale:v1.104.7
     hostname: uptime-kuma-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY}"
@@ -61,4 +63,6 @@ services:
       # immich/docker-compose.yml (Dockhand recreates drop Compose configs).
       - ./ts-config/uptime-kuma:/config
     mem_limit: 128m
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped

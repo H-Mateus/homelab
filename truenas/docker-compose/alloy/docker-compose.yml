@@ -28,7 +28,7 @@ name: alloy
 services:
   alloy:
     container_name: alloy
-    image: grafana/alloy:${ALLOY_VERSION:-latest}
+    image: grafana/alloy:v1.22.0
     network_mode: host
     pid: host
     privileged: true
@@ -44,6 +44,9 @@ services:
       # Frigate LXC only (pfSense syslog + node_exporter); see .env.example.
       SYSLOG_LISTEN_ADDR: ${SYSLOG_LISTEN_ADDR:-127.0.0.1:1514}
       PFSENSE_EXPORTER: ${PFSENSE_EXPORTER:-}
+      # TrueNAS boxes only (Dockhand's /metrics + its API token); see .env.example.
+      DOCKHAND_METRICS: ${DOCKHAND_METRICS:-}
+      DOCKHAND_TOKEN: ${DOCKHAND_TOKEN:-}
     volumes:
       - ./config.alloy:/etc/alloy/config.alloy:ro
       # WAL + log read positions; losing it only means some re-sent lines.
@@ -75,12 +78,15 @@ services:
       - /run/containerd:/run/containerd:ro
     depends_on:
       - alloy-ts
-    mem_limit: 512m
+    # 512m was OOM-killed on the primary TrueNAS (~60 containers of cAdvisor
+    # series plus WAL replay on every start: a restart loop that got worse as
+    # the WAL grew). 1.5g leaves headroom; the smaller boxes use far less.
+    mem_limit: 1536m
     restart: unless-stopped
 
   alloy-ts:
     container_name: alloy-ts
-    image: tailscale/tailscale:latest
+    image: tailscale/tailscale:v1.104.7
     hostname: alloy-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY}"

@@ -3,8 +3,8 @@
 #
 # Architecture
 # ------------
-# Each user-facing service (Jellyfin, Sonarr, Radarr, Lidarr, Bazarr,
-# Prowlarr, Seerr, Profilarr) gets its own Tailscale sidecar with its own Tailnet
+# Each user-facing service (Jellyfin, Sonarr, Radarr, Bazarr, Prowlarr, Seerr,
+# Profilarr, Suggestarr) gets its own Tailscale sidecar with its own Tailnet
 # identity and MagicDNS hostname. The sidecars share the default Compose
 # network so they can resolve sibling containers by service name, and use
 # `tailscale serve` (HTTPS termination via MagicDNS cert) to proxy
@@ -43,12 +43,15 @@
 #
 # flaresolverr is a backend service used by Prowlarr and does not need
 # Tailnet exposure.
+#
+# Music is not handled here: Lidarr was removed in favour of the separate
+# `music` stack (slskd / beets / explo / navidrome).
 
 name: arr-stack
 
 services:
   radarr:
-    image: lscr.io/linuxserver/radarr:latest
+    image: lscr.io/linuxserver/radarr:6.4.4.10685-ls326
     container_name: radarr
     environment:
       - PUID=568
@@ -59,9 +62,11 @@ services:
       - ${MEDIA_PATH}:/media # Use the MEDIA_PATH variable
     ports:
       - 7878:7878
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
   sonarr:
-    image: lscr.io/linuxserver/sonarr:latest
+    image: lscr.io/linuxserver/sonarr:4.0.20.3014-ls5
     container_name: sonarr
     environment:
       - PUID=568
@@ -72,9 +77,11 @@ services:
       - ${MEDIA_PATH}:/media
     ports:
       - 8989:8989
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
   seerr:
-    image: ghcr.io/seerr-team/seerr:latest
+    image: ghcr.io/seerr-team/seerr:v3.5.2
     init: true
     container_name: seerr
     # seerr is rootless and ignores PUID/PGID (those require starting as root,
@@ -97,9 +104,11 @@ services:
       timeout: 3s
       interval: 15s
       retries: 3
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
   jellyfin:
-    image: lscr.io/linuxserver/jellyfin:latest
+    image: lscr.io/linuxserver/jellyfin:12.4ubu2604-ls59
     # Current GPU too old, not supported
     #runtime: nvidia
     container_name: jellyfin
@@ -114,22 +123,11 @@ services:
       - ${MEDIA_PATH}:/media
     ports:
       - 8096:8096
-    restart: unless-stopped
-  lidarr:
-    image: lscr.io/linuxserver/lidarr:latest
-    container_name: lidarr
-    environment:
-      - PUID=568
-      - PGID=568
-      - TZ=Europe/London
-    volumes:
-      - ${CONFIG_PATH}/lidarr/:/config
-      - ${MEDIA_PATH}:/media
-    ports:
-      - 8686:8686
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
   bazarr:
-    image: lscr.io/linuxserver/bazarr:latest
+    image: lscr.io/linuxserver/bazarr:v1.6.2-ls372
     container_name: bazarr
     environment:
       - PUID=568
@@ -140,9 +138,11 @@ services:
       - ${MEDIA_PATH}:/media
     ports:
       - 6767:6767
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
   prowlarr:
-    image: lscr.io/linuxserver/prowlarr:latest
+    image: lscr.io/linuxserver/prowlarr:2.7.0.5723-ls168
     container_name: prowlarr
     environment:
       - PUID=568
@@ -152,9 +152,11 @@ services:
       - ${CONFIG_PATH}/prowlarr/:/config
     ports:
       - 9696:9696
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
   flaresolverr:
-    image: ghcr.io/flaresolverr/flaresolverr:latest
+    image: ghcr.io/flaresolverr/flaresolverr:v3.5.2
     container_name: flaresolverr
     environment:
       - LOG_LEVEL=info
@@ -163,10 +165,14 @@ services:
       - TZ=Europe/London
     ports:
       - 8191:8191
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
   qbittorrent:
     container_name: qbittorrent
-    image: ghcr.io/hotio/qbittorrent
+    image: ghcr.io/hotio/qbittorrent:release-5.3.0
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
     ports:
       - 8080:8080
@@ -200,8 +206,10 @@ services:
       - ${MEDIA_PATH}:/media
 
   profilarr:
-    image: ghcr.io/dictionarry-hub/profilarr:latest
+    image: ghcr.io/dictionarry-hub/profilarr:2.3.1
     container_name: profilarr
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
     ports:
       - "6868:6868"
@@ -218,9 +226,31 @@ services:
       # out of git. Scheme + host only, no trailing slash.
       - ORIGIN=${PROFILARR_ORIGIN}
 
+  suggestarr:
+    image: ciuse99/suggestarr:v3.4.0
+    container_name: suggestarr
+    # The image has no USER directive or PUID/PGID handling (it would run as
+    # root). Pin it to 568 like seerr; the CONFIG_PATH/suggestarr dir must be
+    # chowned to 568.
+    user: "568:568"
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    # No `ports:`: new services are tailnet-only from the start (the
+    # transitional LAN mappings above predate the sidecars).
+    volumes:
+      - ${CONFIG_PATH}/suggestarr:/app/config/config_files
+    environment:
+      - TZ=Europe/London
+      - LOG_LEVEL=info
+      - SUGGESTARR_PORT=5000
+    depends_on:
+      - jellyfin
+      - seerr
+
   jellyfin-ts:
     container_name: jellyfin-ts
-    image: tailscale/tailscale:latest
+    image: tailscale/tailscale:v1.104.7
     hostname: jellyfin-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY_JELLYFIN}"
@@ -235,11 +265,13 @@ services:
       - ./ts-config/jellyfin:/config
     depends_on:
       - jellyfin
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   radarr-ts:
     container_name: radarr-ts
-    image: tailscale/tailscale:latest
+    image: tailscale/tailscale:v1.104.7
     hostname: radarr-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY_RADARR}"
@@ -252,11 +284,13 @@ services:
       - ./ts-config/radarr:/config
     depends_on:
       - radarr
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   sonarr-ts:
     container_name: sonarr-ts
-    image: tailscale/tailscale:latest
+    image: tailscale/tailscale:v1.104.7
     hostname: sonarr-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY_SONARR}"
@@ -269,28 +303,13 @@ services:
       - ./ts-config/sonarr:/config
     depends_on:
       - sonarr
-    restart: unless-stopped
-
-  lidarr-ts:
-    container_name: lidarr-ts
-    image: tailscale/tailscale:latest
-    hostname: lidarr-ts
-    environment:
-      - "TS_AUTHKEY=${TS_AUTHKEY_LIDARR}"
-      - TS_HOSTNAME=lidarr
-      - TS_STATE_DIR=/var/lib/tailscale
-      - TS_SERVE_CONFIG=/config/serve.json
-      - TS_USERSPACE=true
-    volumes:
-      - ${CONFIG_PATH}/ts-state/lidarr:/var/lib/tailscale
-      - ./ts-config/lidarr:/config
-    depends_on:
-      - lidarr
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   bazarr-ts:
     container_name: bazarr-ts
-    image: tailscale/tailscale:latest
+    image: tailscale/tailscale:v1.104.7
     hostname: bazarr-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY_BAZARR}"
@@ -303,11 +322,13 @@ services:
       - ./ts-config/bazarr:/config
     depends_on:
       - bazarr
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   prowlarr-ts:
     container_name: prowlarr-ts
-    image: tailscale/tailscale:latest
+    image: tailscale/tailscale:v1.104.7
     hostname: prowlarr-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY_PROWLARR}"
@@ -320,11 +341,13 @@ services:
       - ./ts-config/prowlarr:/config
     depends_on:
       - prowlarr
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   seerr-ts:
     container_name: seerr-ts
-    image: tailscale/tailscale:latest
+    image: tailscale/tailscale:v1.104.7
     hostname: seerr-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY_SEERR}"
@@ -337,11 +360,13 @@ services:
       - ./ts-config/seerr:/config
     depends_on:
       - seerr
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   profilarr-ts:
     container_name: profilarr-ts
-    image: tailscale/tailscale:latest
+    image: tailscale/tailscale:v1.104.7
     hostname: profilarr-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY_PROFILARR}"
@@ -354,6 +379,27 @@ services:
       - ./ts-config/profilarr:/config
     depends_on:
       - profilarr
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+  suggestarr-ts:
+    container_name: suggestarr-ts
+    image: tailscale/tailscale:v1.104.7
+    hostname: suggestarr-ts
+    environment:
+      - "TS_AUTHKEY=${TS_AUTHKEY_SUGGESTARR}"
+      - TS_HOSTNAME=suggestarr
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/serve.json
+      - TS_USERSPACE=true
+    volumes:
+      - ${CONFIG_PATH}/ts-state/suggestarr:/var/lib/tailscale
+      - ./ts-config/suggestarr:/config
+    depends_on:
+      - suggestarr
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
 networks: {}

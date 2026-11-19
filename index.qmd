@@ -1,0 +1,7 @@
+---
+# Site home page: the top-level README, included so it isn't duplicated.
+# (Quarto never renders a README.md on its own; see _quarto.yml.)
+toc: true
+---
+
+{{< include README.md >}}

@@ -66,6 +66,25 @@ TrueNAS app itself. Recommended:
 4. Approve the new `dockhand` device in the Tailscale admin console if it isn't
    auto-approved, then browse to `https://dockhand.<tailnet>.ts.net`.
 
+## Metrics (vulnerability scans, health) → Prometheus
+
+Dockhand's Prometheus endpoint feeds the cluster's **Homelab – security**
+Grafana dashboard and the `dockhand` alert group. It's off by default; set it
+up once in the TrueNAS app, then hand Alloy a token:
+
+1. TrueNAS → Apps → Dockhand → Edit → *Environment variables*: add
+   `EXPORT_METRICS` = `true`. Do **not** add `EXPORT_METRICS_PUBLIC`:
+   `/metrics` then stays behind Dockhand's login (the node-port is on
+   `0.0.0.0`, so "public" would mean the whole LAN).
+2. Dockhand → Profile → API tokens: create one named `alloy-metrics`.
+3. In the `alloy` stack's `.env` (also in Dockhand): `DOCKHAND_METRICS=127.0.0.1:30328`
+   (this app's node-port, as above) and `DOCKHAND_TOKEN=<the dh_... token>`,
+   then redeploy it.
+
+Alloy runs on the host network, so it reaches the node-port on loopback;
+nothing new is exposed. Details and checks: `../alloy/README.md` (Dockhand
+section).
+
 ## Files
 
 ```

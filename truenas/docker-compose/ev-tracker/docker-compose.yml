@@ -40,11 +40,13 @@ services:
     depends_on:
       - ev-tracker-ts
     mem_limit: 256m
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   ev-tracker-ts:
     container_name: ev-tracker-ts
-    image: tailscale/tailscale:latest
+    image: tailscale/tailscale:v1.104.7
     hostname: ev-tracker-ts
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY}"
@@ -63,4 +65,6 @@ services:
       # Plain bind mount, not Compose `configs:` (Dockhand recreates drop them).
       - ./ts-config/ev-tracker:/config
     mem_limit: 128m
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped

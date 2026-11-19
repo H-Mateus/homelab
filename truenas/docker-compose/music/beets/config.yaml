@@ -7,7 +7,7 @@
 # ListenBrainz match your plays reliably and recommend from them.
 #
 # Explo's discovery folder (music/explo) is deliberately NOT imported here —
-# it rotates weekly. Lidarr-managed albums are already tagged/filed by Lidarr.
+# it rotates weekly.
 
 directory: /media/music
 library: /config/musiclibrary.db

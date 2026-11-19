@@ -1,0 +1,21 @@
+/* Mermaid subgraph fills. Quarto derives these from the Bootstrap theme,
+   which with flatly/darkly gives dark-grey boxes in light mode and white
+   boxes in dark mode, both hiding the labels. */
+body.quarto-light {
+  --mermaid-fg-color--lightest: #f2f4f5;
+  --mermaid-fg-color--lighter: #b8c2cc;
+}
+body.quarto-dark {
+  --mermaid-fg-color--lightest: #2b2b2b;
+  --mermaid-fg-color--lighter: #5a5a5a;
+  --mermaid-label-fg-color: #e6e6e6;
+  --mermaid-label-bg-color: #2b2b2b;
+  --mermaid-edge-color: #a8a8a8;
+}
+/* Edge labels: mermaid paints its own light background behind them. */
+body.quarto-dark .mermaid-js .edgeLabel,
+body.quarto-dark .mermaid-js .edgeLabel p,
+body.quarto-dark .mermaid-js .labelBkg {
+  background-color: var(--mermaid-label-bg-color) !important;
+  color: var(--mermaid-edge-color) !important;
+}

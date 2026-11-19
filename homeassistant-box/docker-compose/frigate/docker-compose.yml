@@ -1,7 +1,7 @@
 services:
   frigate:
     container_name: frigate
-    image: ghcr.io/blakeblackshear/frigate:stable
+    image: ghcr.io/blakeblackshear/frigate:0.18.2
     restart: unless-stopped
     # tmpfs cache lives in shm; bump this up as cameras are added
     # (rough guide: ~50MB + (width*height*1.5*9 per camera)). 256mb suits a few.
@@ -47,7 +47,7 @@ services:
   # the Tailscale IP. The LXC exposes /dev/net/tun (added in its pve conf).
   frigate-ts:
     container_name: frigate-ts
-    image: tailscale/tailscale:latest
+    image: tailscale/tailscale:v1.104.7
     hostname: frigate
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY}"

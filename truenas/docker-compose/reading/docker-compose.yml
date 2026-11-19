@@ -1,0 +1,197 @@
+#
+# Reading: books and manga, fetched automatically and read in one place.
+#   Bookshelf  follows authors, grabs ebooks via Prowlarr + qBittorrent
+#              (both in the arr-stack project) and files them under books/.
+#   Suwayomi   follows manga and downloads new chapters as CBZ into manga/.
+#   Kavita     serves books/, manga/ and comics/ to browsers and OPDS apps.
+#
+# Images
+# ------
+# Bookshelf (ghcr.io/pennydreadful/bookshelf) is the community revival of
+# Readarr, which was retired in June 2025 when its metadata server died. The
+# `hardcover-*` tags use Hardcover metadata (good, but not compatible with old
+# Readarr databases); `softcover-*` use Goodreads (poor, but drop-in for an
+# existing Readarr DB). This is a fresh install, so hardcover. Built on the
+# linuxserver base image, so PUID/PGID work.
+# Kavita uses the linuxserver image rather than jvmilazz0/kavita: the official
+# image runs as root with no PUID/PGID support.
+# Suwayomi's image runs as a non-root user and supports `user:` for any UID.
+# Versions are pinned here so Renovate can bump them.
+#
+# Access
+# ------
+# Same pattern as radicale/homepage: each app shares its sidecar's network
+# namespace (`network_mode: service:<svc>-ts`) and serve.json proxies
+# https://<svc>.<tailnet>.ts.net to 127.0.0.1:<port>. Userspace mode is
+# enough: nothing here needs to reach *into* the tailnet. Sidecar container
+# hostnames are `<svc>-ts` (see arr-stack header).
+#
+# arr-stack link: bookshelf-ts and suwayomi-ts also join arr-stack's network
+# (external `arr-stack_default`), so Bookshelf reaches `prowlarr:9696` and
+# `qbittorrent:8080` by name like Sonarr does, Prowlarr pushes indexers to
+# `bookshelf-ts:8787`, and Suwayomi can use `flaresolverr:8191`. No LAN
+# ports. The shared network matters for qBittorrent: its VPN killswitch
+# answers its own Compose network but drops cross-bridge requests to the
+# host's published port. Cost: deploy arr-stack first.
+#
+# Storage
+# -------
+# ${MEDIA_PATH} is the arr-stack's single media dataset. Bookshelf mounts all
+# of it at /media, the same path qBittorrent uses, so download paths match
+# with no remote path mapping and imports can hardlink: books/ MUST be a plain
+# directory in that dataset, not a child dataset (unlike music/), or every
+# import becomes a copy. Hardlink/copy (never move) also keeps torrents
+# seeding, which matters on a ratio tracker.
+# Suwayomi writes straight into ${MEDIA_PATH}/manga. Kavita mounts the
+# library directories read-only; its own state (covers, DB) is in /config.
+# App state: ${CONFIG_PATH} (apps/reading).
+
+name: reading
+
+services:
+  bookshelf:
+    container_name: bookshelf
+    image: ghcr.io/pennydreadful/bookshelf:hardcover-v0.4.21.182
+    network_mode: service:bookshelf-ts
+    environment:
+      PUID: 568
+      PGID: 568
+      # Matches qBittorrent's UMASK so both can manage each other's files.
+      UMASK: "002"
+      TZ: ${TZ:-Europe/London}
+    volumes:
+      - ${CONFIG_PATH}/bookshelf:/config
+      # Same mount as every *arr and qBittorrent: downloads/ and books/ on one
+      # filesystem so imports hardlink.
+      - ${MEDIA_PATH}:/media
+    depends_on:
+      - bookshelf-ts
+    mem_limit: 1g
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+  kavita:
+    container_name: kavita
+    image: lscr.io/linuxserver/kavita:v0.9.1.4-ls132
+    network_mode: service:kavita-ts
+    environment:
+      PUID: 568
+      PGID: 568
+      TZ: ${TZ:-Europe/London}
+    volumes:
+      - ${CONFIG_PATH}/kavita:/config
+      # Read-only: Kavita only reads the library; covers and progress live in
+      # /config.
+      - ${MEDIA_PATH}/books:/books:ro
+      - ${MEDIA_PATH}/manga:/manga:ro
+      - ${MEDIA_PATH}/comics:/comics:ro
+    depends_on:
+      - kavita-ts
+    mem_limit: 1g
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+  suwayomi:
+    container_name: suwayomi
+    image: ghcr.io/suwayomi/suwayomi-server:v2.4.2366
+    network_mode: service:suwayomi-ts
+    # The image allows any UID (its home is world-writable); run as `apps`
+    # so downloads are owned 568 like the rest of the library.
+    user: "568:568"
+    environment:
+      TZ: ${TZ:-Europe/London}
+      # Env vars OVERWRITE the matching UI setting on every start, so only
+      # the ones that must not drift are set here; everything else (auto
+      # download, update interval, extension repos) is set in the web UI.
+      # Only reachable through the sidecar's serve proxy.
+      BIND_IP: 127.0.0.1
+      BIND_PORT: 4567
+      # One .cbz per chapter instead of the default folder of loose images:
+      # CBZ is the format Kavita's manga parser handles best.
+      DOWNLOAD_AS_CBZ: "true"
+      AUTH_MODE: basic_auth
+      AUTH_USERNAME: ${SUWAYOMI_USERNAME:-admin}
+      AUTH_PASSWORD: ${SUWAYOMI_PASSWORD}
+      # Keep the JVM heap well under mem_limit; the bundled Chromium (used by
+      # some sources) needs headroom outside it.
+      JAVA_TOOL_OPTIONS: -Xmx1g
+    volumes:
+      # Order as in the image's README: downloads first. Suwayomi writes
+      # chapters to <downloads>/mangas/<source>/<series>/<chapter>.cbz.
+      - ${MEDIA_PATH}/manga:/home/suwayomi/.local/share/Tachidesk/downloads
+      - ${CONFIG_PATH}/suwayomi:/home/suwayomi/.local/share/Tachidesk
+    # Non-root with no capabilities needed; drop them all.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    depends_on:
+      - suwayomi-ts
+    mem_limit: 2g
+    restart: unless-stopped
+
+  bookshelf-ts:
+    container_name: bookshelf-ts
+    image: tailscale/tailscale:v1.104.7
+    hostname: bookshelf-ts
+    environment:
+      - "TS_AUTHKEY=${TS_AUTHKEY_BOOKSHELF}"
+      - TS_HOSTNAME=bookshelf
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/serve.json
+      - TS_USERSPACE=true
+    volumes:
+      - ${CONFIG_PATH}/ts-state/bookshelf:/var/lib/tailscale
+      # Plain bind mount, not Compose `configs:` (Dockhand recreates drop them).
+      - ./ts-config/bookshelf:/config
+    # arr: Prowlarr + qBittorrent (see the header).
+    networks: [default, arr]
+    mem_limit: 128m
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+  kavita-ts:
+    container_name: kavita-ts
+    image: tailscale/tailscale:v1.104.7
+    hostname: kavita-ts
+    environment:
+      - "TS_AUTHKEY=${TS_AUTHKEY_KAVITA}"
+      - TS_HOSTNAME=kavita
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/serve.json
+      - TS_USERSPACE=true
+    volumes:
+      - ${CONFIG_PATH}/ts-state/kavita:/var/lib/tailscale
+      - ./ts-config/kavita:/config
+    mem_limit: 128m
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+  suwayomi-ts:
+    container_name: suwayomi-ts
+    image: tailscale/tailscale:v1.104.7
+    hostname: suwayomi-ts
+    environment:
+      - "TS_AUTHKEY=${TS_AUTHKEY_SUWAYOMI}"
+      - TS_HOSTNAME=suwayomi
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/serve.json
+      - TS_USERSPACE=true
+    volumes:
+      - ${CONFIG_PATH}/ts-state/suwayomi:/var/lib/tailscale
+      - ./ts-config/suwayomi:/config
+    # arr: FlareSolverr for Cloudflare-protected sources.
+    networks: [default, arr]
+    mem_limit: 128m
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+networks:
+  arr:
+    external: true
+    name: arr-stack_default

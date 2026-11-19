@@ -27,7 +27,7 @@ Internet ──► Cloudflare (proxy + WAF)
                               │
                               ├─► Jellyfin     (192.168.0.172:8096)
                               ├─► Immich       (192.168.0.172:30041)
-                              ├─► Sonarr/Radarr/Lidarr/Prowlarr
+                              ├─► Sonarr/Radarr/Prowlarr
                               ├─► qBittorrent
                               ├─► Dockge / Dockhand
                               ├─► AdGuard

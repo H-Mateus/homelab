@@ -36,7 +36,7 @@ name: paperless
 services:
   paperless:
     container_name: paperless
-    image: ghcr.io/paperless-ngx/paperless-ngx:${PAPERLESS_VERSION:-latest}
+    image: ghcr.io/paperless-ngx/paperless-ngx:3.4.2
     # No `ports:` — access is Tailnet-only via the paperless-ts sidecar.
     volumes:
       - ${PAPERLESS_ROOT}/data:/usr/src/paperless/data
@@ -85,6 +85,11 @@ services:
       - db
       - broker
     mem_limit: 2g
+    security_opt:
+      - no-new-privileges:true
+    # default: the sidecar and outbound mail/OCR fetches. backend: db/broker
+    # (and Gotenberg/Tika if enabled below: put them on backend too).
+    networks: [default, backend]
     restart: unless-stopped
 
   db:
@@ -92,7 +97,7 @@ services:
     # Fresh install, so take the current upstream major. Like immich, once data
     # exists this tag is pinned to the on-disk layout: a major bump needs
     # pg_upgrade or dump/restore.
-    image: docker.io/library/postgres:18
+    image: docker.io/library/postgres:18.7
     environment:
       POSTGRES_DB: paperless
       POSTGRES_USER: paperless
@@ -103,21 +108,27 @@ services:
       # an 18/ subdirectory), not the old /var/lib/postgresql/data.
       - ${PAPERLESS_ROOT}/pgdata:/var/lib/postgresql
     mem_limit: 512m
+    security_opt:
+      - no-new-privileges:true
+    networks: [backend]
     restart: unless-stopped
 
   broker:
     container_name: paperless_redis
-    image: docker.io/valkey/valkey:9-alpine
+    image: docker.io/valkey/valkey:9.1.3-alpine
     # Celery task queue only — nothing here that isn't recreated on restart,
     # so a Docker-managed volume (not the encrypted dataset) is fine.
     volumes:
       - redisdata:/data
     mem_limit: 128m
+    security_opt:
+      - no-new-privileges:true
+    networks: [backend]
     restart: unless-stopped
 
   paperless-ts:
     container_name: paperless-ts
-    image: tailscale/tailscale:latest
+    image: tailscale/tailscale:v1.104.7
     # The container hostname must NOT be `paperless`: Docker writes the
     # container's own hostname into its /etc/hosts, so `paperless` would
     # resolve to the sidecar itself and serve.json's proxy to paperless:8000
@@ -139,6 +150,8 @@ services:
     depends_on:
       - paperless
     mem_limit: 128m
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
   # Office documents / emails. Uncomment together with the PAPERLESS_TIKA_*
@@ -159,6 +172,12 @@ services:
   #   image: docker.io/apache/tika:3.3.1.0
   #   mem_limit: 768m
   #   restart: unless-stopped
+
+networks:
+  # Databases and caches only talk to their app: no internet, no LAN, no
+  # other stacks. `internal` gives them no gateway at all.
+  backend:
+    internal: true
 
 volumes:
   redisdata:

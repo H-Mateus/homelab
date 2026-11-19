@@ -24,7 +24,7 @@
 services:
   immichframe-family:
     container_name: immichframe-family
-    image: ghcr.io/immichframe/immichframe:latest
+    image: ghcr.io/immichframe/immichframe:v1.0.39.0
     network_mode: service:immichframe-family-ts
     environment:
       - TZ=Europe/London
@@ -45,10 +45,12 @@ services:
       - RefreshAlbumPeopleInterval=1
     depends_on:
       - immichframe-family-ts
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
   immichframe-family-ts:
     container_name: immichframe-family-ts
-    image: tailscale/tailscale:latest
+    image: tailscale/tailscale:v1.104.7
     hostname: immichframe-family
     environment:
       - "TS_AUTHKEY=${TS_AUTHKEY}"
@@ -66,6 +68,8 @@ services:
     networks:
       - default
       - immich_default
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
 networks:
