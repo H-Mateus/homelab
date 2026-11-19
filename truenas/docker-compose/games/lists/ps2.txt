@@ -1,0 +1,54 @@
+# PlayStation 2 (Redump): a starting point of widely acclaimed games. One title per line, as
+# the set names it (punctuation, case and "The" are ignored). Add your own.
+Shadow of the Colossus
+Ico
+Okami
+Final Fantasy X
+Final Fantasy XII
+Kingdom Hearts
+Kingdom Hearts II
+Dragon Quest VIII - Journey of the Cursed King
+Shin Megami Tensei - Persona 3 FES
+Shin Megami Tensei - Persona 4
+Shin Megami Tensei - Nocturne
+Disgaea - Hour of Darkness
+Dark Cloud 2
+Metal Gear Solid 2 - Sons of Liberty
+Metal Gear Solid 3 - Snake Eater
+Zone of the Enders - The 2nd Runner
+Silent Hill 2
+Silent Hill 3
+Resident Evil 4
+Devil May Cry 3 - Dante's Awakening
+God of War
+God of War II
+Grand Theft Auto III
+Grand Theft Auto - Vice City
+Grand Theft Auto - San Andreas
+Bully
+Jak and Daxter - The Precursor Legacy
+Jak II
+Jak 3
+Ratchet & Clank
+Ratchet & Clank - Going Commando
+Ratchet & Clank - Up Your Arsenal
+Sly Cooper and the Thievius Raccoonus
+Sly 2 - Band of Thieves
+Psychonauts
+Beyond Good & Evil
+Prince of Persia - The Sands of Time
+Katamari Damacy
+We Love Katamari
+Rez
+Gran Turismo 4
+Burnout 3 - Takedown
+Burnout Revenge
+Need for Speed - Underground 2
+SSX 3
+Tony Hawk's Pro Skater 3
+Tekken 5
+TimeSplitters 2
+Black
+Star Wars - Battlefront II
+Ace Combat 04 - Shattered Skies
+Guitar Hero II

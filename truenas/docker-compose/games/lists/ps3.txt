@@ -1,0 +1,36 @@
+# PlayStation 3 (Redump): a starting point of widely acclaimed games. One title per line, as
+# the set names it (punctuation, case and "The" are ignored). Add your own.
+Last of Us, The
+Uncharted - Drake's Fortune
+Uncharted 2 - Among Thieves
+Uncharted 3 - Drake's Deception
+Metal Gear Solid 4 - Guns of the Patriots
+Demon's Souls
+Dark Souls
+God of War III
+God of War Collection
+Ico & Shadow of the Colossus Collection
+Kingdom Hearts HD 1.5 ReMIX
+Persona 5
+Ni no Kuni - Wrath of the White Witch
+Valkyria Chronicles
+Yakuza 3
+Yakuza 4
+Dragon's Crown
+Bayonetta
+Heavy Rain
+inFAMOUS
+inFAMOUS 2
+Killzone 2
+Ratchet & Clank Future - A Crack in Time
+LittleBigPlanet
+LittleBigPlanet 2
+Red Dead Redemption
+Grand Theft Auto V
+Elder Scrolls V, The - Skyrim
+BioShock Infinite
+Batman - Arkham City
+Portal 2
+Orange Box, The
+Burnout Paradise
+Gran Turismo 6

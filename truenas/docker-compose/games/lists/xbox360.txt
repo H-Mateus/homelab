@@ -1,0 +1,42 @@
+# Microsoft Xbox 360 (Redump): a starting point of widely acclaimed games. One title per line, as
+# the set names it (punctuation, case and "The" are ignored). Add your own.
+Halo 3
+Halo 3 - ODST
+Halo - Reach
+Halo 4
+Gears of War
+Gears of War 2
+Gears of War 3
+Mass Effect
+Mass Effect 2
+Mass Effect 3
+Elder Scrolls V, The - Skyrim
+Fallout 3
+Fallout - New Vegas
+Fable II
+Dark Souls
+Lost Odyssey
+Blue Dragon
+Ninja Gaiden II
+Red Dead Redemption
+Grand Theft Auto IV
+Grand Theft Auto V
+BioShock
+BioShock Infinite
+Orange Box, The
+Portal 2
+Left 4 Dead 2
+Borderlands 2
+Batman - Arkham Asylum
+Batman - Arkham City
+Alan Wake
+Dead Space
+Dead Space 2
+Assassin's Creed II
+Call of Duty 4 - Modern Warfare
+Saints Row - The Third
+Forza Motorsport 4
+Forza Horizon
+Burnout Paradise
+Viva Pinata
+skate 3

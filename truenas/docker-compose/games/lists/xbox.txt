@@ -1,0 +1,36 @@
+# Microsoft Xbox (Redump): a starting point of widely acclaimed games. One title per line, as
+# the set names it (punctuation, case and "The" are ignored). Add your own.
+Halo - Combat Evolved
+Halo 2
+Star Wars - Knights of the Old Republic
+Star Wars - Knights of the Old Republic II - The Sith Lords
+Fable
+Jade Empire
+Ninja Gaiden Black
+Jet Set Radio Future
+Panzer Dragoon Orta
+Conker - Live & Reloaded
+Crimson Skies - High Road to Revenge
+Oddworld - Munch's Oddysee
+Oddworld - Stranger's Wrath
+Psychonauts
+Beyond Good & Evil
+Prince of Persia - The Sands of Time
+Tom Clancy's Splinter Cell
+Tom Clancy's Splinter Cell - Chaos Theory
+Chronicles of Riddick, The - Escape from Butcher Bay
+Thief - Deadly Shadows
+Max Payne 2 - The Fall of Max Payne
+Mercenaries - Playground of Destruction
+Destroy All Humans!
+Black
+TimeSplitters - Future Perfect
+Grand Theft Auto - San Andreas
+Burnout 3 - Takedown
+Burnout Revenge
+Project Gotham Racing 2
+Forza Motorsport
+RalliSport Challenge 2
+OutRun 2
+SSX 3
+Dead or Alive 3

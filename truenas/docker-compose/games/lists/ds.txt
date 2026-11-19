@@ -1,0 +1,45 @@
+# Nintendo DS (No-Intro): a starting point of widely acclaimed games. One title per line, as
+# the set names it (punctuation, case and "The" are ignored). Add your own.
+New Super Mario Bros.
+Super Mario 64 DS
+Mario Kart DS
+Mario & Luigi - Partners in Time
+Mario & Luigi - Bowser's Inside Story
+Mario Party DS
+Yoshi's Island DS
+Kirby - Canvas Curse
+Kirby Super Star Ultra
+Legend of Zelda, The - Phantom Hourglass
+Legend of Zelda, The - Spirit Tracks
+Metroid Prime - Hunters
+Pokemon - Platinum Version
+Pokemon - HeartGold Version
+Pokemon - SoulSilver Version
+Pokemon - Black Version
+Pokemon - Black Version 2
+Pokemon Mystery Dungeon - Explorers of Sky
+Animal Crossing - Wild World
+Advance Wars - Dual Strike
+Castlevania - Dawn of Sorrow
+Castlevania - Portrait of Ruin
+Castlevania - Order of Ecclesia
+Chrono Trigger
+Final Fantasy IV
+Dragon Quest V - Hand of the Heavenly Bride
+Dragon Quest IX - Sentinels of the Starry Skies
+World Ends with You, The
+Radiant Historia
+Professor Layton and the Curious Village
+Professor Layton and the Diabolical Box
+Professor Layton and the Unwound Future
+Phoenix Wright - Ace Attorney
+Phoenix Wright - Ace Attorney - Justice for All
+Phoenix Wright - Ace Attorney - Trials and Tribulations
+Apollo Justice - Ace Attorney
+Ghost Trick - Phantom Detective
+999 - Nine Hours, Nine Persons, Nine Doors
+Okamiden
+Grand Theft Auto - Chinatown Wars
+Elite Beat Agents
+Tetris DS
+Picross DS
