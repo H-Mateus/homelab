@@ -114,8 +114,12 @@ mkdir -p /mnt/cctv
 chattr +i /mnt/cctv        # empty mountpoint is immutable → nothing can write
                            # to the LXC rootfs if the NFS mount is ever missing
 cat >> /etc/fstab <<'FSTAB'
-192.168.1.2:/mnt/cctv/frigate /mnt/cctv nfs4 noatime,_netdev,nofail 0 0
+192.168.1.2:/mnt/cctv/frigate /mnt/cctv nfs4 noatime,_netdev,nofail,retry=10,x-systemd.mount-timeout=12min 0 0
 FSTAB
+# retry/mount-timeout: after a power cut this LXC boots ~90s before TrueNAS
+# has even started, and systemd's default 90s mount timeout killed the mount
+# (and with it Docker, via the drop-in below). Keep retrying for 10 min, with
+# systemd's timeout just above that so it doesn't kill mount.nfs first.
 systemctl daemon-reload && mount /mnt/cctv && df -h /mnt/cctv
 touch /mnt/cctv/write-test && rm /mnt/cctv/write-test   # proves maproot=root
 
