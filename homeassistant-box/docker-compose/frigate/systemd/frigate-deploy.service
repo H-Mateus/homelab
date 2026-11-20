@@ -1,0 +1,9 @@
+[Unit]
+Description=Deploy the Frigate stack from git main (see README "Updating")
+Wants=network-online.target docker.service
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+# Installed with STACK_DIR replaced by the stack's directory (README).
+ExecStart=STACK_DIR/deploy-frigate.sh

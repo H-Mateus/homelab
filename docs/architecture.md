@@ -447,7 +447,8 @@ Paperless OCR). The layers, from "stop it arriving" to "limit the damage":
    `.env`). [Renovate](../renovate.json) opens a weekly PR per update with a
    5-day `minimumReleaseAge`, so a hijacked release usually gets caught
    upstream before it's even proposed. Merging is the deploy trigger
-   (Dockhand's git sync); Dockhand's own image auto-update is off. Databases
+   (Dockhand's git sync; the Frigate LXC, outside Dockhand, pulls `main`
+   with an hourly timer); Dockhand's own image auto-update is off. Databases
    stay on their current major; Immich's Postgres follows Immich's notes.
 2. **Vulnerability scanning.** Dockhand scans images (Grype/Trivy) during
    its update checks; counts by severity feed the *Homelab – security*

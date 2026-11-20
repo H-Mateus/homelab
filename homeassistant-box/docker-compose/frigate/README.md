@@ -114,8 +114,12 @@ mkdir -p /mnt/cctv
 chattr +i /mnt/cctv        # empty mountpoint is immutable → nothing can write
                            # to the LXC rootfs if the NFS mount is ever missing
 cat >> /etc/fstab <<'FSTAB'
-192.168.1.2:/mnt/cctv/frigate /mnt/cctv nfs4 noatime,_netdev,nofail 0 0
+192.168.1.2:/mnt/cctv/frigate /mnt/cctv nfs4 noatime,_netdev,nofail,retry=10,x-systemd.mount-timeout=12min 0 0
 FSTAB
+# retry/mount-timeout: after a power cut this LXC boots ~90s before TrueNAS
+# has even started, and systemd's default 90s mount timeout killed the mount
+# (and with it Docker, via the drop-in below). Keep retrying for 10 min, with
+# systemd's timeout just above that so it doesn't kill mount.nfs first.
 systemctl daemon-reload && mount /mnt/cctv && df -h /mnt/cctv
 touch /mnt/cctv/write-test && rm /mnt/cctv/write-test   # proves maproot=root
 
@@ -169,6 +173,88 @@ Three parts, all required:
 For talk from a Home Assistant dashboard, install **Advanced Camera Card**
 (HACS; formerly frigate-hass-card) and use its `go2rtc` live provider with the
 microphone enabled — it goes through the Frigate integration's proxy.
+
+## Updating
+
+Like every stack here, the images are pinned to exact releases in
+`docker-compose.yml`, and [Renovate](../../../renovate.json) proposes bumps
+as PRs once a release is 5 days old. On TrueNAS, Dockhand redeploys a stack
+when its PR merges. This LXC isn't managed by Dockhand, so a systemd timer
+does the same job: `deploy-frigate.sh` runs hourly, fast-forwards this
+checkout to `origin/main`, and redeploys if the stack changed or the running
+image doesn't match the pin. **Merging the PR is the deploy.**
+
+For a new Frigate image it:
+
+1. tars `config/` (with `frigate.db`, without `model_cache/`) into
+   `backups/`, keeping 5;
+2. pulls and recreates the stack;
+3. waits for `/api/version` to report the pinned tag. If it doesn't, it
+   restores the backup, puts the previously running image back (via a
+   throwaway `.rollback.yml` override) and records the commit in
+   `.deploy-failed` so it isn't retried. The next commit on `main`, a fix or
+   a revert, deploys normally.
+
+A change under `config/` alone (a `config.yml` edit merged to `main`) just
+restarts Frigate. Results go to the journal (`journalctl -u frigate-deploy`,
+also in Loki via Alloy), plus `FRIGATE_NOTIFY_URL` if it's set: an ntfy
+topic, or a Home Assistant automation with a webhook trigger that sends a
+phone notification.
+
+**Patch vs minor.** Frigate's versions are `0.<minor>.<patch>`. Patches
+(0.18.2 → 0.18.3) are bug fixes, so merge freely. Minor releases
+(0.18 → 0.19) rename config keys and migrate the database one way, so
+Renovate opens them as a separate PR with a reminder. Before merging one,
+read the release notes from your version up to the target at
+[github.com/blakeblackshear/frigate/releases](https://github.com/blakeblackshear/frigate/releases),
+and put any `config/config.yml` changes in the same PR. Rolling back across a
+minor needs `config/` from the backup as well, because the newer
+`frigate.db` won't open in the older release; the script does that for you
+when the health check fails. If the failed PR also changed `config.yml`, the
+restore leaves the checkout's copy modified: once the fix is on `main`, run
+`git checkout config/config.yml` so the deploy can fast-forward.
+
+**Local edits.** The checkout must stay clean enough to fast-forward. If you
+save `config.yml` from the Frigate UI, commit that change to `main`, or the
+next PR that touches the file stops the deploy with a notification. A
+blocked or failed commit isn't retried, so after sorting it out locally run
+`rm -f .deploy-failed && systemctl start frigate-deploy`.
+
+### Install (once, in the LXC)
+
+The stack has to live in a git checkout of this repo. A sparse clone keeps
+it to this directory:
+
+```bash
+apt install -y git curl
+git clone --filter=blob:none --sparse https://github.com/H-Mateus/homelab /opt/homelab
+git -C /opt/homelab sparse-checkout set homeassistant-box/docker-compose/frigate
+cd /opt/homelab/homeassistant-box/docker-compose/frigate
+```
+
+If the stack currently runs from a plain copy elsewhere, stop it there
+(`docker compose down`), move its gitignored state (`.env`, `ts-state/`,
+and `config/` apart from `config.yml`) into the checkout. Then:
+
+```bash
+./deploy-frigate.sh --dry-run    # e.g. "would deploy main@1a2b3c4: frigate ...:0.18.0 -> ...:0.18.2"
+for u in frigate-deploy.service frigate-deploy.timer; do
+  sed "s|STACK_DIR|$PWD|" systemd/$u > /etc/systemd/system/$u
+done
+systemctl daemon-reload && systemctl enable --now frigate-deploy.timer
+systemctl start frigate-deploy   # deploy now rather than at the next hour
+```
+
+To see what's actually running: the Frigate UI's System page, or
+`docker exec frigate curl -s http://127.0.0.1:5000/api/version`.
+
+### By hand
+
+To roll back on purpose, revert the Renovate PR on GitHub; the timer deploys
+the revert (restore `config/` from `backups/` yourself if it crosses a
+minor). In an emergency you can edit the image tag here and
+`docker compose up -d`, but put the same change on `main` afterwards, or the
+next fast-forward will fail.
 
 ## Later / production TODO
 
