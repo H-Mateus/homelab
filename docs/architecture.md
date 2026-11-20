@@ -389,7 +389,7 @@ file in the admin console is the source of truth; this is its shape.
 | `tag:immich`, `tag:immichframe` | Immich and ImmichFrame sidecars | Household on 443; Immich is also node-shared to family outside the tailnet (`autogroup:shared`). |
 | `tag:radicale` | Radicale sidecar | Household calendars (CalDAV) on 443. |
 | `tag:paperless`, `tag:garage`, `tag:ev-tracker`, `tag:homepage`, `tag:uptime-kuma` | Their sidecars | Homepage and Uptime Kuma get read access to the services they watch; nothing else reaches out. |
-| `tag:homeassistant` | Home Assistant | Household on 443/8123. |
+| `tag:homeassistant` | Home Assistant (applied in the admin console, so the HA Tailscale app's *Advertise tags* option stays empty) | Household on 443/8123. |
 | `tag:dockhand`, `tag:dockhand-offsite` | Dockhand's sidecar on each TrueNAS | Kept on their own tags: Dockhand is effectively root on the box. ACL tests assert nothing else can reach them. |
 | `tag:jetkvm`, `tag:pfsense`, `tag:media-client` | Out-of-band KVM, the router, the SHIELD | Admin-only (KVM, pfSense) / Jellyfin client. |
 
