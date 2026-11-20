@@ -23,3 +23,9 @@ config/go2rtc_homekit.yml
 
 # Tailscale sidecar state (node key) — relative bind mount next to the compose file.
 ts-state/
+
+# deploy-frigate.sh: config backups, lock, failed-commit marker, rollback override
+backups/
+.deploy-frigate.lock
+.deploy-failed
+.rollback.yml

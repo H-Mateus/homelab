@@ -139,6 +139,24 @@
       "groupName": "tailscale sidecars"
     },
     {
+      "description": "Frigate minors (0.18 -> 0.19) rename config keys and migrate the DB one way: keep them in their own PR, apart from patches, with a reminder. The LXC deploys on merge (deploy-frigate.sh).",
+      "matchPackageNames": [
+        "ghcr.io/blakeblackshear/frigate"
+      ],
+      "separateMinorPatch": true
+    },
+    {
+      "matchPackageNames": [
+        "ghcr.io/blakeblackshear/frigate"
+      ],
+      "matchUpdateTypes": [
+        "minor"
+      ],
+      "prBodyNotes": [
+        "**Frigate minor release.** Merging deploys it to the LXC within the hour and migrates `frigate.db` one way. Read the release notes from the running version up to this one and add any `config/config.yml` changes to this PR first (see the Frigate README, \"Updating\")."
+      ]
+    },
+    {
       "description": "Our own image, built by its repo's CI; not tracked here.",
       "matchPackageNames": [
         "ghcr.io/h-mateus/ev-price-tracker"
