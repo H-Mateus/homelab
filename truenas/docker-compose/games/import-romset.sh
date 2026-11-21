@@ -102,6 +102,8 @@ if [[ -n $nodat ]]; then
         case $f in *.!qB) continue ;; esac
         name=${f##*/}
         if [ -e "$dest/$name" ]; then echo "  exists, skipped: $name"; continue; fi
+        # Already converted by make-chd.sh: do not add the archive back.
+        if [ -e "$dest/${name%.*}.chd" ]; then echo "  has a CHD, skipped: $name"; continue; fi
         echo "  $name"
         [ -n "$dry" ] || cp -a -l "$f" "$dest/" || exit 1
         n=$((n + 1))
