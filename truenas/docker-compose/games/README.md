@@ -272,6 +272,9 @@ Then, as root (in `tmux`: big systems take a while):
   staging is removed afterwards. The download is mounted read-only.
 - **Curate** with `--list FILE`: one regex per line, matched against the
   DAT name (`^Golden Sun`, `/mother 3/i`). Keep lists in `games/lists/`.
+- `--dats REGEX` limits igir to the DATs whose name matches (`"Nintendo DS"`,
+  `"PlayStation 2"`). Without it every DAT in `games/dats` is checked in
+  turn, which is slow with the full No-Intro pack.
 - `--dry-run` writes only a report to `games/igir-reports/`; `--all` keeps
   every region, revision, beta and demo.
 - Needs a DAT for each system: the No-Intro Daily pack (P/C XML) unzipped
@@ -304,7 +307,10 @@ your Mac:
    the set's naming.
 3. Lists are cumulative: add a line and re-run to fetch more.
 4. When it finishes, import the folder:
-   `import-romset.sh /mnt/tank/media/downloads/games/<set folder>`.
+   `import-romset.sh --dats "PlayStation 2" /mnt/tank/media/downloads/games/<set folder>`.
+   A set split across torrents (PS2 "A-L" and "M-Z") is just two
+   torrents: run steps 1-4 on each with the same list. Each dry run
+   reports the other half's titles as unmatched, which is expected.
 
 `lists/` has a starting list per platform (acclaimed games, US titles).
 Edit them freely. Ratio: TorrentLeech counts only what you download, so
