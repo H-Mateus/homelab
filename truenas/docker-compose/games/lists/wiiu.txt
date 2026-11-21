@@ -1,0 +1,26 @@
+# Nintendo Wii U (Redump): a starting point of widely acclaimed games. One title per line, as
+# the set names it (punctuation, case and "The" are ignored). Add your own.
+Legend of Zelda, The - Breath of the Wild
+Legend of Zelda, The - The Wind Waker HD
+Legend of Zelda, The - Twilight Princess HD
+Super Mario 3D World
+New Super Mario Bros. U + New Super Luigi U
+Super Mario Maker
+Captain Toad - Treasure Tracker
+Mario Kart 8
+Super Smash Bros. for Wii U
+Splatoon
+Pikmin 3
+Donkey Kong Country - Tropical Freeze
+Yoshi's Woolly World
+Kirby and the Rainbow Curse
+Paper Mario - Color Splash
+Star Fox Zero
+Xenoblade Chronicles X
+Bayonetta 2
+Wonderful 101, The
+Tokyo Mirage Sessions #FE
+Hyrule Warriors
+Nintendo Land
+LEGO City Undercover
+Rayman Legends

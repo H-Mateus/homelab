@@ -1,0 +1,37 @@
+# Nintendo 3DS (No-Intro, decrypted): a starting point of widely acclaimed games. One title per line, as
+# the set names it (punctuation, case and "The" are ignored). Add your own.
+Super Mario 3D Land
+Mario Kart 7
+Mario & Luigi - Bowser's Inside Story + Bowser Jr.'s Journey
+Luigi's Mansion - Dark Moon
+Captain Toad - Treasure Tracker
+Donkey Kong Country Returns 3D
+Kirby - Triple Deluxe
+Kirby - Planet Robobot
+Legend of Zelda, The - Ocarina of Time 3D
+Legend of Zelda, The - Majora's Mask 3D
+Legend of Zelda, The - A Link Between Worlds
+Metroid - Samus Returns
+Kid Icarus - Uprising
+Star Fox 64 3D
+Super Smash Bros. for Nintendo 3DS
+Animal Crossing - New Leaf - Welcome amiibo
+Pokemon X
+Pokemon Y
+Pokemon Omega Ruby
+Pokemon Alpha Sapphire
+Pokemon Ultra Sun
+Pokemon Ultra Moon
+Fire Emblem - Awakening
+Fire Emblem Echoes - Shadows of Valentia
+Xenoblade Chronicles 3D
+Bravely Default
+Shin Megami Tensei IV
+Persona Q - Shadow of the Labyrinth
+Dragon Quest VIII - Journey of the Cursed King
+Radiant Historia - Perfect Chronology
+Monster Hunter 4 Ultimate
+Monster Hunter Generations
+Professor Layton vs. Phoenix Wright - Ace Attorney
+Resident Evil - Revelations
+Ever Oasis

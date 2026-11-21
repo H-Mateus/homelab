@@ -244,6 +244,72 @@ How this setup protects it:
   category's share limits). Set them to at least TorrentLeech's minimum.
   Don't use *Remove torrent and its files* as the limit action.
 
+## Importing a set torrent
+
+A set torrent (e.g. a No-Intro pack) holds a whole system's catalogue.
+`import-romset.sh` (next to this README) verifies it against `games/dats`
+with igir and files one release per game into `library/roms/<platform>/`.
+Copy it to the NAS once, somewhere only root can write (it runs as root):
+
+```sh
+mkdir -p /root/bin && curl -fsSL -o /root/bin/import-romset.sh \
+  https://raw.githubusercontent.com/H-Mateus/homelab/main/truenas/docker-compose/games/import-romset.sh
+chmod 700 /root/bin/import-romset.sh
+```
+
+Then, as root (in `tmux`: big systems take a while):
+
+```sh
+/root/bin/import-romset.sh --help
+/root/bin/import-romset.sh '/mnt/tank/media/downloads/games/No-Intro 20190501' \
+  'Nintendo - Game Boy' 'Sega - Mega Drive - Genesis'
+```
+
+- **Name the systems** as they appear in the download folder, without
+  extension. A folder of per-game zips is hardlinked (no extra space, keeps
+  seeding). A whole-system `.rar`/`.7z` of per-game zips is unpacked to
+  `games/staging` first, because igir can't read archives inside archives;
+  staging is removed afterwards. The download is mounted read-only.
+- **Curate** with `--list FILE`: one regex per line, matched against the
+  DAT name (`^Golden Sun`, `/mother 3/i`). Keep lists in `games/lists/`.
+- `--dry-run` writes only a report to `games/igir-reports/`; `--all` keeps
+  every region, revision, beta and demo.
+- Needs a DAT for each system: the No-Intro Daily pack (P/C XML) unzipped
+  flat into `games/dats`, plus Redump DATs for disc systems.
+- Then RomM → Scan → Quick scan, or wait for the 04:00 rescan.
+
+### Only some games from a huge set (PS1, PS2, ...)
+
+A Redump PS2 set is well over 400 GB. Download just a list of games from
+it with `qbit-select.py`, which sets the torrent's file priorities through
+qBittorrent's Web API. It needs only Python 3, so run it from this repo on
+your Mac:
+
+1. In qBittorrent, add the set's `.torrent` file (not a magnet: the file
+   list must be known) with category `romarr`, **unticking "Start
+   torrent"**.
+2. Preview, then apply. `ps2` is any part of the torrent's name:
+
+   ```sh
+   export QBIT_URL=http://truenas-local.<tailnet>.ts.net:8080 QBIT_USER=admin
+   ./qbit-select.py ps2 lists/ps2.txt --dry-run
+   ./qbit-select.py ps2 lists/ps2.txt
+   ```
+
+   For each title it picks one release (all discs, newest revision, no
+   demos or betas) in the `--prefer` region order, which defaults to
+   `USA,World,Europe,UK,Japan`: many PAL PS1/PS2 releases run at 50 Hz.
+   Everything else is set to "do not download" and the torrent starts.
+   The dry run lists any line that matched nothing; fix its spelling to
+   the set's naming.
+3. Lists are cumulative: add a line and re-run to fetch more.
+4. When it finishes, import the folder:
+   `import-romset.sh /mnt/tank/media/downloads/games/<set folder>`.
+
+`lists/` has a starting list per platform (acclaimed games, US titles).
+Edit them freely. Ratio: TorrentLeech counts only what you download, so
+unticked files cost nothing; seed what you took for the tracker's minimum.
+
 ## Auditing your existing collection with igir
 
 [igir](https://github.com/emmercm/igir) checks ROMs against the same

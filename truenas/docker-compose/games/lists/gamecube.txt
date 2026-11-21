@@ -1,0 +1,37 @@
+# Nintendo GameCube (Redump): a starting point of widely acclaimed games. One title per line, as
+# the set names it (punctuation, case and "The" are ignored). Add your own.
+Legend of Zelda, The - The Wind Waker
+Legend of Zelda, The - Twilight Princess
+Legend of Zelda, The - Four Swords Adventures
+Metroid Prime
+Metroid Prime 2 - Echoes
+Super Mario Sunshine
+Paper Mario - The Thousand-Year Door
+Luigi's Mansion
+Super Smash Bros. Melee
+Mario Kart - Double Dash!!
+Mario Golf - Toadstool Tour
+Pikmin
+Pikmin 2
+Animal Crossing
+Kirby Air Ride
+Donkey Kong Jungle Beat
+F-Zero GX
+Fire Emblem - Path of Radiance
+Tales of Symphonia
+Skies of Arcadia Legends
+Baten Kaitos - Eternal Wings and the Lost Ocean
+Pokemon Colosseum
+Pokemon XD - Gale of Darkness
+Resident Evil
+Resident Evil 4
+Eternal Darkness - Sanity's Requiem
+Metal Gear Solid - The Twin Snakes
+Star Wars - Rogue Squadron II - Rogue Leader
+Sonic Adventure 2 - Battle
+Viewtiful Joe
+Ikaruga
+Soulcalibur II
+Super Monkey Ball
+Burnout 2 - Point of Impact
+TimeSplitters 2

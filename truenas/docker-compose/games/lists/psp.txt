@@ -1,0 +1,34 @@
+# PlayStation Portable (Redump): a starting point of widely acclaimed games. One title per line, as
+# the set names it (punctuation, case and "The" are ignored). Add your own.
+Crisis Core - Final Fantasy VII
+Final Fantasy Tactics - The War of the Lions
+Dissidia - Final Fantasy
+Kingdom Hearts - Birth by Sleep
+Shin Megami Tensei - Persona 3 Portable
+Tactics Ogre - Let Us Cling Together
+Valkyria Chronicles II
+Jeanne d'Arc
+Ys Seven
+Ys - The Oath in Felghana
+Phantasy Star Portable 2
+Monster Hunter Freedom Unite
+Metal Gear Solid - Peace Walker
+Metal Gear Solid - Portable Ops
+God of War - Chains of Olympus
+God of War - Ghost of Sparta
+Grand Theft Auto - Liberty City Stories
+Grand Theft Auto - Vice City Stories
+Castlevania - The Dracula X Chronicles
+Mega Man Powered Up
+Daxter
+Ratchet & Clank - Size Matters
+Killzone - Liberation
+Silent Hill - Shattered Memories
+Patapon
+Patapon 2
+LocoRoco
+LocoRoco 2
+Lumines - Puzzle Fusion
+Wipeout Pure
+Burnout Legends
+Tekken - Dark Resurrection

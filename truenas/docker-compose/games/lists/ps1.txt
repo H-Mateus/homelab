@@ -1,0 +1,47 @@
+# PlayStation (Redump): a starting point of widely acclaimed games. One title per line, as
+# the set names it (punctuation, case and "The" are ignored). Add your own.
+Final Fantasy VII
+Final Fantasy VIII
+Final Fantasy IX
+Final Fantasy Tactics
+Chrono Cross
+Xenogears
+Vagrant Story
+Suikoden II
+Legend of Dragoon, The
+Legend of Mana
+Valkyrie Profile
+Star Ocean - The Second Story
+Breath of Fire IV
+Grandia
+Lunar - Silver Star Story Complete
+Parasite Eve
+Castlevania - Symphony of the Night
+Metal Gear Solid
+Resident Evil 2
+Resident Evil 3 - Nemesis
+Silent Hill
+Dino Crisis
+Syphon Filter
+Tenchu - Stealth Assassins
+Crash Bandicoot
+Crash Bandicoot 2 - Cortex Strikes Back
+Crash Bandicoot - Warped
+Crash Team Racing
+Spyro the Dragon
+Spyro 2 - Ripto's Rage!
+Spyro - Year of the Dragon
+Ape Escape
+MediEvil
+Klonoa - Door to Phantomile
+Rayman
+Oddworld - Abe's Oddysee
+Tomb Raider
+Gran Turismo 2
+Wipeout XL
+Driver
+Tony Hawk's Pro Skater 2
+Tekken 3
+Einhander
+PaRappa the Rapper
+Harvest Moon - Back to Nature

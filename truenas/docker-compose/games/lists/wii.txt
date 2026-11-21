@@ -1,0 +1,36 @@
+# Nintendo Wii (Redump): a starting point of widely acclaimed games. One title per line, as
+# the set names it (punctuation, case and "The" are ignored). Add your own.
+Super Mario Galaxy
+Super Mario Galaxy 2
+New Super Mario Bros. Wii
+Super Paper Mario
+Mario Kart Wii
+Super Smash Bros. Brawl
+Legend of Zelda, The - Twilight Princess
+Legend of Zelda, The - Skyward Sword
+Metroid Prime Trilogy
+Donkey Kong Country Returns
+Kirby's Return to Dream Land
+Kirby's Epic Yarn
+Wario Land - Shake It!
+Punch-Out!!
+Wii Sports
+Wii Sports Resort
+Rhythm Heaven Fever
+Animal Crossing - City Folk
+Xenoblade Chronicles
+Last Story, The
+Pandora's Tower
+Fire Emblem - Radiant Dawn
+Monster Hunter Tri
+Okami
+Muramasa - The Demon Blade
+No More Heroes
+No More Heroes 2 - Desperate Struggle
+Sin & Punishment - Star Successor
+Zack & Wiki - Quest for Barbaros' Treasure
+Silent Hill - Shattered Memories
+Rayman Origins
+GoldenEye 007
+Red Steel 2
+Boom Blox
