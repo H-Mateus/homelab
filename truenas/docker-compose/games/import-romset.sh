@@ -5,7 +5,7 @@
 # set torrent").
 #
 # Usage (as root, in the TrueNAS shell):
-#   ./import-romset.sh [--list FILE] [--all] [--dry-run] <source> [system ...]
+#   ./import-romset.sh [--dats REGEX] [--list FILE] [--all] [--dry-run] <source> [system ...]
 #
 #   <source>  the set's download folder, under /mnt/tank/media
 #   system    an entry in <source> to import, without extension, e.g.
@@ -14,6 +14,9 @@
 #             .rar/.7z/.zip of per-game zips (unpacked to staging first,
 #             since igir can't read archives inside archives). Omit to
 #             import <source> itself as one folder of per-game files.
+#   --dats    only use DATs whose name matches REGEX (igir --dat-name-regex,
+#             e.g. "Nintendo DS"). Much faster: otherwise every DAT in
+#             games/dats is checked in turn, even for one system's games
 #   --list    only games whose names match a line of FILE (igir
 #             --filter-regex: one regex per line, e.g. ^Golden Sun)
 #   --all     keep every region/revision, betas and demos too
@@ -31,9 +34,10 @@ APPS_UID=568
 die() { echo "$*" >&2; exit 1; }
 usage() { sed -n '/^# Usage/,/^set -euo/p' "$0" | sed '$d; s/^# \{0,1\}//'; exit "${1:-0}"; }
 
-list='' all='' dry=''
+dats='' list='' all='' dry=''
 while [[ $# -gt 0 ]]; do
   case $1 in
+    --dats) dats=${2:?--dats needs a regex}; shift 2 ;;
     --list) list=$(realpath "${2:?--list needs a file}"); shift 2 ;;
     --all) all=1; shift ;;
     --dry-run) dry=1; shift ;;
@@ -121,6 +125,7 @@ if [[ -z $all ]]; then
          --prefer-region UK,EUR,WORLD,USA,JPN
          --prefer-verified --prefer-good --prefer-revision newer)
 fi
+[[ -n $dats ]] && opts+=(--dat-name-regex "/$dats/i")
 if [[ -n $list ]]; then
   in_media "$list" >/dev/null
   opts+=(--filter-regex "$(in_media "$list")")
