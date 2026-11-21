@@ -372,8 +372,9 @@ chmod 700 /root/bin/esde-view.sh && /root/bin/esde-view.sh
 
 **2. Read-only SMB share (TrueNAS UI).**
 
-1. Credentials → Users → Add: user `games` with a password, *SMB User*
-   ticked, auxiliary group `apps` (the library belongs to uid/gid 568).
+1. Credentials → Users → Add: user `gamer` with a password, *SMB Access*
+   ticked, primary group `apps` (the library belongs to uid/gid 568).
+   (`games` is taken: it is a hidden built-in Debian user.)
 2. Shares → Windows (SMB) → Add: path `/mnt/tank/media/games/library`,
    name `games`. Under Advanced Options tick **Export Read Only**. Save,
    **decline** the offer to edit the ACL (permissions stay as they are),
@@ -385,7 +386,7 @@ so Samba follows them.
 
 **3. Mount it.**
 
-- *CachyOS:* `sudo pacman -S cifs-utils`, put `username=games` and
+- *CachyOS:* `sudo pacman -S cifs-utils`, put `username=gamer` and
   `password=…` in `/etc/smb-games` (`chmod 600`), then add to `/etc/fstab`:
 
   ```
@@ -395,7 +396,7 @@ so Samba follows them.
   `sudo mkdir /mnt/games && sudo systemctl daemon-reload`.
 - *Windows:* File Explorer → This PC → Map network drive: `Z:`,
   `\\192.168.1.2\games`, *Connect using different credentials*, user
-  `games`.
+  `gamer`.
 
 **4. ES-DE.** Install ES-DE and set its ROM directory to `/mnt/games/esde`
 (Linux) or `Z:\esde` (Windows). Install the emulators below; ES-DE finds
