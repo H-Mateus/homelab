@@ -80,7 +80,8 @@ docker run --rm -v "$MEDIA":/media -e STG="$stg" -e APPS_UID="$APPS_UID" \
       work=$STG/work; rm -rf "$work"; mkdir -p "$work"
       src=$g   # a .cue/.iso or a folder is read in place (a .cue needs its .bins)
       case $g in
-        *.7z|*.zip|*.rar) src=$work; unar -q -f -o "$work" "$g" || { failed=$((failed+1)); continue; } ;;
+        *.7z|*.zip|*.rar) src=$work; unar -q -f -o "$work" "$g" >"$STG/log" 2>&1 ||
+            { echo "  unpack failed:"; tail -n 3 "$STG/log" | sed "s/^/    /"; failed=$((failed+1)); continue; } ;;
       esac
       discs=$(find "$src" -type f \( -iname "*.cue" -o -iname "*.gdi" \))
       [ -n "$discs" ] || discs=$(find "$src" -type f -iname "*.iso")
@@ -93,9 +94,12 @@ docker run --rm -v "$MEDIA":/media -e STG="$stg" -e APPS_UID="$APPS_UID" \
         case $d in *.iso|*.ISO) mode=createdvd ;; *) mode=createcd ;; esac
         # Into staging first, so a failed run never leaves half a CHD in
         # the library; same filesystem, so the move is instant.
-        chdman $mode -i "$d" -o "$STG/$name.chd" >/dev/null 2>&1 &&
-          mv "$STG/$name.chd" "$OUT/$name.chd" &&
-          echo "  -> roms/${OUT##*/}/$name.chd" || { echo "  chdman failed"; exit 1; }
+        rm -f "$STG/$name.chd"
+        if ! chdman $mode -i "$d" -o "$STG/$name.chd" >"$STG/log" 2>&1; then
+          echo "  chdman failed:"; grep -v "% complete" "$STG/log" | tail -n 3 | sed "s/^/    /"
+          rm -f "$STG/$name.chd"; exit 1
+        fi
+        mv "$STG/$name.chd" "$OUT/$name.chd" && echo "  -> roms/${OUT##*/}/$name.chd" || exit 1
       done || { failed=$((failed+1)); continue; }
       ok=$((ok+1))
       # The same game already in the library (e.g. igir hardlinked the
@@ -110,6 +114,7 @@ docker run --rm -v "$MEDIA":/media -e STG="$stg" -e APPS_UID="$APPS_UID" \
         fi
       done
     done
+    rm -rf "$STG/work"
     echo; echo "$ok converted, $failed failed"
     [ "$failed" -eq 0 ]
   '\'' sh "$@"' sh "${games[@]}"
