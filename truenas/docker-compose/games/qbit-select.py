@@ -129,7 +129,8 @@ def pick(files, patterns, prefer):
         by_title = {}
         for key, r in releases.items():
             if p.match(r["title"]):
-                by_title.setdefault(r["title"], []).append(key)
+                # "ICO" and "Ico (Demo)" are one title.
+                by_title.setdefault(norm(r["title"]), []).append(key)
         if not by_title:
             unmatched.append(p.line)
             continue
