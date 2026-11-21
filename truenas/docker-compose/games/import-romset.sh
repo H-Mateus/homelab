@@ -86,7 +86,7 @@ as_apps mkdir -p /media/games/igir-reports /media/games/igir-tmp /media/games/st
 
 stg=   # container path
 cleanup() {
-  as_apps sh -c '[ -n "$1" ] && rm -rf "$1"; find /media/games/igir-tmp -mindepth 1 -delete' \
+  as_apps sh -c '[ -n "$1" ] && rm -rf "$1"; find /media/games/igir-tmp -mindepth 1 -delete 2>/dev/null' \
     sh "$stg" || true
 }
 trap cleanup EXIT
@@ -109,6 +109,7 @@ fi
 tty=(-i); [[ -t 1 ]] && tty=(-it)
 igir() {
   docker run --rm "${tty[@]}" --user "$APPS_UID:$APPS_UID" -e HOME=/tmp \
+    -e NPM_CONFIG_UPDATE_NOTIFIER=false \
     -v "$MEDIA":/media node:24-alpine npx -y "igir@$IGIR_VERSION" "$@"
 }
 
