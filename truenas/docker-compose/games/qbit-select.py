@@ -149,10 +149,21 @@ class Qbit:
         self.opener = urllib.request.build_opener(
             urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar())
         )
-        if user:
-            body = self.call("auth/login", username=user, password=password)
-            if body.strip() != "Ok.":
-                sys.exit(f"qBittorrent login failed: {body.strip()}")
+        try:
+            if user:
+                body = self.call("auth/login", username=user, password=password)
+                if body.strip() == "Fails.":
+                    sys.exit("qBittorrent login failed: wrong user or password.")
+            # Newer qBittorrent answers a good login with an empty body, so
+            # check the session itself rather than the reply text.
+            self.call("app/version")
+        except urllib.error.HTTPError as e:
+            hint = {
+                401: "the session wasn't accepted (wrong user/password?)",
+                403: "forbidden: wrong login, or too many failures got this "
+                     "IP banned for a while (Options > Web UI)",
+            }.get(e.code, e.reason)
+            sys.exit(f"qBittorrent login failed: HTTP {e.code}, {hint}.")
 
     def call(self, path, **data):
         req = urllib.request.Request(
