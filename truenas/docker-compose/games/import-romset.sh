@@ -65,8 +65,6 @@ in_media() {
   echo "/media${1#"$MEDIA"}"
 }
 in_media "$src" >/dev/null
-# igir treats --input as a glob; set names are full of ( ) [ ].
-glob_escape() { sed 's/[][*?{}()!]/\\&/g' <<<"$1"; }
 
 link_inputs=() archives=()
 if [[ $# -eq 0 ]]; then
@@ -175,7 +173,9 @@ fi
 run_igir() {
   local cmd=$1; shift
   local inputs=() p
-  for p in "$@"; do inputs+=(--input "$(glob_escape "$p")"); done
+  # igir uses an --input that exists as a literal path, so set names
+  # with ( ) [ ] need no escaping (escaping them makes it find nothing).
+  for p in "$@"; do inputs+=(--input "$p"); done
   local stamp; stamp=$(date +%Y%m%d-%H%M%S)
   if [[ -n $dry ]]; then
     igir report "${opts[@]}" "${inputs[@]}" \
