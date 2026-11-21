@@ -6,6 +6,7 @@
 #
 # Usage (as root, in the TrueNAS shell):
 #   ./import-romset.sh [--dats REGEX] [--list FILE] [--all] [--dry-run] <source> [system ...]
+#   ./import-romset.sh --no-dat PLATFORM [--dry-run] <source> [folder ...]
 #
 #   <source>  the set's download folder, under /mnt/tank/media
 #   system    an entry in <source> to import, without extension, e.g.
@@ -21,6 +22,11 @@
 #             --filter-regex: one regex per line, e.g. ^Golden Sun)
 #   --all     keep every region/revision, betas and demos too
 #   --dry-run write only a report (games/igir-reports), import nothing
+#   --no-dat  skip igir: hardlink every file/folder in <source> (or the
+#             named folders) into roms/PLATFORM as it is, for sets no DAT
+#             matches (another dump format, PS3/Wii U folders). PLATFORM
+#             is RomM's folder name: nds, ps2, ps3, wiiu, xbox360, ...
+#             Existing names are skipped; --dry-run lists what it would do
 #
 # Example:
 #   ./import-romset.sh '/mnt/tank/media/downloads/games/No-Intro 20190501' \
@@ -34,13 +40,14 @@ APPS_UID=568
 die() { echo "$*" >&2; exit 1; }
 usage() { sed -n '/^# Usage/,/^set -euo/p' "$0" | sed '$d; s/^# \{0,1\}//'; exit "${1:-0}"; }
 
-dats='' list='' all='' dry=''
+dats='' list='' all='' dry='' nodat=''
 while [[ $# -gt 0 ]]; do
   case $1 in
     --dats) dats=${2:?--dats needs a regex}; shift 2 ;;
     --list) list=$(realpath "${2:?--list needs a file}"); shift 2 ;;
     --all) all=1; shift ;;
     --dry-run) dry=1; shift ;;
+    --no-dat) nodat=${2:?--no-dat needs a platform}; shift 2 ;;
     -h|--help) usage ;;
     -*) die "Unknown option $1 (see --help)" ;;
     *) break ;;
@@ -77,6 +84,37 @@ for s in "$@"; do
 $(ls -1 "$src" | sed 's/^/  /')"
   fi
 done
+
+if [[ -n $nodat ]]; then
+  [[ $nodat =~ ^[a-z0-9_-]+$ ]] || die "--no-dat: '$nodat' isn't a RomM platform folder name"
+  [[ ${#archives[@]} -eq 0 ]] || die "--no-dat links folders only, not archives"
+  dest=/media/games/library/roms/$nodat
+  echo "==> Hardlinking into $MEDIA${dest#/media} (no DAT check)"
+  mapped=()
+  for p in "${link_inputs[@]}"; do mapped+=("$(in_media "$p")"); done
+  # As the apps user, like everything else under games/. Hidden files and
+  # qBittorrent's .!qB partials are skipped.
+  docker run --rm --user "$APPS_UID:$APPS_UID" -v "$MEDIA":/media alpine sh -c '
+    dest=$1 dry=$2; shift 2
+    [ -n "$dry" ] || mkdir -p "$dest" || exit 1
+    n=0
+    for d; do
+      for f in "$d"/*; do
+        [ -e "$f" ] || continue
+        case $f in *.!qB) continue ;; esac
+        name=${f##*/}
+        if [ -e "$dest/$name" ]; then echo "  exists, skipped: $name"; continue; fi
+        echo "  $name"
+        [ -n "$dry" ] || cp -a -l "$f" "$dest/" || exit 1
+        n=$((n + 1))
+      done
+    done
+    echo "$n new"' sh "$dest" "$dry" "${mapped[@]}"
+  echo
+  [[ -n $dry ]] && echo "Dry run: nothing linked." ||
+    echo "Done. RomM: Scan -> Quick scan (or wait for the 04:00 rescan)."
+  exit 0
+fi
 
 ls "$MEDIA"/games/dats/*.dat >/dev/null 2>&1 || die "No DATs in $MEDIA/games/dats"
 # games/ belongs to the apps user, so anything running as it could swap a

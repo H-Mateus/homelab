@@ -279,6 +279,11 @@ Then, as root (in `tmux`: big systems take a while):
   every region, revision, beta and demo.
 - Needs a DAT for each system: the No-Intro Daily pack (P/C XML) unzipped
   flat into `games/dats`, plus Redump DATs for disc systems.
+- **No DAT matches?** If the report lists the set's files as `UNUSED` (a
+  different dump format from your DAT, e.g. the 2019 DS set, or PS3/Wii U
+  game folders), `--no-dat PLATFORM` skips igir and hardlinks the files into
+  `roms/PLATFORM` as they are named: `--no-dat nds`, `ps3`, `wiiu`. RomM
+  still matches them by name and hash.
 - Then RomM → Scan → Quick scan, or wait for the 04:00 rescan.
 
 ### Only some games from a huge set (PS1, PS2, ...)
