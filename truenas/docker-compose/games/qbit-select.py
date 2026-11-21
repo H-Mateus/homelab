@@ -5,7 +5,8 @@ Add the set torrent to qBittorrent stopped (category romarr), then:
 
     qbit-select.py <torrent> <list>... [--dry-run] [--prefer USA,World,...]
 
-<torrent> is part of the torrent's name (or its hash). Each <list> line is a
+<torrent> is part of the torrent's name (or its hash), among torrents in
+category romarr (--category to change). Each <list> line is a
 game title as the set names it, matched loosely: case, punctuation, accents
 and a leading/trailing "The" are ignored, so "The Legend of Zelda: The Wind
 Waker" matches "Legend of Zelda, The - The Wind Waker (USA)". A line ending
@@ -174,15 +175,16 @@ class Qbit:
         with self.opener.open(req, timeout=60) as resp:
             return resp.read().decode()
 
-    def torrent(self, query):
+    def torrent(self, query, category):
         found = [
             t
-            for t in json.loads(self.call("torrents/info"))
+            for t in json.loads(self.call("torrents/info", category=category))
             if query.lower() in t["name"].lower() or t["hash"] == query.lower()
         ]
         if len(found) != 1:
             names = "\n  ".join(t["name"] for t in found) or "(none)"
-            sys.exit(f"'{query}' matches {len(found)} torrents:\n  {names}")
+            sys.exit(f"'{query}' matches {len(found)} torrents in category "
+                     f"'{category}':\n  {names}")
         return found[0]
 
     def set_priority(self, thash, indexes, prio):
@@ -216,6 +218,8 @@ def main():
     ap.add_argument("lists", nargs="+", help="game list file(s)")
     ap.add_argument("--prefer", default="USA,World,Europe,UK,Japan",
                     help="region order (default: %(default)s)")
+    ap.add_argument("--category", default="romarr",
+                    help="only look at torrents in this category (default: %(default)s)")
     ap.add_argument("--dry-run", action="store_true", help="change nothing")
     ap.add_argument("--no-start", action="store_true", help="don't start it")
     a = ap.parse_args()
@@ -225,7 +229,7 @@ def main():
     password = os.environ.get("QBIT_PASS") or getpass.getpass("Password: ")
     qb = Qbit(url, user, password)
 
-    t = qb.torrent(a.torrent)
+    t = qb.torrent(a.torrent, a.category)
     files = json.loads(qb.call("torrents/files", hash=t["hash"]))
     if not files:
         sys.exit("The torrent has no file list yet (a magnet still fetching "
