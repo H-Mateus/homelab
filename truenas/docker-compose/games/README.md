@@ -321,6 +321,113 @@ your Mac:
 Edit them freely. Ratio: TorrentLeech counts only what you download, so
 unticked files cost nothing; seed what you took for the tracker's minimum.
 
+## Converting disc games to CHD
+
+CHD is a lossless disc image format. DuckStation (PS1), PCSX2 (PS2) and
+PPSSPP (PSP) read it directly, but not the `.7z`/`.zip` the sets come in,
+and it is usually smaller than the raw image. `make-chd.sh` converts games
+into `library/roms/<platform>/`. Install it like `import-romset.sh`:
+
+```sh
+curl -fsSL -o /root/bin/make-chd.sh \
+  https://raw.githubusercontent.com/H-Mateus/homelab/main/truenas/docker-compose/games/make-chd.sh
+chmod 700 /root/bin/make-chd.sh
+```
+
+```sh
+/root/bin/make-chd.sh ps2 '/mnt/tank/media/downloads/games/<folder>/<game>.7z'
+/root/bin/make-chd.sh ps2 /mnt/tank/media/games/library/roms/ps2/*.7z
+```
+
+- **No need to wait for seeding.** The source is only read. When the same
+  game is already in the library as a hardlink (what `import-romset.sh`
+  creates), that link is removed and the CHD takes its place; the download
+  keeps seeding. The cost is disk space: the CHD and the download both
+  exist until you remove the torrent.
+- A library file with no other link (the only copy) is kept; delete it
+  yourself once the CHD plays.
+- Each `.cue` (or `.gdi`) becomes a CD CHD and each `.iso` a DVD CHD. A
+  patched game converts the same way; it just won't match any DAT.
+- Multi-disc games become one CHD per disc.
+
+## Playing on a PC
+
+RomM's browser player (EmulatorJS) covers the older systems up to PS1, N64
+and DS. PS2, GameCube, Wii, Wii U, 3DS, Xbox, 360 and PS3 need a native
+emulator. Play those on a PC with [ES-DE](https://es-de.org) as the front
+end and the library mounted read-only from TrueNAS, so every PC sees the
+same games and nothing is copied.
+
+**1. ES-DE folder names (TrueNAS, as root).** ES-DE names a few systems
+differently from RomM (`ngc` → `gc`, `3ds` → `n3ds`, `sms` →
+`mastersystem`). `esde-view.sh` builds `library/esde/`, one symlink per
+platform under ES-DE's name. Re-run it when a new platform folder appears.
+RomM only reads `library/roms`, so it ignores `esde/`.
+
+```sh
+curl -fsSL -o /root/bin/esde-view.sh \
+  https://raw.githubusercontent.com/H-Mateus/homelab/main/truenas/docker-compose/games/esde-view.sh
+chmod 700 /root/bin/esde-view.sh && /root/bin/esde-view.sh
+```
+
+**2. Read-only SMB share (TrueNAS UI).**
+
+1. Credentials → Users → Add: user `games` with a password, *SMB User*
+   ticked, auxiliary group `apps` (the library belongs to uid/gid 568).
+2. Shares → Windows (SMB) → Add: path `/mnt/tank/media/games/library`,
+   name `games`. Under Advanced Options tick **Export Read Only**. Save,
+   **decline** the offer to edit the ACL (permissions stay as they are),
+   and enable the SMB service when asked.
+
+Read-only means nothing on a PC can damage the library. Emulators keep
+saves and settings locally. The symlinks in `esde/` point inside the share,
+so Samba follows them.
+
+**3. Mount it.**
+
+- *CachyOS:* `sudo pacman -S cifs-utils`, put `username=games` and
+  `password=…` in `/etc/smb-games` (`chmod 600`), then add to `/etc/fstab`:
+
+  ```
+  //192.168.1.2/games /mnt/games cifs ro,credentials=/etc/smb-games,uid=1000,gid=1000,_netdev,nofail,x-systemd.automount 0 0
+  ```
+
+  `sudo mkdir /mnt/games && sudo systemctl daemon-reload`.
+- *Windows:* File Explorer → This PC → Map network drive: `Z:`,
+  `\\192.168.1.2\games`, *Connect using different credentials*, user
+  `games`.
+
+**4. ES-DE.** Install ES-DE and set its ROM directory to `/mnt/games/esde`
+(Linux) or `Z:\esde` (Windows). Install the emulators below; ES-DE finds
+them when installed normally (Linux: pacman, Flatpak, or AppImages in
+`~/Applications`; Windows: portable builds in ES-DE's `Emulators` folder).
+
+| System | Emulator | RetroAchievements |
+|---|---|---|
+| PS1 | DuckStation | yes |
+| PS2 | PCSX2 | yes |
+| PSP | PPSSPP | yes |
+| DS, retro systems | RetroArch (melonDS DS core for DS) | yes |
+| 3DS | Azahar | no |
+| GameCube, Wii | Dolphin | yes (GameCube) |
+| Wii U | Cemu | no |
+| Xbox | xemu | no |
+| Xbox 360 | Xenia (best on Windows) | no |
+| PS3 | RPCS3 (firmware from Sony's site) | no |
+
+- **BIOS:** PS1 and PS2 need a BIOS dumped from your own console. Keep it
+  in `library/bios/psx` and `library/bios/ps2` and point the emulator at
+  `<share>/bios/...`.
+- **RetroAchievements:** log in once per emulator. Achievements are tied
+  to the file's hash, which clean Redump/No-Intro dumps (and their CHDs)
+  match. Hardcore mode disables save states and cheats.
+- **Cheats:** per emulator, off in Hardcore. PCSX2: game Properties →
+  Cheats (`.pnach`); its Patches tab has widescreen/60 fps fixes.
+  DuckStation and PPSSPP: game properties / Settings → System. Dolphin:
+  Gecko/AR codes in game properties. RetroArch: Quick Menu → Cheats.
+- **Same saves on both PCs:** sync the emulators' save folders with
+  Syncthing, or point them at a writable share.
+
 ## Auditing your existing collection with igir
 
 [igir](https://github.com/emmercm/igir) checks ROMs against the same
