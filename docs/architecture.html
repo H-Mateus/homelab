@@ -1,0 +1,1855 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.11.9">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Architecture – Homelab docs</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<link href="../truenas/docker-compose/adguardhome/README.html" rel="next">
+<link href="../index.html" rel="prev">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/scrollable-regions/scrollable-regions.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-dark-447e42e69aaa9833c0ba1b986f430b20.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-853798ca7dfe0375ba68660b2ce554ca.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-dark-07216a2e83162e55e4b2e8d4e6a430bd.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="../site_libs/bootstrap/bootstrap-853798ca7dfe0375ba68660b2ce554ca.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<script src="../site_libs/quarto-contrib/quarto-diagram/mermaid.min.js"></script>
+<link href="../site_libs/quarto-contrib/quarto-diagram/mermaid.css" rel="stylesheet">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<style>html{ scroll-behavior: smooth; }</style>
+
+
+<link rel="stylesheet" href="../docs/_quarto/styles.css">
+</head>
+
+<body class="nav-sidebar docked quarto-light"><a id="quarto-skip-link" class="visually-hidden-focusable" href="#quarto-document-content">Skip to main content</a><script id="quarto-html-before-body" type="application/javascript">
+    const toggleBodyColorMode = (bsSheetEl) => {
+      const mode = bsSheetEl.getAttribute("data-mode");
+      const bodyEl = window.document.querySelector("body");
+      if (mode === "dark") {
+        bodyEl.classList.add("quarto-dark");
+        bodyEl.classList.remove("quarto-light");
+      } else {
+        bodyEl.classList.add("quarto-light");
+        bodyEl.classList.remove("quarto-dark");
+      }
+    }
+    const toggleBodyColorPrimary = () => {
+      const bsSheetEl = window.document.querySelector("link#quarto-bootstrap:not([rel=disabled-stylesheet])");
+      if (bsSheetEl) {
+        toggleBodyColorMode(bsSheetEl);
+      }
+    }
+    const setColorSchemeToggle = (alternate) => {
+      const toggles = window.document.querySelectorAll('.quarto-color-scheme-toggle');
+      for (let i=0; i < toggles.length; i++) {
+        const toggle = toggles[i];
+        if (toggle) {
+          toggle.setAttribute("aria-checked", alternate ? "true" : "false");
+          if (alternate) {
+            toggle.classList.add("alternate");
+          } else {
+            toggle.classList.remove("alternate");
+          }
+        }
+      }
+    };
+    const toggleColorMode = (alternate) => {
+      // Switch the stylesheets
+      const primaryStylesheets = window.document.querySelectorAll('link.quarto-color-scheme:not(.quarto-color-alternate)');
+      const alternateStylesheets = window.document.querySelectorAll('link.quarto-color-scheme.quarto-color-alternate');
+      manageTransitions('#quarto-margin-sidebar .nav-link', false);
+      if (alternate) {
+        // note: dark is layered on light, we don't disable primary!
+        enableStylesheet(alternateStylesheets);
+        for (const sheetNode of alternateStylesheets) {
+          if (sheetNode.id === "quarto-bootstrap") {
+            toggleBodyColorMode(sheetNode);
+          }
+        }
+      } else {
+        disableStylesheet(alternateStylesheets);
+        enableStylesheet(primaryStylesheets)
+        toggleBodyColorPrimary();
+      }
+      manageTransitions('#quarto-margin-sidebar .nav-link', true);
+      // Switch the toggles
+      setColorSchemeToggle(alternate)
+    }
+    // Hack to workaround the fact that safari doesn't
+    // properly recolor the scrollbar when toggling (#1455).
+    // Not run on load: stylesheets are set before first paint there, and
+    // scrolling would undo the scroll to a URL fragment (#14973).
+    // The one pixel nudge keeps the reader where they were.
+    const refreshSafariScrollbar = () => {
+      if (navigator.userAgent.indexOf('Safari') > 0 && navigator.userAgent.indexOf('Chrome') == -1) {
+        manageTransitions("body", false);
+        const scrollY = window.scrollY;
+        window.scrollTo(0, scrollY > 0 ? scrollY - 1 : 1);
+        setTimeout(() => {
+          window.scrollTo(0, scrollY);
+          manageTransitions("body", true);
+        }, 40);
+      }
+    }
+    const disableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        stylesheet.rel = 'disabled-stylesheet';
+      }
+    }
+    const enableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        if(stylesheet.rel !== 'stylesheet') { // for Chrome, which will still FOUC without this check
+          stylesheet.rel = 'stylesheet';
+        }
+      }
+    }
+    const manageTransitions = (selector, allowTransitions) => {
+      const els = window.document.querySelectorAll(selector);
+      for (let i=0; i < els.length; i++) {
+        const el = els[i];
+        if (allowTransitions) {
+          el.classList.remove('notransition');
+        } else {
+          el.classList.add('notransition');
+        }
+      }
+    }
+    const isFileUrl = () => {
+      return window.location.protocol === 'file:';
+    }
+    const hasAlternateSentinel = () => {
+      let styleSentinel = getColorSchemeSentinel();
+      if (styleSentinel !== null) {
+        return styleSentinel === "alternate";
+      } else {
+        return false;
+      }
+    }
+    const setStyleSentinel = (alternate) => {
+      const value = alternate ? "alternate" : "default";
+      if (!isFileUrl()) {
+        window.localStorage.setItem("quarto-color-scheme", value);
+      } else {
+        localAlternateSentinel = value;
+      }
+    }
+    const getColorSchemeSentinel = () => {
+      if (!isFileUrl()) {
+        const storageValue = window.localStorage.getItem("quarto-color-scheme");
+        return storageValue != null ? storageValue : localAlternateSentinel;
+      } else {
+        return localAlternateSentinel;
+      }
+    }
+    const toggleGiscusIfUsed = (isAlternate, darkModeDefault) => {
+      const baseTheme = document.querySelector('#giscus-base-theme')?.value ?? 'light';
+      const alternateTheme = document.querySelector('#giscus-alt-theme')?.value ?? 'dark';
+      let newTheme = '';
+      if(authorPrefersDark) {
+        newTheme = isAlternate ? baseTheme : alternateTheme;
+      } else {
+        newTheme = isAlternate ? alternateTheme : baseTheme;
+      }
+      const changeGiscusTheme = () => {
+        // From: https://github.com/giscus/giscus/issues/336
+        const sendMessage = (message) => {
+          const iframe = document.querySelector('iframe.giscus-frame');
+          if (!iframe) return;
+          iframe.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
+        }
+        sendMessage({
+          setConfig: {
+            theme: newTheme
+          }
+        });
+      }
+      const isGiscussLoaded = window.document.querySelector('iframe.giscus-frame') !== null;
+      if (isGiscussLoaded) {
+        changeGiscusTheme();
+      }
+    };
+    const authorPrefersDark = false;
+    const queryPrefersDark = window.matchMedia('(prefers-color-scheme: dark)');
+    const darkModeDefault = queryPrefersDark.matches;
+      document.querySelector('link#quarto-text-highlighting-styles.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+      document.querySelector('link#quarto-bootstrap.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+    let localAlternateSentinel = darkModeDefault ? 'alternate' : 'default';
+    // Dark / light mode switch
+    window.quartoToggleColorScheme = () => {
+      // Read the current dark / light value
+      let toAlternate = !hasAlternateSentinel();
+      toggleColorMode(toAlternate);
+      refreshSafariScrollbar();
+      setStyleSentinel(toAlternate);
+      toggleGiscusIfUsed(toAlternate, darkModeDefault);
+      window.dispatchEvent(new Event('resize'));
+    };
+    queryPrefersDark.addEventListener("change", e => {
+      if(window.localStorage.getItem("quarto-color-scheme") !== null)
+        return;
+      const alternate = e.matches
+      toggleColorMode(alternate);
+      refreshSafariScrollbar();
+      localAlternateSentinel = e.matches ? 'alternate' : 'default'; // this is used alongside local storage!
+      toggleGiscusIfUsed(alternate, darkModeDefault);
+    });
+    // Switch to dark mode if need be
+    if (hasAlternateSentinel()) {
+      toggleColorMode(true);
+    } else {
+      toggleColorMode(false);
+    }
+  </script>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav" aria-label="Toolbar">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../index.html">Overview</a></li><li class="breadcrumb-item"><a href="../docs/architecture.html">Architecture</a></li></ol></nav>
+        <a class="flex-grow-1" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation docked overflow-auto" aria-label="Site">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="../">Homelab docs</a> 
+        <div class="sidebar-tools-main">
+  <button type="button" role="switch" aria-checked="false" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi"></i></button>
+</div>
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-controls="quarto-sidebar-section-1" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-1-label">Overview</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-1" aria-labelledby="quarto-sidebar-section-1-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Home</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../docs/architecture.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">Architecture</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" aria-controls="quarto-sidebar-section-2" aria-expanded="false">
+ <span class="menu-text" id="quarto-sidebar-section-2-label">TrueNAS stacks</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-2" aria-labelledby="quarto-sidebar-section-2-label" class="collapse list-unstyled sidebar-section depth1 ">  
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" aria-controls="quarto-sidebar-section-3" aria-expanded="false">
+ <span class="menu-text" id="quarto-sidebar-section-3-label">Adguardhome</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-3" aria-labelledby="quarto-sidebar-section-3-label" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../truenas/docker-compose/adguardhome/README.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">AdGuard Home</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" aria-controls="quarto-sidebar-section-4" aria-expanded="false">
+ <span class="menu-text" id="quarto-sidebar-section-4-label">Alloy</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-4" aria-labelledby="quarto-sidebar-section-4-label" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../truenas/docker-compose/alloy/README.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Alloy</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-5" aria-controls="quarto-sidebar-section-5" aria-expanded="false">
+ <span class="menu-text" id="quarto-sidebar-section-5-label">Arr Stack</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-5" aria-labelledby="quarto-sidebar-section-5-label" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../truenas/docker-compose/arr-stack/README.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">*arr stack</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-6" aria-controls="quarto-sidebar-section-6" aria-expanded="false">
+ <span class="menu-text" id="quarto-sidebar-section-6-label">Dockhand Offsite</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-6" aria-labelledby="quarto-sidebar-section-6-label" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../truenas/docker-compose/dockhand-offsite/README.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Dockhand (off-site)</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-7" aria-controls="quarto-sidebar-section-7" aria-expanded="false">
+ <span class="menu-text" id="quarto-sidebar-section-7-label">Dockhand Ts</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-7" aria-labelledby="quarto-sidebar-section-7-label" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../truenas/docker-compose/dockhand-ts/README.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">dockhand-ts</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-8" aria-controls="quarto-sidebar-section-8" aria-expanded="false">
+ <span class="menu-text" id="quarto-sidebar-section-8-label">Docs Site</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-8" aria-labelledby="quarto-sidebar-section-8-label" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../truenas/docker-compose/docs-site/README.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Docs site</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-9" aria-controls="quarto-sidebar-section-9" aria-expanded="false">
+ <span class="menu-text" id="quarto-sidebar-section-9-label">Ev Tracker</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-9" aria-labelledby="quarto-sidebar-section-9-label" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../truenas/docker-compose/ev-tracker/README.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">EV tracker</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-10" aria-controls="quarto-sidebar-section-10" aria-expanded="false">
+ <span class="menu-text" id="quarto-sidebar-section-10-label">Games</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-10" aria-labelledby="quarto-sidebar-section-10-label" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../truenas/docker-compose/games/README.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Games</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-11" aria-controls="quarto-sidebar-section-11" aria-expanded="false">
+ <span class="menu-text" id="quarto-sidebar-section-11-label">Garage</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-11" aria-labelledby="quarto-sidebar-section-11-label" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../truenas/docker-compose/garage/README.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Garage</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-12" aria-controls="quarto-sidebar-section-12" aria-expanded="false">
+ <span class="menu-text" id="quarto-sidebar-section-12-label">Homepage</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-12" aria-labelledby="quarto-sidebar-section-12-label" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../truenas/docker-compose/homepage/README.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Homepage</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-13" aria-controls="quarto-sidebar-section-13" aria-expanded="false">
+ <span class="menu-text" id="quarto-sidebar-section-13-label">Music</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-13" aria-labelledby="quarto-sidebar-section-13-label" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../truenas/docker-compose/music/README.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">music</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-14" aria-controls="quarto-sidebar-section-14" aria-expanded="false">
+ <span class="menu-text" id="quarto-sidebar-section-14-label">Paperless</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-14" aria-labelledby="quarto-sidebar-section-14-label" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../truenas/docker-compose/paperless/README.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Paperless-ngx</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-15" aria-controls="quarto-sidebar-section-15" aria-expanded="false">
+ <span class="menu-text" id="quarto-sidebar-section-15-label">Radicale</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-15" aria-labelledby="quarto-sidebar-section-15-label" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../truenas/docker-compose/radicale/README.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Radicale</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-16" aria-controls="quarto-sidebar-section-16" aria-expanded="false">
+ <span class="menu-text" id="quarto-sidebar-section-16-label">Reading</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-16" aria-labelledby="quarto-sidebar-section-16-label" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../truenas/docker-compose/reading/README.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Reading</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-17" aria-controls="quarto-sidebar-section-17" aria-expanded="false">
+ <span class="menu-text" id="quarto-sidebar-section-17-label">Swag</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-17" aria-labelledby="quarto-sidebar-section-17-label" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../truenas/docker-compose/swag/README.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">SWAG (Secure Web Application Gateway)</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-18" aria-controls="quarto-sidebar-section-18" aria-expanded="false">
+ <span class="menu-text" id="quarto-sidebar-section-18-label">Uptime Kuma</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-18" aria-labelledby="quarto-sidebar-section-18-label" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../truenas/docker-compose/uptime-kuma/README.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Uptime Kuma</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-19" aria-controls="quarto-sidebar-section-19" aria-expanded="false">
+ <span class="menu-text" id="quarto-sidebar-section-19-label">Home Assistant box</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-19" aria-labelledby="quarto-sidebar-section-19-label" class="collapse list-unstyled sidebar-section depth1 ">  
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-20" aria-controls="quarto-sidebar-section-20" aria-expanded="false">
+ <span class="menu-text" id="quarto-sidebar-section-20-label">Frigate</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-20" aria-labelledby="quarto-sidebar-section-20-label" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../homeassistant-box/docker-compose/frigate/README.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Frigate (Home Assistant box)</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-21" aria-controls="quarto-sidebar-section-21" aria-expanded="false">
+ <span class="menu-text" id="quarto-sidebar-section-21-label">Kubernetes &amp; infra</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-21" aria-labelledby="quarto-sidebar-section-21-label" class="collapse list-unstyled sidebar-section depth1 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../opentofu/README.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">OpenTofu: Talos cluster on Proxmox</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../proxmox-hosts/README.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Proxmox hosts</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../docs/talos-extensions-rollout.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Talos system extensions rollout</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-22" aria-controls="quarto-sidebar-section-22" aria-expanded="false">
+ <span class="menu-text" id="quarto-sidebar-section-22-label">Projects</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-22" aria-labelledby="quarto-sidebar-section-22-label" class="collapse list-unstyled sidebar-section depth1 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../docs/frigate-camera-project.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Frigate CCTV + Home Assistant Project</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" aria-labelledby="toc-title" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#overview" id="toc-overview" class="nav-link active" data-scroll-target="#overview">Overview</a></li>
+  <li><a href="#physical-and-network-topology" id="toc-physical-and-network-topology" class="nav-link" data-scroll-target="#physical-and-network-topology">Physical and network topology</a></li>
+  <li><a href="#service-access-patterns" id="toc-service-access-patterns" class="nav-link" data-scroll-target="#service-access-patterns">Service access patterns</a></li>
+  <li><a href="#storage-layout" id="toc-storage-layout" class="nav-link" data-scroll-target="#storage-layout">Storage layout</a>
+  <ul class="collapse">
+  <li><a href="#primary-truenas-truenas-local" id="toc-primary-truenas-truenas-local" class="nav-link" data-scroll-target="#primary-truenas-truenas-local">Primary TrueNAS (<code>truenas</code>, local)</a></li>
+  <li><a href="#off-site-truenas-quack01-backup-target" id="toc-off-site-truenas-quack01-backup-target" class="nav-link" data-scroll-target="#off-site-truenas-quack01-backup-target">Off-site TrueNAS (<code>Quack01</code>, backup target)</a></li>
+  </ul></li>
+  <li><a href="#trust-boundaries" id="toc-trust-boundaries" class="nav-link" data-scroll-target="#trust-boundaries">Trust boundaries</a></li>
+  <li><a href="#external-dependencies" id="toc-external-dependencies" class="nav-link" data-scroll-target="#external-dependencies">External dependencies</a></li>
+  <li><a href="#backup-strategy" id="toc-backup-strategy" class="nav-link" data-scroll-target="#backup-strategy">Backup strategy</a>
+  <ul class="collapse">
+  <li><a href="#current-state" id="toc-current-state" class="nav-link" data-scroll-target="#current-state">Current state</a></li>
+  <li><a href="#planned-complete-3-2-1-with-cloud-backup" id="toc-planned-complete-3-2-1-with-cloud-backup" class="nav-link" data-scroll-target="#planned-complete-3-2-1-with-cloud-backup">Planned: complete 3-2-1 with cloud backup</a></li>
+  <li><a href="#cryptographic-considerations" id="toc-cryptographic-considerations" class="nav-link" data-scroll-target="#cryptographic-considerations">Cryptographic considerations</a></li>
+  </ul></li>
+  <li><a href="#planned-evolution" id="toc-planned-evolution" class="nav-link" data-scroll-target="#planned-evolution">Planned evolution</a></li>
+  <li><a href="#kubernetes-cluster-talos-flux" id="toc-kubernetes-cluster-talos-flux" class="nav-link" data-scroll-target="#kubernetes-cluster-talos-flux">Kubernetes cluster (Talos + Flux)</a>
+  <ul class="collapse">
+  <li><a href="#cluster-topology" id="toc-cluster-topology" class="nav-link" data-scroll-target="#cluster-topology">Cluster topology</a></li>
+  <li><a href="#flux-gitops-flow" id="toc-flux-gitops-flow" class="nav-link" data-scroll-target="#flux-gitops-flow">Flux GitOps flow</a></li>
+  <li><a href="#adding-a-new-workload" id="toc-adding-a-new-workload" class="nav-link" data-scroll-target="#adding-a-new-workload">Adding a new workload</a></li>
+  </ul></li>
+  <li><a href="#tailscale-and-the-tag-model" id="toc-tailscale-and-the-tag-model" class="nav-link" data-scroll-target="#tailscale-and-the-tag-model">Tailscale and the tag model</a>
+  <ul class="collapse">
+  <li><a href="#democratic-csi-controller-traffic-to-truenas" id="toc-democratic-csi-controller-traffic-to-truenas" class="nav-link" data-scroll-target="#democratic-csi-controller-traffic-to-truenas">democratic-csi controller traffic to TrueNAS</a></li>
+  </ul></li>
+  <li><a href="#container-hardening-and-supply-chain" id="toc-container-hardening-and-supply-chain" class="nav-link" data-scroll-target="#container-hardening-and-supply-chain">Container hardening and supply chain</a></li>
+  <li><a href="#secrets-management" id="toc-secrets-management" class="nav-link" data-scroll-target="#secrets-management">Secrets management</a>
+  <ul class="collapse">
+  <li><a href="#strategy-overview" id="toc-strategy-overview" class="nav-link" data-scroll-target="#strategy-overview">Strategy overview</a></li>
+  <li><a href="#sops-age-how-it-works" id="toc-sops-age-how-it-works" class="nav-link" data-scroll-target="#sops-age-how-it-works">SOPS + age: how it works</a></li>
+  <li><a href="#secret-lifecycle" id="toc-secret-lifecycle" class="nav-link" data-scroll-target="#secret-lifecycle">Secret lifecycle</a></li>
+  <li><a href="#defence-in-depth-against-accidental-plaintext-commits" id="toc-defence-in-depth-against-accidental-plaintext-commits" class="nav-link" data-scroll-target="#defence-in-depth-against-accidental-plaintext-commits">Defence in depth against accidental plaintext commits</a></li>
+  <li><a href="#trust-boundaries-1" id="toc-trust-boundaries-1" class="nav-link" data-scroll-target="#trust-boundaries-1">Trust boundaries</a></li>
+  </ul></li>
+  </ul>
+<div class="toc-actions"><ul><li><a href="https://github.com/H-Mateus/homelab/blob/main/docs/architecture.md" class="toc-action"><i class="bi bi-github"></i>View source</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content" tabindex="-1">
+
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../index.html">Overview</a></li><li class="breadcrumb-item"><a href="../docs/architecture.html">Architecture</a></li></ol></nav>
+<div class="quarto-title">
+<h1 class="title">Architecture</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p>This document describes how the homelab is structured, how data and requests flow through it, and the reasoning behind key design choices.</p>
+<section id="overview" class="level2">
+<h2 class="anchored" data-anchor-id="overview">Overview</h2>
+<p>The homelab spans two sites:</p>
+<ul>
+<li><strong>Local site (my flat)</strong> — the primary infrastructure:
+<ul>
+<li>A <strong>primary TrueNAS Scale server</strong> (<code>truenas</code>; pools <code>tank</code> (HDD mirror) + <code>apps</code> (NVMe mirror)) running the Docker Compose stacks managed by Dockhand.</li>
+<li>A <strong>Proxmox host</strong> (HP ProDesk 400 G5 Mini) running a <strong>Talos Linux Kubernetes cluster</strong> (3 control plane + 2 workers, HA via Talos’s native VIP), provisioned end-to-end with <strong>OpenTofu</strong> and managed in-cluster by Flux CD v2.</li>
+</ul></li>
+<li><strong>Off-site (a family member’s house)</strong> — a second <strong>TrueNAS Scale server</strong> (<code>Quack01</code>; pool <code>HDDs</code>) acting as the encrypted <strong>ZFS replication target</strong> (the off-site copy of a 3-2-1 strategy) plus a macOS Time Machine host. It was the <em>original</em> primary; services moved to the local box and it was repurposed to backup-only. Reached over Tailscale, with a <strong>JetKVM</strong> for out-of-band recovery (no physical access).</li>
+</ul>
+<p>Remote access is via Tailscale; no services are exposed publicly currently.</p>
+<p>Keeping an off-site copy is deliberate: geographic redundancy for storage, low-friction backups for family on that network, and it keeps noisy/power-hungry hardware out of my flat. It also creates operational constraints — notably no physical access for recovery — which have shaped several design decisions (see ADRs).</p>
+</section>
+<section id="physical-and-network-topology" class="level2">
+<h2 class="anchored" data-anchor-id="physical-and-network-topology">Physical and network topology</h2>
+<div class="cell"><pre class="mermaid mermaid-js">flowchart TB
+    subgraph Remote[Remote site - family member's house]
+        Router1[Router]
+        TrueNAS["TrueNAS 'Quack01'&lt;br/&gt;backup target + Time Machine"]
+        JetKVM[JetKVM&lt;br/&gt;out-of-band management]
+        Router1 --- TrueNAS
+        Router1 --- JetKVM
+        JetKVM -.BIOS/IPMI.-&gt; TrueNAS
+    end
+
+    subgraph Local[Local site - my flat]
+        Devices[Laptop, phone, etc.]
+        LocalTrueNAS["TrueNAS 'truenas'&lt;br/&gt;primary — compose stacks"]
+        Proxmox[Proxmox host&lt;br/&gt;Talos K8s cluster]
+    end
+
+    subgraph Cloud[External services]
+        Tailscale[Tailscale&lt;br/&gt;coordination]
+        CF[Cloudflare DNS]
+        LE[Let's Encrypt]
+        CS[CrowdSec Central API]
+    end
+
+    Internet((Internet))
+
+    Router1 &lt;--&gt; Internet
+    Devices &lt;--&gt; Internet
+    Internet &lt;--&gt; Cloud
+
+    Devices &lt;-.Tailscale mesh.-&gt; LocalTrueNAS
+    Devices &lt;-.Tailscale mesh.-&gt; TrueNAS
+    Devices &lt;-.Tailscale mesh.-&gt; JetKVM
+    LocalTrueNAS -.ZFS replication over Tailscale.-&gt; TrueNAS</pre></div>
+</section>
+<section id="service-access-patterns" class="level2">
+<h2 class="anchored" data-anchor-id="service-access-patterns">Service access patterns</h2>
+<blockquote class="blockquote">
+<p><strong>Status (2026-07):</strong> SWAG is currently <strong>disabled</strong>. The TrueNAS web UI has been reverted to the default <code>443</code>, and web-facing Compose services are being migrated to per-service <code>tailscale/tailscale</code> sidecars (as already done for Immich) as part of the remote→local TrueNAS move. The SWAG-based paths below (2 and 5) are retained here for reference until that migration completes, at which point this section will be rewritten around the sidecar model.</p>
+</blockquote>
+<p>All services are accessed via nice domain names (e.g. <code>immich.tail.mateusharrington.com</code>) regardless of access path. There are three ways a request can reach a service:</p>
+<ol type="1">
+<li><strong>Public</strong> — no services currently exposed; SWAG + CrowdSec is in place for when this changes.</li>
+<li><strong>Tailscale (personal devices, via SWAG)</strong> — my own devices on the tailnet resolve domains via MagicDNS to the TrueNAS host’s tailnet IP and hit SWAG.</li>
+<li><strong>Tailscale (personal devices, via the Tailscale operator)</strong> — Kubernetes-hosted services (e.g.&nbsp;Grafana) are exposed as individual Tailnet devices by the <a href="https://tailscale.com/kb/1236/kubernetes-operator">Tailscale Kubernetes Operator</a>, one device per <code>Ingress</code>. Access is then by MagicDNS name, e.g. <code>https://grafana.&lt;tailnet&gt;.ts.net</code>.</li>
+<li><strong>Tailscale (shared, restricted)</strong> — family members access Immich via Tailscale node sharing rather than user invites. Immich runs in its own Compose stack with a <code>tailscale/tailscale</code> sidecar, so it joins the tailnet as its <strong>own device</strong> (separate from the TrueNAS host). That single device is what gets shared with family — which limits blast radius to the Immich service if one of their devices is compromised, and works around the 3-user limit of the Tailscale free plan.</li>
+<li><strong>LAN</strong> — devices on the remote LAN resolve to the static LAN IP and hit SWAG directly.</li>
+</ol>
+<div class="cell"><pre class="mermaid mermaid-js">flowchart LR
+    Client[Client device]
+
+    Client --&gt;|*.mateusharrington.com| DNS{DNS resolution}
+    DNS --&gt;|Tailscale| TSIP[Tailnet IP]
+    DNS --&gt;|LAN| LANIP[LAN IP]
+    DNS --&gt;|Public| PubIP[Public IP via Cloudflare]
+
+    TSIP --&gt; SWAG
+    LANIP --&gt; SWAG
+    PubIP --&gt; Router --&gt; SWAG
+
+    SWAG --&gt;|check| CrowdSec
+    SWAG --&gt;|proxy| Service[Target service]</pre></div>
+<p>The wildcard certificate (<code>*.mateusharrington.com</code>, <code>*.tail.mateusharrington.com</code>, <code>*.local.mateusharrington.com</code>) is issued via Let’s Encrypt DNS-01 challenge through Cloudflare, so SWAG never needs to be publicly reachable for cert renewal.</p>
+</section>
+<section id="storage-layout" class="level2">
+<h2 class="anchored" data-anchor-id="storage-layout">Storage layout</h2>
+<section id="primary-truenas-truenas-local" class="level3">
+<h3 class="anchored" data-anchor-id="primary-truenas-truenas-local">Primary TrueNAS (<code>truenas</code>, local)</h3>
+<ul>
+<li><strong>Pool <code>tank</code></strong> — bulk HDD mirror
+<ul>
+<li><code>tank/media</code> — arr media library: <code>movies/</code>, <code>tv/</code>, <code>downloads/</code>, plus <code>books/</code>, <code>manga/</code>, <code>comics/</code> (reading stack) and <code>games/</code> (RomM/ROMarr) as plain directories so imports hardlink; <code>music/</code> is a child dataset owned by the music stack</li>
+<li><code>tank/immich</code> — Immich photo/video originals</li>
+</ul></li>
+<li><strong>Pool <code>apps</code></strong> — NVMe mirror for latency-sensitive app data
+<ul>
+<li><code>apps/arr-stack</code>, <code>apps/immich</code> (Postgres), <code>apps/dockhand</code>, …</li>
+</ul></li>
+<li><code>tank/k8s/nfs</code> — democratic-csi PVCs for the Talos cluster (being migrated here from the off-site box — see <code>docs/storage-migration.md</code>)</li>
+<li><code>tank/garage</code> — OpenTofu S3 state backend (Garage)</li>
+</ul>
+</section>
+<section id="off-site-truenas-quack01-backup-target" class="level3">
+<h3 class="anchored" data-anchor-id="off-site-truenas-quack01-backup-target">Off-site TrueNAS (<code>Quack01</code>, backup target)</h3>
+<ul>
+<li><strong>Pool <code>HDDs</code></strong>
+<ul>
+<li><code>HDDs/backups/local/*</code> — <strong>encrypted</strong> ZFS replication of the primary’s datasets (the off-site 3-2-1 copy)</li>
+<li><code>HDDs/Mateus work macbook timemachine</code> — macOS Time Machine share</li>
+<li>Legacy self-hosted datasets (its own old Media/Immich) linger until cleaned up</li>
+</ul></li>
+<li><strong>Snapshots</strong>: periodic pool-recursive tasks on both boxes; replication carries the primary’s snapshots off-site.</li>
+</ul>
+</section>
+</section>
+<section id="trust-boundaries" class="level2">
+<h2 class="anchored" data-anchor-id="trust-boundaries">Trust boundaries</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 18%">
+<col style="width: 31%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Zone</th>
+<th>Examples</th>
+<th>Access control</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Public internet</td>
+<td>n/a currently</td>
+<td>Would be SWAG + CrowdSec</td>
+</tr>
+<tr class="even">
+<td>Tailnet</td>
+<td>All services at <code>&lt;svc&gt;.&lt;tailnet&gt;.ts.net</code> via per-service sidecars</td>
+<td>Tailscale ACLs (default-deny, tag-based)</td>
+</tr>
+<tr class="odd">
+<td>Remote LAN</td>
+<td>TrueNAS UI, services</td>
+<td>Physical/network access at remote site</td>
+</tr>
+<tr class="even">
+<td>Out-of-band</td>
+<td>TrueNAS BIOS, boot</td>
+<td>JetKVM over Tailscale</td>
+</tr>
+</tbody>
+</table>
+<p>The JetKVM is critical given the off-site location: it provides BIOS access, power control, and console output for recovery scenarios where the OS is unreachable. Without it, any failure requiring BIOS intervention would mean a trip to the remote site.</p>
+</section>
+<section id="external-dependencies" class="level2">
+<h2 class="anchored" data-anchor-id="external-dependencies">External dependencies</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 26%">
+<col style="width: 26%">
+<col style="width: 47%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Service</th>
+<th>Purpose</th>
+<th>Failure impact</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Cloudflare DNS</td>
+<td>Authoritative DNS, DNS-01 cert challenge</td>
+<td>Cert renewal fails after ~60 days</td>
+</tr>
+<tr class="even">
+<td>Let’s Encrypt</td>
+<td>TLS certificates</td>
+<td>Existing certs valid for ~90 days</td>
+</tr>
+<tr class="odd">
+<td>Tailscale</td>
+<td>Remote access mesh</td>
+<td>Lose remote access; LAN unaffected</td>
+</tr>
+<tr class="even">
+<td>CrowdSec Central API</td>
+<td>Threat intel updates</td>
+<td>Local bouncing still works on cached rules</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="backup-strategy" class="level2">
+<h2 class="anchored" data-anchor-id="backup-strategy">Backup strategy</h2>
+<section id="current-state" class="level3">
+<h3 class="anchored" data-anchor-id="current-state">Current state</h3>
+<ul>
+<li>The <strong>local primary</strong> replicates <strong>encrypted</strong> ZFS snapshots to the <strong>off-site TrueNAS</strong> over Tailscale (the “Regular remote backup” task) — geographic redundancy for irreplaceable data (Immich, app/service configs).</li>
+<li>ZFS snapshots on each box protect against accidental deletion.</li>
+<li>Still missing: the third, off-line/cloud copy (below), so not yet fully 3-2-1.</li>
+</ul>
+</section>
+<section id="planned-complete-3-2-1-with-cloud-backup" class="level3">
+<h3 class="anchored" data-anchor-id="planned-complete-3-2-1-with-cloud-backup">Planned: complete 3-2-1 with cloud backup</h3>
+<pre><code>ZFS snapshots (primary TrueNAS)  →  ZFS replication to off-site TrueNAS [DONE]  →  encrypted cloud backup (Backblaze B2) [planned]
+        copy 1                                    copy 2                                        copy 3</code></pre>
+<ul>
+<li><strong>Tool</strong>: <code>restic</code> for cloud backups — client-side AES-256 encryption, deduplication, snapshot semantics</li>
+<li><strong>Target</strong>: Backblaze B2 (S3-compatible, ~$6/TB/month, no egress fees within reason)</li>
+<li><strong>Scope</strong>: irreplaceable data only (photos via Immich, documents, service configs). Re-downloadable media is excluded.</li>
+<li><strong>Schedule</strong>: nightly, with monthly integrity checks (<code>restic check</code>)</li>
+<li><strong>Key management</strong>: restic repo password stored in password manager + printed offline copy in a sealed envelope (the “you got hit by a bus” recovery path)</li>
+</ul>
+</section>
+<section id="cryptographic-considerations" class="level3">
+<h3 class="anchored" data-anchor-id="cryptographic-considerations">Cryptographic considerations</h3>
+<p><code>restic</code> uses AES-256 for data encryption and <code>scrypt</code> for password-based key derivation. Both are considered resistant to known quantum attacks: Grover’s algorithm halves effective symmetric key strength, leaving AES-256 with ~128-bit post-quantum security, which remains adequate. Post-quantum concerns primarily affect asymmetric cryptography (TLS key exchange, SSH keys), not symmetric encryption of backup data at rest.</p>
+</section>
+</section>
+<section id="planned-evolution" class="level2">
+<h2 class="anchored" data-anchor-id="planned-evolution">Planned evolution</h2>
+<p>The <strong>two-site replication topology is now in place</strong> — the local TrueNAS is the primary and the off-site box is a ZFS replication target:</p>
+<div class="cell"><pre class="mermaid mermaid-js">flowchart LR
+    subgraph Local[Local site]
+        NewTrueNAS[TrueNAS 'truenas'&lt;br/&gt;primary]
+    end
+    subgraph Remote[Off-site]
+        OldTrueNAS[TrueNAS 'Quack01'&lt;br/&gt;replication target]
+    end
+    NewTrueNAS --&gt;|ZFS send/receive over Tailscale| OldTrueNAS</pre></div>
+<p>The local server runs all services; the off-site server provides geographic redundancy for snapshots without the latency of running services remotely. (This was delayed for a while by high hard-drive prices.)</p>
+<p>Remaining:</p>
+<ul>
+<li><strong>Encrypted cloud backup</strong> (restic → Backblaze B2) for the third copy.</li>
+<li>Continue migrating Docker Compose services into the Kubernetes cluster as they become candidates (Home Assistant, additional monitoring exporters, etc.).</li>
+</ul>
+<hr>
+</section>
+<section id="kubernetes-cluster-talos-flux" class="level2">
+<h2 class="anchored" data-anchor-id="kubernetes-cluster-talos-flux">Kubernetes cluster (Talos + Flux)</h2>
+<p>A Talos Linux Kubernetes cluster runs on Proxmox VMs alongside the TrueNAS server. Talos is an immutable, API-driven OS designed specifically for Kubernetes — there is no SSH, no package manager, and no shell; all configuration is applied declaratively via <code>talosctl</code>.</p>
+<section id="cluster-topology" class="level3">
+<h3 class="anchored" data-anchor-id="cluster-topology">Cluster topology</h3>
+<pre><code>Proxmox host (HP ProDesk 400 G5 Mini)
+└── Talos VMs
+    ├── controlplane  (3x, HA via Talos native VIP at 192.168.1.36)
+    └── workers       (2x)</code></pre>
+<p>The cluster runs three control planes for actual high availability — etcd has two replicas to lose, and the Kubernetes API stays reachable through a rolling Talos upgrade because the VIP holder fails over to another CP within seconds. This replaced an earlier 1+2 topology in June 2026 as part of the OpenTofu IaC cutover. Five VMs fit on 16 GiB of host RAM with headroom for a worker bump.</p>
+<p>The cluster is provisioned with OpenTofu — see <a href="../opentofu/README.html"><code>opentofu/README.md</code></a> for the module structure and design notes. The legacy hand-built machine configs live in <code>proxmox/</code> (untracked — contains PKI material) and are retained read-only as a frozen pre-cutover reference, to be deleted once the new cluster has been stable for long enough.</p>
+<p>The Talos installer image bundles four official system extensions, defined in code in <a href="https://github.com/H-Mateus/homelab/blob/main/opentofu/live/homelab/main.tf"><code>opentofu/live/homelab/main.tf</code></a> and turned into a deterministic Image Factory schematic ID by the <code>talos-image</code> module:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 55%">
+<col style="width: 45%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Extension</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>siderolabs/iscsi-tools</code></td>
+<td>Required by democratic-csi for iSCSI volumes (currently unused, available for future)</td>
+</tr>
+<tr class="even">
+<td><code>siderolabs/qemu-guest-agent</code></td>
+<td>Lets Proxmox observe and gracefully shut down the VM</td>
+</tr>
+<tr class="odd">
+<td><code>siderolabs/tailscale</code></td>
+<td>Joins each Talos node to the tailnet as <code>tag:k8s-node</code>, used by kubelet to mount NFS from off-site TrueNAS</td>
+</tr>
+<tr class="even">
+<td><code>siderolabs/util-linux-tools</code></td>
+<td>NFS mount helpers required by democratic-csi</td>
+</tr>
+</tbody>
+</table>
+<p>The <code>tailscale</code> extension’s runtime configuration is templated and SOPS-encrypted via the <code>talos-cluster</code> module (<code>patches/tailscale-extension.yaml.tftpl</code> + <code>secrets.enc.yaml</code>). <a href="../docs/talos-extensions-rollout.html"><code>docs/talos-extensions-rollout.md</code></a> captures the legacy runbook used on the 1+2 cluster; for the OpenTofu cluster, extension changes are made by editing the <code>talos_extensions</code> variable and re-applying.</p>
+</section>
+<section id="flux-gitops-flow" class="level3">
+<h3 class="anchored" data-anchor-id="flux-gitops-flow">Flux GitOps flow</h3>
+<p>Flux CD v2 is the GitOps controller. It continuously reconciles the cluster state with this repository:</p>
+<pre><code>git push (main branch)
+  │
+  ▼
+Flux GitRepository (polls every 1 min)
+  │
+  ▼
+flux-system Kustomization  →  kubernetes/clusters/talos/
+  │                           (all *.yaml files here are raw manifests)
+  │
+  ├──▶ sources Kustomization (10-min interval)
+  │      └── kubernetes/infrastructure/sources/
+  │              └── HelmRepositories
+  │                    (tailscale, prometheus-community,
+  │                     democratic-csi, piraeus)
+  │
+  ├──▶ infrastructure Kustomization (10-min interval, prune: true)
+  │      dependsOn: sources
+  │      └── kubernetes/infrastructure/
+  │              ├── snapshot-controller/  (CSI volume snapshot CRDs)
+  │              └── democratic-csi/       (NFS provisioner → TrueNAS)
+  │
+  └──▶ apps Kustomization (10-min interval, prune: true)
+         dependsOn: infrastructure
+         └── kubernetes/apps/
+                 ├── tailscale/    (Tailscale Operator)
+                 └── monitoring/   (kube-prometheus-stack: Prometheus,
+                                    Grafana, Alertmanager)</code></pre>
+<p>The layering — <code>sources</code> → <code>infrastructure</code> → <code>apps</code> — exists so that cluster-wide prerequisites (CSI driver, snapshot CRDs, Helm repositories) are reconciled before anything that depends on them. The <code>dependsOn</code> + <code>wait: true</code> settings make Flux block on each layer finishing before the next starts, which means a clean <code>kubectl apply</code> rollout from an empty cluster comes up in the right order without manual sequencing.</p>
+<p>Key properties of this setup:</p>
+<ul>
+<li><strong>Prune enabled</strong>: resources removed from git are deleted from the cluster on the next reconcile — the repo is always the single source of truth.</li>
+<li><strong>Wait + timeout</strong>: the apps Kustomization waits for all resources to become Ready before considering a sync successful, with a 5-minute timeout before failing loudly.</li>
+<li><strong>HelmRelease remediation</strong>: each HelmRelease is configured to retry failed installs/upgrades up to 3 times before giving up.</li>
+</ul>
+</section>
+<section id="adding-a-new-workload" class="level3">
+<h3 class="anchored" data-anchor-id="adding-a-new-workload">Adding a new workload</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">mkdir</span> <span class="at">-p</span> kubernetes/apps/<span class="op">&lt;</span>namespace<span class="op">&gt;</span>/<span class="op">&lt;</span>app<span class="op">&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Create: kustomization.yaml, namespace.yaml, and workload manifests</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="co"># If the app needs secrets, create an &lt;app&gt;-secret.sops.yaml and encrypt it</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> add <span class="at">-A</span> <span class="kw">&amp;&amp;</span> <span class="fu">git</span> commit <span class="at">-m</span> <span class="st">"feat: add &lt;app&gt;"</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> push</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Flux picks it up on the next poll cycle</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<hr>
+</section>
+</section>
+<section id="tailscale-and-the-tag-model" class="level2">
+<h2 class="anchored" data-anchor-id="tailscale-and-the-tag-model">Tailscale and the tag model</h2>
+<p>Every service and host on the tailnet carries a tag; only personal devices (laptops, phones) are untagged and act as their owner. The policy is <strong>default-deny</strong>: a tagged device can only open connections a grant explicitly allows, and most service tags are granted nothing outbound. So a compromised container’s sidecar can’t wander the tailnet. The live policy file in the admin console is the source of truth; this is its shape.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 20%">
+<col style="width: 44%">
+<col style="width: 36%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Tag</th>
+<th>Applied to</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>tag:truenas</code> + <code>tag:truenas-primary</code> / <code>tag:truenas-backup</code></td>
+<td>The two TrueNAS hosts’ <code>tailscaled</code></td>
+<td>Host access without tying it to a user. Primary vs backup split lets k8s reach only the primary, and the backup box pull replication over SSH one-way.</td>
+</tr>
+<tr class="even">
+<td><code>tag:proxmox</code></td>
+<td>Both Proxmox hosts</td>
+<td>Web UI via <code>tailscale serve</code>, Tailscale SSH for admin.</td>
+</tr>
+<tr class="odd">
+<td><code>tag:k8s-operator</code>, <code>tag:k8s</code>, <code>tag:k8s-readers</code></td>
+<td>Tailscale Kubernetes operator and its <code>Ingress</code> devices (Grafana, Loki/Prometheus ingest, democratic-csi)</td>
+<td>Operator-provisioned devices, granted separately from the nodes.</td>
+</tr>
+<tr class="even">
+<td><code>tag:k8s-node</code></td>
+<td>Talos nodes (<code>siderolabs/tailscale</code> extension)</td>
+<td>Kubelet NFS + democratic-csi API access to <code>tag:truenas-primary</code> only.</td>
+</tr>
+<tr class="odd">
+<td><code>tag:monitoring-agent</code> / <code>tag:monitoring-ingest</code></td>
+<td>Alloy on each box / the cluster’s push endpoints</td>
+<td>Agents may push to ingest on 443, nothing else.</td>
+</tr>
+<tr class="even">
+<td><code>tag:ts-apps</code></td>
+<td>Admin-only app sidecars: Sonarr, Radarr, Prowlarr, Bazarr, Profilarr, Suggestarr, slskd, explo, Navidrome, Frigate, RomM, ROMarr, Bookshelf, Suwayomi, docs site</td>
+<td>Low-sensitivity UIs only <code>group:admin</code> uses. No outbound grants.</td>
+</tr>
+<tr class="odd">
+<td><code>tag:family-jellyfin</code></td>
+<td>Jellyfin and Seerr sidecars</td>
+<td>Household members and the SHIELD (<code>tag:media-client</code>) reach them on 443.</td>
+</tr>
+<tr class="even">
+<td><code>tag:family-reading</code></td>
+<td>Kavita’s sidecar</td>
+<td>Household members reach it on 443.</td>
+</tr>
+<tr class="odd">
+<td><code>tag:immich</code>, <code>tag:immichframe</code></td>
+<td>Immich and ImmichFrame sidecars</td>
+<td>Household on 443; Immich is also node-shared to family outside the tailnet (<code>autogroup:shared</code>).</td>
+</tr>
+<tr class="even">
+<td><code>tag:radicale</code></td>
+<td>Radicale sidecar</td>
+<td>Household calendars (CalDAV) on 443.</td>
+</tr>
+<tr class="odd">
+<td><code>tag:paperless</code>, <code>tag:garage</code>, <code>tag:ev-tracker</code>, <code>tag:homepage</code>, <code>tag:uptime-kuma</code></td>
+<td>Their sidecars</td>
+<td>Homepage and Uptime Kuma get read access to the services they watch; nothing else reaches out.</td>
+</tr>
+<tr class="even">
+<td><code>tag:homeassistant</code></td>
+<td>Home Assistant (applied in the admin console, so the HA Tailscale app’s <em>Advertise tags</em> option stays empty)</td>
+<td>Household on 443/8123.</td>
+</tr>
+<tr class="odd">
+<td><code>tag:dockhand</code>, <code>tag:dockhand-offsite</code></td>
+<td>Dockhand’s sidecar on each TrueNAS</td>
+<td>Kept on their own tags: Dockhand is effectively root on the box. ACL tests assert nothing else can reach them.</td>
+</tr>
+<tr class="even">
+<td><code>tag:jetkvm</code>, <code>tag:pfsense</code>, <code>tag:media-client</code></td>
+<td>Out-of-band KVM, the router, the SHIELD</td>
+<td>Admin-only (KVM, pfSense) / Jellyfin client.</td>
+</tr>
+</tbody>
+</table>
+<p>Principals: <code>group:admin</code> (me) gets <code>*:*</code>, which is why admin-only UIs need no per-service grant. <code>group:household</code> gets 443 on the family tags and Home Assistant. The policy’s <code>tests</code> block pins the important denials (k8s nodes can’t reach the backup box or Dockhand, household can’t reach Dockhand or the TrueNAS UI, and so on); add a test whenever a new tag is introduced.</p>
+<p>Two subtleties:</p>
+<ul>
+<li><strong>Why <code>tag:k8s</code> and <code>tag:k8s-node</code> are separate.</strong> The operator’s <code>defaultTags</code> sets the tag on <code>Ingress</code> devices; Talos nodes advertise their own via <code>TS_EXTRA_ARGS</code>. Nodes need NFS to <code>tag:truenas-primary</code>; operator devices need to be reachable <em>from</em> personal devices. One tag would over-grant both ways.</li>
+<li><strong>What tags don’t cover.</strong> Tailscale only governs tailnet traffic. A container can still reach the LAN (TrueNAS UI, pfSense, Home Assistant) through Docker’s bridge NAT. That gap is handled by container hardening (see “Container hardening and supply chain” below), not by the ACL.</li>
+</ul>
+<section id="democratic-csi-controller-traffic-to-truenas" class="level3">
+<h3 class="anchored" data-anchor-id="democratic-csi-controller-traffic-to-truenas">democratic-csi controller traffic to TrueNAS</h3>
+<p>The democratic-csi NFS driver needs to call the TrueNAS HTTPS API to create/destroy datasets. With TrueNAS only reachable over Tailscale, the controller pod also has to take that path. Two changes make this work:</p>
+<ol type="1">
+<li><code>controller.hostNetwork: true</code> on the democratic-csi Helm release, so the controller pod sits on the node’s network namespace and can use the node’s <code>tailscale0</code> interface.</li>
+<li>An <code>ExternalName</code> <code>Service</code> (<code>truenas-tailscale</code>) in the <code>democratic-csi</code> namespace, annotated for the Tailscale operator to resolve to the TrueNAS tailnet IP. The driver’s <strong>HTTPS API host</strong> points at that Service (keeping the IP out of the SOPS-encrypted config). Note the <strong>NFS <code>shareHost</code> is still a bare tailnet IP</strong> — it gets baked into each PV at provision time, which is why repointing storage to a different TrueNAS requires re-adopting the existing PVs (see <code>docs/storage-migration.md</code>), not just a config edit.</li>
+</ol>
+<p>This is documented inline in <code>kubernetes/infrastructure/democratic-csi/truenas-egress.yaml</code>.</p>
+<hr>
+</section>
+</section>
+<section id="container-hardening-and-supply-chain" class="level2">
+<h2 class="anchored" data-anchor-id="container-hardening-and-supply-chain">Container hardening and supply chain</h2>
+<p>Nothing is exposed to the internet, so the realistic ways in are a malicious or hijacked image, or a parser bug in an app that handles files from strangers (qBittorrent, the *arrs, Jellyfin’s ffmpeg, Kavita, RomM, Paperless OCR). The layers, from “stop it arriving” to “limit the damage”:</p>
+<ol type="1">
+<li><strong>Pinned images, reviewed updates.</strong> Every image is pinned to an exact release in its <code>docker-compose.yml</code> (no <code>latest</code>, no <code>*_VERSION</code> in <code>.env</code>). <a href="https://github.com/H-Mateus/homelab/blob/main/renovate.json">Renovate</a> opens a weekly PR per update with a 5-day <code>minimumReleaseAge</code>, so a hijacked release usually gets caught upstream before it’s even proposed. Merging is the deploy trigger (Dockhand’s git sync; the Frigate LXC, outside Dockhand, pulls <code>main</code> with an hourly timer); Dockhand’s own image auto-update is off. Databases stay on their current major; Immich’s Postgres follows Immich’s notes.</li>
+<li><strong>Vulnerability scanning.</strong> Dockhand scans images (Grype/Trivy) during its update checks; counts by severity feed the <em>Homelab – security</em> Grafana dashboard and the <code>dockhand</code> alert group. Scanners find known CVEs, mostly in base-image packages; they don’t detect malware.</li>
+<li><strong>Least privilege per container.</strong> <code>no-new-privileges</code> on every service except Alloy (privileged by design, for node/cAdvisor metrics) and Frigate. Newer stacks (radicale, games, reading, docs-site) also drop all capabilities and run as 568 directly; extending <code>cap_drop: ALL</code> to the older linuxserver-based services is a per-service job, since their init needs CHOWN/SETUID/SETGID.</li>
+<li><strong>Network containment.</strong> Databases and caches (Immich, Paperless, RomM) sit on <code>internal: true</code> networks with no gateway: no internet, no LAN. On the tailnet, sidecars are tagged and the policy is default-deny (see above). The remaining gap is LAN egress from app containers, which Docker NATs as the TrueNAS host; closing it would need host firewall rules that TrueNAS updates overwrite, so it’s accepted.</li>
+<li><strong>Recovery.</strong> ZFS snapshots can’t be touched from inside a container, and replication carries them off-site: the backstop for anything that gets through.</li>
+</ol>
+<p>Trust is uneven: small single-maintainer images (Suggestarr, ROMarr, Bookshelf) get read before their updates are merged, and none of them mount Immich or Paperless data.</p>
+</section>
+<section id="secrets-management" class="level2">
+<h2 class="anchored" data-anchor-id="secrets-management">Secrets management</h2>
+<section id="strategy-overview" class="level3">
+<h3 class="anchored" data-anchor-id="strategy-overview">Strategy overview</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 26%">
+<col style="width: 21%">
+<col style="width: 52%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Platform</th>
+<th>Method</th>
+<th>Where secrets live</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>TrueNAS (Docker)</td>
+<td><code>.env</code> files (never committed)</td>
+<td>On the host only</td>
+</tr>
+<tr class="even">
+<td>Kubernetes (Flux)</td>
+<td>SOPS + age (encrypted in git)</td>
+<td>Cluster only (private key)</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="sops-age-how-it-works" class="level3">
+<h3 class="anchored" data-anchor-id="sops-age-how-it-works">SOPS + age: how it works</h3>
+<p><a href="https://github.com/getsops/sops">SOPS</a> encrypts individual YAML values (not the whole file) using a recipient’s public key. The encrypted file is safe to commit; decryption requires the corresponding private key, which lives only inside the cluster.</p>
+<p><a href="https://github.com/FiloSottile/age">age</a> provides the key pair:</p>
+<pre><code>age-keygen -o age.agekey
+# Public key:  age1sg49q...   ← stored in .sops.yaml (safe to commit)
+# Private key: AGE-SECRET-...  ← stored only in the cluster as a K8s Secret</code></pre>
+<p>The private key is bootstrapped into the cluster once:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="ex">kubectl</span> create secret generic sops-age <span class="dt">\</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">--namespace</span><span class="op">=</span>flux-system <span class="dt">\</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">--from-file</span><span class="op">=</span>age.agekey=./age.agekey</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>After that, the local copy is deleted (or stored in a password manager as a break-glass recovery key). Flux’s <code>decryption</code> stanza in <code>apps.yaml</code> tells it to use this secret when reconciling:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">decryption</span><span class="kw">:</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">provider</span><span class="kw">:</span><span class="at"> sops</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">secretRef</span><span class="kw">:</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">name</span><span class="kw">:</span><span class="at"> sops-age</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="secret-lifecycle" class="level3">
+<h3 class="anchored" data-anchor-id="secret-lifecycle">Secret lifecycle</h3>
+<pre><code>1. Author creates secret file:
+   kubernetes/apps/&lt;ns&gt;/&lt;app&gt;/&lt;name&gt;-secret.sops.yaml
+
+2. Fill in plaintext values (DO NOT COMMIT at this stage)
+
+3. Encrypt in place:
+   sops --encrypt --in-place kubernetes/apps/&lt;ns&gt;/&lt;app&gt;/&lt;name&gt;-secret.sops.yaml
+
+4. Commit the encrypted file — values are AES-256-GCM ciphertext,
+   safe to store in a public repository.
+
+5. On git push, Flux fetches the file, decrypts it in-cluster using
+   the age private key, and applies the resulting Secret to Kubernetes.
+
+6. To edit later:
+   sops kubernetes/apps/&lt;ns&gt;/&lt;app&gt;/&lt;name&gt;-secret.sops.yaml
+   # Opens $EDITOR with plaintext; re-encrypts on save.</code></pre>
+</section>
+<section id="defence-in-depth-against-accidental-plaintext-commits" class="level3">
+<h3 class="anchored" data-anchor-id="defence-in-depth-against-accidental-plaintext-commits">Defence in depth against accidental plaintext commits</h3>
+<p>Three independent layers protect against committing unencrypted secrets:</p>
+<ol type="1">
+<li><p><strong>Naming convention</strong> — all Kubernetes secrets use the <code>.sops.yaml</code> suffix, making them visually distinguishable and easy to pattern-match in hooks and gitignore rules.</p></li>
+<li><p><strong><code>check-sops-encrypted</code> pre-commit hook</strong> — deterministic check: any staged <code>*.sops.yaml</code> file that lacks the <code>sops:</code> block (which SOPS adds on encryption) causes the commit to fail with a clear error message. This is the primary safety net.</p></li>
+<li><p><strong>Gitleaks</strong> — catches other accidentally committed secrets using entropy analysis and known pattern matching. Complements the SOPS hook but is not SOPS-aware; the two hooks cover different failure modes.</p></li>
+</ol>
+</section>
+<section id="trust-boundaries-1" class="level3">
+<h3 class="anchored" data-anchor-id="trust-boundaries-1">Trust boundaries</h3>
+<pre><code>┌──────────────────────────────────────────────────────────────┐
+│ Git repository (public)                                       │
+│  *.sops.yaml  ← AES-256-GCM ciphertext, safe to store here  │
+│  .sops.yaml   ← age PUBLIC key only, safe to store here      │
+└──────────────────────────────────────────────────────────────┘
+                              │ Flux pulls + decrypts
+                              ▼
+┌──────────────────────────────────────────────────────────────┐
+│ Kubernetes cluster (flux-system namespace)                    │
+│  Secret/sops-age  ← age PRIVATE key, never leaves cluster    │
+│                                                               │
+│  Flux decrypts *.sops.yaml in memory; plaintext Secret       │
+│  objects are applied to the cluster but never written to git  │
+└──────────────────────────────────────────────────────────────┘</code></pre>
+<p>The age private key is the only secret that cannot be rotated via git. It should be backed up to a password manager as a break-glass recovery key in case the cluster is destroyed and needs to be rebuilt from scratch.</p>
+
+
+</section>
+</section>
+
+<a onclick="window.scrollTo(0, 0); return false;" role="button" id="quarto-back-to-top"><i class="bi bi-arrow-up"></i> Back to top</a></main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    // Ensure there is a toggle, if there isn't float one in the top right
+    if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
+      const toggle = window.document.createElement('button');
+      toggle.type = "button";
+      toggle.setAttribute("role", "switch");
+      toggle.setAttribute("aria-checked", "false");
+      toggle.classList.add('top-right');
+      toggle.classList.add('quarto-color-scheme-toggle');
+      toggle.setAttribute("aria-label", "Toggle dark mode");
+      toggle.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
+      const i = window.document.createElement("i");
+      i.classList.add('bi');
+      toggle.appendChild(i);
+      // Put the toggle in a landmark of its own, so that landmark navigation
+      // can reach it.
+      //
+      // The container is always a fresh direct child of body, and the toggle is
+      // never moved into page furniture that the theme or the author controls.
+      // The toggle is positioned against the page, so any ancestor that
+      // establishes a containing block captures it: a positioned element or a
+      // grid for position: absolute, and transform, filter, will-change or
+      // contain for position: fixed. A direct child of body has none of these
+      // to inherit, and the shift when one appears is silent and visual.
+      //
+      // ARIA says a document should have at most one banner, and axe reports a
+      // duplicate whether or not the banners carry distinct labels. So use a
+      // header when the page has no banner yet, and a named region otherwise.
+      //
+      // A header is a banner wherever it sits, unless it is inside sectioning
+      // content, so this cannot just look at the children of body: a custom
+      // page layout wraps the title block header in a plain div. An explicit
+      // role="banner" always counts.
+      const sectioning = 'article, aside, main, nav, section, [role="article"], [role="complementary"], [role="main"], [role="navigation"], [role="region"]';
+      const hasBanner = Array.from(
+        window.document.querySelectorAll('header:not([role]), [role="banner"]')
+      ).some(function(el) {
+        return el.hasAttribute("role") || el.closest(sectioning) === null;
+      });
+      const container = window.document.createElement(hasBanner ? "div" : "header");
+      if (hasBanner) {
+        container.setAttribute("role", "region");
+        container.setAttribute("aria-label", "Toggle dark mode");
+      }
+      container.classList.add('quarto-color-scheme-toggle-container');
+      container.appendChild(toggle);
+      window.document.body.appendChild(container);
+    }
+    setColorSchemeToggle(hasAlternateSentinel())
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      const newWindowLabel = "(opens in a new tab)";
+      const newWindowNoteId = "quarto-ext-newwindow-label";
+      // Links reference one hidden label through aria-describedby, so the
+      // announcement never changes their accessible name.
+      var describeNewWindow = (link) => {
+        if (!window.document.getElementById(newWindowNoteId)) {
+          var newWindowNote = window.document.createElement("span");
+          newWindowNote.id = newWindowNoteId;
+          newWindowNote.hidden = true;
+          newWindowNote.textContent = newWindowLabel;
+          window.document.body.appendChild(newWindowNote);
+        }
+        var describedBy = (link.getAttribute("aria-describedby") || "").split(/\s+/).filter(Boolean);
+        if (!describedBy.includes(newWindowNoteId)) {
+          describedBy.push(newWindowNoteId);
+          link.setAttribute("aria-describedby", describedBy.join(" "));
+        }
+      }
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+      window.quartoDecorateExternalLinks = function (root) {
+     var links = (root || window.document).querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+            // target, if specified
+            link.setAttribute("target", "_blank");
+            if (link.getAttribute("rel") === null) {
+              link.setAttribute("rel", "noopener");
+            }
+            describeNewWindow(link);
+          if (!link.classList.contains('no-external-icon')) {
+          }
+        }
+      }
+      };
+      window.quartoDecorateExternalLinks(window.document);
+    // Esc closes the popup (WCAG 1.4.13) and focus leaving both trigger and
+    // popup closes it (WCAG 2.4.11); tippy handles neither for interactive popups.
+    const hideOnEscAndFocusOut = {
+      name: 'hideOnEscAndFocusOut',
+      defaultValue: true,
+      fn(instance) {
+        const dismiss = () => {
+          // A show scheduled by the trigger delay would otherwise reopen it
+          instance.clearDelayTimeouts();
+          instance.hide();
+        };
+        const onKeyDown = (event) => {
+          if (event.key !== 'Escape') {
+            return;
+          }
+          // Keep Esc from also reaching page handlers (e.g. reveal.js overview),
+          // except an open reveal.js slide menu, which Esc should close too.
+          // The menu handles keys only when its keyboard option is on.
+          const menuHandlesEsc = window.Reveal?.getPlugin?.('menu')?.isOpen() &&
+            window.Reveal.getConfig().menu?.keyboard !== false;
+          if (!menuHandlesEsc) {
+            event.stopPropagation();
+          }
+          if (instance.popper.contains(window.document.activeElement)) {
+            // Disabled while refocusing so the focus trigger does not reopen it
+            instance.disable();
+            instance.reference.focus();
+            instance.enable();
+          }
+          dismiss();
+        };
+        const onFocusOut = (event) => {
+          const target = event.relatedTarget;
+          if (target && !instance.reference.contains(target) &&
+              !instance.popper.contains(target)) {
+            dismiss();
+          }
+        };
+        // On the trigger too: a click trigger (code-annotations: select) has no
+        // blur handling. Attached for the instance's lifetime so leaving the
+        // trigger also cancels a show still pending on the trigger delay.
+        instance.reference.addEventListener('focusout', onFocusOut);
+        return {
+          onShow() {
+            window.document.addEventListener('keydown', onKeyDown, true);
+            instance.popper.addEventListener('focusout', onFocusOut);
+          },
+          onHide() {
+            window.document.removeEventListener('keydown', onKeyDown, true);
+            instance.popper.removeEventListener('focusout', onFocusOut);
+          },
+          onDestroy() {
+            instance.reference.removeEventListener('focusout', onFocusOut);
+          },
+        };
+      },
+    };
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+        plugins: [hideOnEscAndFocusOut],
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          // Each band is positioned against its own containing block, which is
+          // not the offsetParent of the lines, so place it from client rects.
+          const placeBand = (band, firstEl, lastEl, codeBlock) => {
+            const container = band.offsetParent;
+            if (container === null) {
+              return;
+            }
+            const containerRect = container.getBoundingClientRect();
+            // Reveal.js scales slides with a transform, so convert client
+            // pixels back to the CSS pixels of the container.
+            const scale = containerRect.height / container.offsetHeight || 1;
+            const firstRect = firstEl.getBoundingClientRect();
+            const lastRect = lastEl.getBoundingClientRect();
+            const top = (firstRect.top - containerRect.top) / scale - container.clientTop + container.scrollTop;
+            const height = (lastRect.bottom - firstRect.top) / scale;
+            band.style.top = top - 2 + "px";
+            band.style.height = height + 4 + "px";
+            if (codeBlock) {
+              // Without the copy button wrapper, the containing block is wider
+              // than the code block, so span the code block explicitly.
+              const blockRect = codeBlock.getBoundingClientRect();
+              band.style.left = (blockRect.left - containerRect.left) / scale - container.clientLeft + container.scrollLeft + "px";
+              band.style.width = blockRect.width / scale + "px";
+            }
+          };
+          if (lineIds.length > 0) {
+            const el = window.document.getElementById(lineIds[0]);
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const parent = el.parentElement.parentElement;
+            // cook up a div (if necessary) and position it
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            placeBand(div, el, lastEl, parent.closest("div.sourceCode") || parent);
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            placeBand(gutterDiv, el, lastEl);
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+  <script type="application/javascript">
+  window.quartoScrollableRegionsLabels = {"code":"Scrollable code","output":"Scrollable output"};
+  </script>
+<nav class="page-navigation" aria-label="Page">
+  <div class="nav-page nav-page-previous">
+      <a href="../index.html" class="pagination-link" aria-label="Home">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text">Home</span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="../truenas/docker-compose/adguardhome/README.html" class="pagination-link" aria-label="AdGuard Home">
+        <span class="nav-page-text">AdGuard Home</span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav>
+</div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+    <div class="nav-footer-left">
+<p>Rendered from <a href="https://github.com/H-Mateus/homelab">H-Mateus/homelab</a> ∙ Made with <a href="https://quarto.org">Quarto</a></p>
+</div>   
+    <div class="nav-footer-center">
+      &nbsp;
+    <div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/H-Mateus/homelab/blob/main/docs/architecture.md" class="toc-action"><i class="bi bi-github"></i>View source</a></li></ul></div></div>
+    <div class="nav-footer-right">
+      &nbsp;
+    </div>
+  </div>
+</footer>
+
+
+
+
+<script src="../site_libs/quarto-html/zenscroll-min.js"></script>
+<script src="../site_libs/quarto-contrib/quarto-diagram/mermaid-init.js"></script>
+</body></html>
