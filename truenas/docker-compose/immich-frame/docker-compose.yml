@@ -18,31 +18,30 @@
 # tailscaled's SOCKS5/HTTP proxy. Direct Docker networking avoids that entirely.
 # The sidecar's `tailscale serve` is only for INBOUND access to the frame UI.
 #
-# Requires Immich v3+: ImmichFrame has a startup guard (since v1.0.36.0) that
-# refuses to boot against an older server. Image is pinned for reproducibility.
+# Requires Immich v3.3.0+ (ImmichFrame v1.0.40.0). Image is pinned for reproducibility.
+#
+# Configuration
+# -------------
+# Since v1.0.38.0 ImmichFrame ignores settings env vars (ImmichServerUrl=...,
+# ApiKey=..., etc.) and instead keeps settings in a DB edited via /admin. We opt
+# out with IMMICHFRAME_CONFIG_SOURCE=file (v1.0.40.0+): Settings.yml is the only
+# source of truth, read once at startup, and /admin is off. The file is defined
+# inline below via `configs: content:` so Compose interpolates secrets from .env.
+# An unknown key or invalid file stops startup -- check the logs after edits.
 
 services:
   immichframe-family:
     container_name: immichframe-family
-    image: ghcr.io/immichframe/immichframe:v1.0.39.0
+    image: ghcr.io/immichframe/immichframe:v1.0.40.0
     network_mode: service:immichframe-family-ts
     environment:
       - TZ=Europe/London
-      # Reaches immich-server over the shared immich_default network (see header).
-      - "ImmichServerUrl=${IMMICH_URL}"
-      - "ApiKey=${IMMICH_API_KEY}"
-      - "Albums=470366b8-1617-413d-b349-4d88c85554a8"
-      - "PrimaryColor=#FFFFFF"
-      - "ClockFormat=HH:mm"
-      - PhotoDateFormat=yyyy-MM-dd
-      - ShowAlbumName=false
-      - ShowPeopleDesc=false
-      - ShowWeatherDescription=true
-      - "WeatherApiKey=${WEATHER_API_KEY}"
-      - "WeatherLatLong=51.5074,-0.1278"
-      - "UnitSystem=metric" # 'imperial' | 'metric'
-      # Interval in hours. Determines how often images are pulled from a album/person in immich.
-      - RefreshAlbumPeopleInterval=1
+      # Settings come ONLY from the Settings.yml below; the /admin UI and its
+      # SQLite DB are disabled. Edit the config, then recreate the container.
+      - IMMICHFRAME_CONFIG_SOURCE=file
+    configs:
+      - source: immichframe-settings
+        target: /app/Config/Settings.yml
     depends_on:
       - immichframe-family-ts
     security_opt:
@@ -71,6 +70,28 @@ services:
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
+
+configs:
+  immichframe-settings:
+    content: |
+      General:
+        PrimaryColor: '#FFFFFF'
+        ClockFormat: 'HH:mm'
+        PhotoDateFormat: 'yyyy-MM-dd'
+        ShowAlbumName: false
+        ShowPeopleDesc: false
+        ShowWeatherDescription: true
+        WeatherApiKey: '${WEATHER_API_KEY}'
+        WeatherLatLong: '51.5074,-0.1278'
+        UnitSystem: metric # 'imperial' | 'metric'
+        # Hours between re-pulling the album/person asset lists from Immich.
+        RefreshAlbumPeopleInterval: 1
+      Accounts:
+        # Reaches immich-server over the shared immich_default network (see header).
+        - ImmichServerUrl: '${IMMICH_URL}'
+          ApiKey: '${IMMICH_API_KEY}'
+          Albums:
+            - 470366b8-1617-413d-b349-4d88c85554a8
 
 networks:
   # The Immich stack's Compose network (project `immich`). Must be up first.
